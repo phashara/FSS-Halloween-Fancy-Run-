@@ -638,7 +638,7 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
             <div className="p-5 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-1">
               <span className="text-[10px] text-slate-400 font-bold uppercase">รายรับจากเสื้อ</span>
               <p className="text-3xl font-black text-emerald-400 font-mono">฿{totalRevenue.toLocaleString()}</p>
-              <span className="text-[10px] text-slate-400">390฿ ต่อตัว</span>
+              <span className="text-[10px] text-slate-400">300฿ ต่อตัว</span>
             </div>
           </div>
 

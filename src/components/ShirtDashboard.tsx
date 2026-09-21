@@ -237,7 +237,7 @@ export const ShirtDashboard: React.FC<Props> = ({
           </div>
           <div className="mt-3 pt-3 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
             <span>เฉลี่ย {(totalShirts / (orders.length || 1)).toFixed(1)} ตัว/ออเดอร์</span>
-            <span className="text-purple-400 font-bold">฿390 / ตัว</span>
+            <span className="text-purple-400 font-bold">฿300 / ตัว</span>
           </div>
         </div>
 

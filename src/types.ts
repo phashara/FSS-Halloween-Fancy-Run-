@@ -109,6 +109,7 @@ export interface ShirtOrder {
   phone: string;
   email: string;
   size: ShirtSize;
+  sizes?: ShirtSize[];
   quantity: number;
   unitPrice: number;
   totalAmount: number;

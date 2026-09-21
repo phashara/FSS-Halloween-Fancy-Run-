@@ -11,12 +11,28 @@ import {
   ArrowLeft,
   AlertCircle,
   QrCode,
+  MapPin,
+  Lock,
+  Plus,
+  Minus,
+  Trash2,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { GHOST_QUIZ_QUESTIONS } from '../data/quiz';
 import { GhostCard, RegistrationType, ShirtSize } from '../types';
 import { CardPackRevealModal } from '../components/CardPackRevealModal';
 import { EditableText } from '../components/EditableText';
+import { OfficialShirtImage } from '../components/OfficialShirtImage';
+
+const SHIRT_SIZES_OPTIONS: { size: ShirtSize; chest: string }[] = [
+  { size: 'XS', chest: '34"' },
+  { size: 'S', chest: '36"' },
+  { size: 'M', chest: '38"' },
+  { size: 'L', chest: '40"' },
+  { size: 'XL', chest: '42"' },
+  { size: '2XL', chest: '44"' },
+  { size: '3XL', chest: '48"' },
+];
 
 interface Props {
   initialType?: RegistrationType;
@@ -55,11 +71,29 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
   const [agreedDataPolicy, setAgreedDataPolicy] = useState(false);
 
   // Shirt Order state (for type 2 or 3)
-  const [shirtSize, setShirtSize] = useState<ShirtSize>('L');
   const [shirtQuantity, setShirtQuantity] = useState<number>(1);
-  const [deliveryMethod, setDeliveryMethod] = useState<'pickup_event' | 'shipping'>('pickup_event');
-  const [shippingAddress, setShippingAddress] = useState('');
+  const [shirtSizes, setShirtSizes] = useState<ShirtSize[]>(['L']);
   const [slipImage, setSlipImage] = useState<string>('');
+
+  const handleQuantityChange = (newQty: number) => {
+    const qty = Math.max(1, Math.min(10, newQty));
+    setShirtQuantity(qty);
+    setShirtSizes((prev) => {
+      if (qty > prev.length) {
+        const lastSize = prev[prev.length - 1] || 'L';
+        return [...prev, ...Array(qty - prev.length).fill(lastSize)];
+      }
+      return prev.slice(0, qty);
+    });
+  };
+
+  const handleSizeChange = (index: number, newSize: ShirtSize) => {
+    setShirtSizes((prev) => {
+      const next = [...prev];
+      next[index] = newSize;
+      return next;
+    });
+  };
 
   // Quiz state
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -114,8 +148,8 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
 
   const handleStep3Next = () => {
     setErrorMsg('');
-    if (deliveryMethod === 'shipping' && !shippingAddress.trim()) {
-      setErrorMsg('กรุณากรอกที่อยู่จัดส่งให้ครบถ้วน');
+    if (!slipImage) {
+      setErrorMsg('⚠️ กรุณาแนบสลิปหลักฐานการโอนเงินก่อนดำเนินการต่อ (จำเป็นต้องมีสลิป)');
       return;
     }
     setStep(4); // Go to quiz
@@ -158,10 +192,11 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
       agreedTerms,
       agreedPhotoRelease,
       agreedDataPolicy,
-      shirtSize: regType !== 'RUN_FREE' ? shirtSize : undefined,
+      shirtSize: regType !== 'RUN_FREE' ? shirtSizes[0] || 'L' : undefined,
+      shirtSizes: regType !== 'RUN_FREE' ? shirtSizes : undefined,
       shirtQuantity: regType !== 'RUN_FREE' ? shirtQuantity : undefined,
-      deliveryMethod: regType !== 'RUN_FREE' ? deliveryMethod : undefined,
-      shippingAddress: regType !== 'RUN_FREE' ? shippingAddress : undefined,
+      deliveryMethod: 'pickup_event',
+      shippingAddress: undefined,
       slipImage: regType !== 'RUN_FREE' ? slipImage : undefined,
       quizAnswers: finalAnswers,
     });
@@ -276,7 +311,7 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
               <div className="space-y-3">
                 <span className="text-3xl">🎽</span>
                 <h3 className="text-lg font-bold text-white">2. วิ่ง + สั่งเสื้อที่ระลึก</h3>
-                <p className="text-2xl font-black text-amber-400 font-mono">฿ 390</p>
+                <p className="text-2xl font-black text-amber-400 font-mono">฿ 300</p>
                 <p className="text-xs text-slate-300 leading-relaxed">
                   รับเสื้อวิ่ง Glow-in-the-dark พร้อมอัปเกรดการ์ดผีเป็น LV.2 ทันทีที่ยืนยันการชำระเงิน!
                 </p>
@@ -306,7 +341,7 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
               <div className="space-y-3">
                 <span className="text-3xl">📦</span>
                 <h3 className="text-lg font-bold text-white">3. สั่งซื้อเสื้ออย่างเดียว</h3>
-                <p className="text-2xl font-black text-purple-400 font-mono">฿ 390</p>
+                <p className="text-2xl font-black text-purple-400 font-mono">฿ 300</p>
                 <p className="text-xs text-slate-400 leading-relaxed">
                   ไม่สะดวกมาวิ่ง แต่ต้องการสะสมเสื้อลิมิเต็ดและการ์ดผีไทยประจำตัว
                 </p>
@@ -643,171 +678,272 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
               เลือกไซซ์เสื้อและชำระเงิน
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              เสื้อวิ่งเรืองแสง Dry-Tech ราคา 390 บาท / ตัว (เมื่อชำระแล้วจะได้รับการ์ด LV.2 ทันที!)
+              เสื้อวิ่งเรืองแสง Dry-Tech ราคา 300 บาท / ตัว (เมื่อชำระแล้วจะได้รับการ์ด LV.2 ทันที!)
             </p>
           </div>
 
           <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
-            {/* Size selection */}
-            <div>
-              <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
-                1. เลือกไซซ์เสื้อ (รอบอก / ความยาว นิ้ว)
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                {(
-                  [
-                    { size: 'XS', chest: '34"' },
-                    { size: 'S', chest: '36"' },
-                    { size: 'M', chest: '38"' },
-                    { size: 'L', chest: '40"' },
-                    { size: 'XL', chest: '42"' },
-                    { size: '2XL', chest: '44"' },
-                    { size: '3XL', chest: '48"' },
-                  ] as const
-                ).map((item) => (
+            {/* Official Shirt 2D Preview */}
+            <div className="max-w-xl mx-auto">
+              <OfficialShirtImage allowUpload={false} />
+            </div>
+
+            {/* Quantity Selector */}
+            <div className="p-5 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider">
+                    จำนวนเสื้อที่ต้องการสั่ง (ตัว) *
+                  </label>
+                  <p className="text-[11px] text-slate-400">
+                    สั่งซื้อกี่ตัว ระบบจะให้เลือกไซซ์ตามจำนวนตัวที่สั่ง (ตัวละ 300 บาท)
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
                   <button
-                    key={item.size}
                     type="button"
-                    onClick={() => setShirtSize(item.size)}
-                    className={`py-3 px-2 rounded-xl text-center border font-bold transition-all ${
-                      shirtSize === item.size
-                        ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-lg'
-                        : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                    onClick={() => handleQuantityChange(shirtQuantity - 1)}
+                    disabled={shirtQuantity <= 1}
+                    className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-white font-bold flex items-center justify-center transition-colors"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={shirtQuantity}
+                    onChange={(e) => handleQuantityChange(Number(e.target.value))}
+                    className="w-16 h-9 text-center rounded-xl bg-slate-900 border border-slate-700 text-amber-400 font-mono text-base font-bold focus:border-amber-400 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQuantityChange(shirtQuantity + 1)}
+                    disabled={shirtQuantity >= 10}
+                    className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-white font-bold flex items-center justify-center transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs text-slate-400 ml-1">ตัว</span>
+                </div>
+              </div>
+
+              {/* Quick count chips */}
+              <div className="flex items-center gap-1.5 pt-1">
+                <span className="text-[11px] text-slate-500">เลือกด่วน:</span>
+                {[1, 2, 3, 4, 5].map((cnt) => (
+                  <button
+                    key={cnt}
+                    type="button"
+                    onClick={() => handleQuantityChange(cnt)}
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold transition-all ${
+                      shirtQuantity === cnt
+                        ? 'bg-amber-500 text-slate-950 shadow'
+                        : 'bg-slate-900 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
                     }`}
                   >
-                    <div className="text-base">{item.size}</div>
-                    <div className="text-[10px] opacity-80">{item.chest}</div>
+                    {cnt} ตัว
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Quantity & Delivery */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-800">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  จำนวนเสื้อ (ตัว)
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShirtQuantity(Math.max(1, shirtQuantity - 1))}
-                    className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-700 text-white font-bold"
-                  >
-                    -
-                  </button>
-                  <span className="font-mono text-lg font-bold text-amber-400 w-8 text-center">
-                    {shirtQuantity}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShirtQuantity(Math.min(10, shirtQuantity + 1))}
-                    className="w-10 h-10 rounded-xl bg-slate-950 border border-slate-700 text-white font-bold"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  วิธีรับเสื้อ
-                </label>
-                <select
-                  value={deliveryMethod}
-                  onChange={(e) => setDeliveryMethod(e.target.value as any)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
-                >
-                  <option value="pickup_event">รับที่จุดรับของที่ระลึกวันงาน (ไม่มีค่าจัดส่ง)</option>
-                  <option value="shipping">จัดส่งทางไปรษณีย์ถึงบ้าน (+50 บาท)</option>
-                </select>
-              </div>
-
-              {deliveryMethod === 'shipping' && (
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    ที่อยู่สำหรับจัดส่งเสื้อและของที่ระลึก *
+            {/* Individual Size Pickers mapped to Quantity */}
+            <div className="space-y-4 p-5 rounded-2xl bg-gradient-to-br from-slate-950 to-[#18112e]/60 border border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Shirt className="w-4 h-4 text-amber-400" />
+                  <label className="text-xs font-bold text-white uppercase tracking-wider">
+                    เลือกไซซ์เสื้อให้ครบทุกตัว (ทั้งหมด {shirtQuantity} ตัว) *
                   </label>
-                  <textarea
-                    rows={2}
-                    value={shippingAddress}
-                    onChange={(e) => setShippingAddress(e.target.value)}
-                    placeholder="บ้านเลขที่, ถนน, ตำบล, อำเภอ, จังหวัด, รหัสไปรษณีย์"
-                    className="w-full px-4 py-2 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-xs focus:border-amber-400 focus:outline-none"
-                  />
                 </div>
-              )}
+                <div className="text-xs text-amber-400 font-medium">
+                  {shirtSizes.map((s, i) => `ตัวที่ ${i + 1}: ${s}`).join(' • ')}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {shirtSizes.map((currentSize, index) => (
+                  <div
+                    key={index}
+                    className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800/80 hover:border-amber-500/40 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black flex items-center justify-center">
+                          {index + 1}
+                        </span>
+                        <span className="text-xs font-bold text-slate-200">
+                          เสื้อตัวที่ {index + 1}
+                        </span>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 font-mono text-xs font-bold border border-amber-500/30">
+                        ไซซ์ที่เลือก: {currentSize}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
+                      {SHIRT_SIZES_OPTIONS.map((item) => {
+                        const isSelected = currentSize === item.size;
+                        return (
+                          <button
+                            key={item.size}
+                            type="button"
+                            onClick={() => handleSizeChange(index, item.size)}
+                            className={`py-2 px-1 rounded-lg text-center font-bold transition-all border ${
+                              isSelected
+                                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 scale-[1.02]'
+                                : 'bg-slate-950/80 text-slate-300 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
+                            }`}
+                          >
+                            <div className="text-xs sm:text-sm font-mono">{item.size}</div>
+                            <div className="text-[10px] opacity-75">{item.chest}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Delivery Method: Fixed to Event Pickup Only */}
+            <div className="p-4 rounded-2xl bg-slate-950 border border-amber-500/40 space-y-2">
+              <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-wider">
+                <MapPin className="w-4 h-4 text-amber-400" />
+                <span>วิธีรับเสื้อ: รับที่การจัดงานเท่านั้น (ไม่มีแบบจัดส่ง)</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                📍 จุดรับของที่ระลึกและเสื้อวิ่ง ณ ลานกิจกรรม คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร ในวันจัดกิจกรรม (31 ตุลาคม 2569) เวลา 16:30 น. เป็นต้นไป
+              </p>
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 bg-emerald-950/40 px-3 py-1 rounded-lg border border-emerald-500/30">
+                <CheckCircle className="w-3.5 h-3.5" /> รับที่หน้างานไม่มีค่าจัดส่ง (ฟรี 0 บาท)
+              </div>
             </div>
 
             {/* Payment instructions & QR */}
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-950 to-indigo-950/40 border border-amber-500/30 space-y-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-950 via-[#140e28] to-slate-950 border border-amber-500/30 space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
                 <div>
-                  <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
-                    <QrCode className="w-4 h-4 text-amber-400" /> สแกนชำระเงินผ่าน PromptPay
-                  </h4>
-                  <p className="text-xs text-slate-300 mt-0.5">
-                    บัญชี: โครงการ FSS Halloween Fancy Run (ธ.กสิกรไทย)
-                  </p>
-                  <p className="text-xs text-slate-400 font-mono">098-7-65432-1</p>
-                  <div className="mt-2 text-lg font-black text-amber-400 font-mono">
-                    ยอดชำระ: {390 * shirtQuantity + (deliveryMethod === 'shipping' ? 50 : 0)} บาท
+                  <div className="text-xs text-amber-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <QrCode className="w-4 h-4" /> สแกนชำระเงินค่าเสื้อ FSS Halloween Fancy Run
                   </div>
+                  <p className="text-sm font-bold text-white mt-1">
+                    ธนาคารกสิกรไทย: <span className="font-mono text-amber-400">098-7-65432-1</span>
+                  </p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    ชื่อบัญชี: สโมสรนิสิตคณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร
+                  </p>
                 </div>
 
-                {/* PromptPay Mock QR */}
-                <div className="w-32 h-32 bg-white rounded-xl p-2 shadow-lg flex flex-col items-center justify-center text-center text-slate-950">
-                  <div className="text-[10px] font-bold tracking-tighter">PROMPTPAY</div>
-                  <div className="w-20 h-20 bg-slate-900 rounded p-1 flex items-center justify-center text-white text-xs">
-                    [QR CODE]
-                  </div>
-                  <div className="text-[9px] text-slate-600 font-mono mt-0.5">390 THB</div>
+                <div className="text-right sm:border-l sm:border-slate-800 sm:pl-6">
+                  <span className="text-xs text-slate-400 block">ยอดชำระ ({shirtQuantity} ตัว):</span>
+                  <span className="text-3xl font-black text-amber-400 font-mono">
+                    ฿{(300 * shirtQuantity).toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">300 บาท × {shirtQuantity} ตัว</span>
                 </div>
               </div>
 
-              {/* Slip upload */}
-              <div className="pt-2 border-t border-slate-800">
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1">
-                  <Upload className="w-3.5 h-3.5 text-amber-400" /> แนบสลิปหลักฐานการโอนเงิน (หรือแนบทีหลังได้)
-                </label>
-                <div className="flex items-center gap-3">
-                  <label className="cursor-pointer px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors">
-                    เลือกรูปสลิป...
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setSlipImage(reader.result as string);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
+              {/* Slip upload - STRICT REQUIREMENT */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Upload className="w-4 h-4 text-amber-400" />
+                    แนบสลิปหลักฐานการโอนเงิน <span className="text-rose-400">*จำเป็นต้องแนบ</span>
                   </label>
-                  {slipImage ? (
-                    <span className="text-xs text-emerald-400 flex items-center gap-1 font-medium">
-                      <CheckCircle className="w-4 h-4" /> แนบสลิปเรียบร้อยแล้ว
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-slate-400">
-                      *สามารถกดยืนยันเพื่อไปตอบคำถามก่อน แล้วแนบสลิปในหน้า &ldquo;สั่งซื้อเสื้อ&rdquo; ภายหลังได้
+                  {!slipImage && (
+                    <span className="text-[11px] font-bold text-rose-400 bg-rose-950/50 px-2.5 py-0.5 rounded-full border border-rose-800/60 animate-pulse">
+                      ⚠️ ยังไม่ได้แนบสลิป
                     </span>
                   )}
                 </div>
+
+                {!slipImage ? (
+                  <div className="p-6 rounded-2xl bg-slate-900/60 border-2 border-dashed border-amber-500/40 text-center space-y-3 hover:border-amber-400 transition-colors">
+                    <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-200">
+                        กรุณาแนบรูปภาพสลิปหลักฐานการโอนเงิน (ยอด ฿{(300 * shirtQuantity).toLocaleString()})
+                      </p>
+                      <p className="text-[11px] text-rose-400 font-medium mt-0.5">
+                        *ระบบไม่อนุญาตให้ดำเนินการต่อหากยังไม่มีการแนบสลิปโอนเงิน
+                      </p>
+                    </div>
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-black rounded-xl shadow-lg transition-all">
+                      <Upload className="w-4 h-4" />
+                      <span>เลือกรูปภาพสลิปจากเครื่อง</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => setSlipImage(reader.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative w-14 h-14 rounded-xl overflow-hidden border border-emerald-500/40 bg-slate-900 shrink-0">
+                        <img src={slipImage} alt="Payment slip preview" className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-emerald-300 flex items-center gap-1">
+                          <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          แนบสลิปหลักฐานเรียบร้อยแล้ว
+                        </div>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          พร้อมสำหรับการไปขั้นตอนตอบคำถามค้นหาผี
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <label className="cursor-pointer px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors">
+                        เปลี่ยนรูปสลิป
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => setSlipImage(reader.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setSlipImage('')}
+                        className="p-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 transition-colors"
+                        title="ลบสลิป"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="flex justify-between pt-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-4">
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-2xl transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-2xl transition-colors"
             >
               <ArrowLeft className="w-4 h-4" /> ย้อนกลับ
             </button>
@@ -815,12 +951,32 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
             <button
               type="button"
               onClick={handleStep3Next}
-              className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm rounded-2xl shadow-lg transition-all"
+              disabled={!slipImage}
+              className={`w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3.5 font-black text-sm rounded-2xl shadow-lg transition-all ${
+                slipImage
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-orange-950/50 cursor-pointer active:scale-[0.99]'
+                  : 'bg-slate-800/80 text-slate-500 border border-slate-700/60 cursor-not-allowed'
+              }`}
             >
-              <span>ถัดไป: ตอบคำถามค้นหาผี (ขั้นตอนสุดท้าย!)</span>
-              <ArrowRight className="w-5 h-5" />
+              {slipImage ? (
+                <>
+                  <span>ถัดไป: ตอบคำถามค้นหาผี (ขั้นตอนสุดท้าย!)</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4 text-amber-500/70" />
+                  <span>กรุณาแนบสลิปโอนเงินเพื่อดำเนินการต่อ</span>
+                </>
+              )}
             </button>
           </div>
+
+          {!slipImage && (
+            <p className="text-center text-xs text-amber-400/80 font-medium">
+              *จำเป็นต้องแนบรูปสลิปหลักฐานการโอนเงินก่อน เพื่อให้ระบบเปิดปุ่มไปยังขั้นตอนค้นหาผี
+            </p>
+          )}
         </div>
       )}
 

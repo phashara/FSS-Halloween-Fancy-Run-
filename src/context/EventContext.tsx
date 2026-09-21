@@ -56,6 +56,7 @@ interface RegisterParams {
   agreedPhotoRelease: boolean;
   agreedDataPolicy: boolean;
   shirtSize?: ShirtSize;
+  shirtSizes?: ShirtSize[];
   shirtQuantity?: number;
   deliveryMethod?: 'pickup_event' | 'shipping';
   shippingAddress?: string;
@@ -99,9 +100,10 @@ interface EventContextType {
     customerName: string;
     phone: string;
     email: string;
-    size: ShirtSize;
+    size?: ShirtSize;
+    sizes?: ShirtSize[];
     quantity: number;
-    deliveryMethod: 'pickup_event' | 'shipping';
+    deliveryMethod?: 'pickup_event' | 'shipping';
     shippingAddress?: string;
     slipImage?: string;
   }) => ShirtOrder;
@@ -500,18 +502,22 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const ordNum = Math.floor(1000 + Math.random() * 9000);
       shirtOrderId = `ORD-${ordNum}`;
       const qty = params.shirtQuantity || 1;
+      const normalizedSizes = params.shirtSizes && params.shirtSizes.length > 0
+        ? params.shirtSizes
+        : [params.shirtSize || 'L'];
       const newOrder: ShirtOrder = {
         orderId: shirtOrderId,
         cardId,
         customerName: params.fullName,
         phone: params.phone,
         email: params.email,
-        size: params.shirtSize || 'L',
+        size: normalizedSizes[0] || 'L',
+        sizes: normalizedSizes,
         quantity: qty,
-        unitPrice: 390,
-        totalAmount: 390 * qty,
-        deliveryMethod: params.deliveryMethod || 'pickup_event',
-        shippingAddress: params.shippingAddress,
+        unitPrice: 300,
+        totalAmount: 300 * qty,
+        deliveryMethod: 'pickup_event',
+        shippingAddress: undefined,
         status: params.slipImage ? 'pending_verification' : 'unpaid',
         slipImage: params.slipImage,
         paymentTimestamp: params.slipImage ? new Date().toISOString() : undefined,
@@ -563,26 +569,34 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     customerName: string;
     phone: string;
     email: string;
-    size: ShirtSize;
+    size?: ShirtSize;
+    sizes?: ShirtSize[];
     quantity: number;
-    deliveryMethod: 'pickup_event' | 'shipping';
+    deliveryMethod?: 'pickup_event' | 'shipping';
     shippingAddress?: string;
     slipImage?: string;
   }) => {
     const ordNum = Math.floor(1000 + Math.random() * 9000);
     const orderId = `ORD-${ordNum}`;
+    const qty = Math.max(1, params.quantity || 1);
+    const normalizedSizes = params.sizes && params.sizes.length > 0
+      ? params.sizes.slice(0, qty)
+      : Array(qty).fill(params.size || 'L');
+    const primarySize = normalizedSizes[0] || 'L';
+
     const newOrder: ShirtOrder = {
       orderId,
       cardId: params.cardId,
       customerName: params.customerName,
       phone: params.phone,
       email: params.email,
-      size: params.size,
-      quantity: params.quantity,
-      unitPrice: 390,
-      totalAmount: 390 * params.quantity,
-      deliveryMethod: params.deliveryMethod,
-      shippingAddress: params.shippingAddress,
+      size: primarySize,
+      sizes: normalizedSizes,
+      quantity: qty,
+      unitPrice: 300,
+      totalAmount: 300 * qty,
+      deliveryMethod: 'pickup_event',
+      shippingAddress: undefined,
       status: params.slipImage ? 'pending_verification' : 'unpaid',
       slipImage: params.slipImage,
       paymentTimestamp: params.slipImage ? new Date().toISOString() : undefined,

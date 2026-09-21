@@ -21,6 +21,7 @@ import { GhostAvatarSvg } from '../components/GhostAvatarSvg';
 import { EditableText } from '../components/EditableText';
 import { NaresuanRouteMap } from '../components/NaresuanRouteMap';
 import { OfficialScheduleCard } from '../components/OfficialScheduleCard';
+import { OfficialShirtImage } from '../components/OfficialShirtImage';
 import { useEventContext } from '../context/EventContext';
 
 interface Props {
@@ -147,7 +148,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
               className="px-6 sm:px-8 py-3.5 sm:py-4 bg-slate-800/90 hover:bg-slate-700 text-slate-100 font-bold text-sm sm:text-base rounded-2xl border border-slate-700 shadow-lg transition-all hover:scale-105 active:scale-95 flex items-center gap-2"
             >
               <Shirt className="w-5 h-5 text-amber-400" />
-              <span>ซื้อเสื้ออย่างเดียว (390฿)</span>
+              <span>ซื้อเสื้ออย่างเดียว (300฿)</span>
             </button>
 
             <button
@@ -299,17 +300,12 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
           {/* Shirt Visual Showcase */}
           <div className="p-6 rounded-3xl bg-slate-900/80 border border-amber-500/30 flex flex-col items-center text-center space-y-4">
-            <div className="relative w-64 h-64 sm:w-72 sm:h-72 rounded-2xl bg-gradient-to-b from-[#1c1432] to-[#0c0918] border border-slate-700 flex items-center justify-center p-4">
-              <div className="text-center space-y-2">
-                <Shirt className="w-32 h-32 text-amber-400 mx-auto drop-shadow-[0_0_25px_rgba(245,158,11,0.5)]" />
-                <span className="px-3 py-1 bg-amber-500 text-slate-950 font-black text-xs rounded-full">
-                  GLOW IN THE DARK ✨
-                </span>
-              </div>
+            <div className="w-full">
+              <OfficialShirtImage allowUpload={false} />
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">เสื้อวิ่ง FSS Ghost Run 2026</h3>
-              <p className="text-amber-400 font-mono font-black text-2xl mt-1">390 บาท</p>
+              <p className="text-amber-400 font-mono font-black text-2xl mt-1">300 บาท</p>
               <p className="text-xs text-slate-400 mt-1">ไซซ์รอบอก: XS (34&quot;) ถึง 3XL (48&quot;)</p>
             </div>
             <button
