@@ -1,0 +1,6 @@
+{
+  "name": "FSS Halloween Fancy Run 2026",
+  "description": "เว็บไซต์งานวิ่งแฟนซีฮาโลวีน FSS Halloween Fancy Run 2026: Thai Ghost Collection ระบบการ์ดผีไทย 12 ชนิด สมัครวิ่ง สั่งซื้อเสื้อ คลังประสบการณ์สยอง 3D และระบบเช็กอิน",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

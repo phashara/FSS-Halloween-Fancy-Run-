@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "ghostCard": {
+      "title": "Ghost Card",
+      "description": "Thai ghost digital card with level, stats, and badges",
+      "type": "object",
+      "properties": {
+        "cardId": { "type": "string" },
+        "speciesId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "nickname": { "type": "string" },
+        "level": { "type": "number" },
+        "rarity": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["cardId", "speciesId", "level", "rarity"]
+    },
+    "runnerRegistration": {
+      "title": "Runner Registration",
+      "description": "Event participant registration record",
+      "type": "object",
+      "properties": {
+        "regId": { "type": "string" },
+        "cardId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "nickname": { "type": "string" },
+        "phone": { "type": "string" },
+        "regType": { "type": "string" },
+        "checkedIn": { "type": "boolean" },
+        "registeredAt": { "type": "string" }
+      },
+      "required": ["regId", "cardId", "fullName", "phone", "regType"]
+    },
+    "shirtOrder": {
+      "title": "Shirt Order",
+      "description": "Official glow merchandise order",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "cardId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "size": { "type": "string" },
+        "quantity": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["orderId", "cardId", "customerName", "size", "quantity", "status"]
+    },
+    "horrorStory": {
+      "title": "Horror Story",
+      "description": "Community horror story submission",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "cardId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "category": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "cardId", "title", "content", "category", "status"]
+    },
+    "siteContent": {
+      "title": "Site Content",
+      "description": "Editable text content managed by Admin",
+      "type": "object",
+      "properties": {
+        "sectionKey": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "tagline": { "type": "string" },
+        "announcement": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["sectionKey", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/cards/{cardId}": {
+      "schema": "ghostCard",
+      "description": "All issued Thai Ghost cards"
+    },
+    "/runners/{regId}": {
+      "schema": "runnerRegistration",
+      "description": "Registered event runners"
+    },
+    "/orders/{orderId}": {
+      "schema": "shirtOrder",
+      "description": "Merchandise and shirt orders"
+    },
+    "/stories/{storyId}": {
+      "schema": "horrorStory",
+      "description": "User horror stories"
+    },
+    "/site_content/{sectionKey}": {
+      "schema": "siteContent",
+      "description": "Editable site texts and CMS content"
+    }
+  }
+}

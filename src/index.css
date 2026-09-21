@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-prompt: 'Prompt', sans-serif;
+  --font-horror: 'Creepster', 'Butcherman', cursive;
+  --font-spooky: 'Creepster', 'Butcherman', cursive;
+}
+
+:root {
+  font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Scary Horror typography for FSS HALLOWEEN FANCY RUN 2026 */
+/* Ultra-sharp, crisp, high-contrast, zero-blur */
+.font-horror {
+  font-family: 'Creepster', 'Butcherman', cursive, sans-serif !important;
+  letter-spacing: 0.04em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+/* Sharp high-contrast 3D shadow with zero blur radius */
+.horror-title-crisp {
+  font-family: 'Creepster', 'Butcherman', cursive, sans-serif !important;
+  letter-spacing: 0.04em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  filter: drop-shadow(2px 3px 0px #3f0909) drop-shadow(4px 5px 0px rgba(0, 0, 0, 0.85));
+}
+
+.horror-title-glow {
+  font-family: 'Creepster', 'Butcherman', cursive, sans-serif !important;
+  letter-spacing: 0.04em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  filter: drop-shadow(2px 3px 0px #3f0909) drop-shadow(3px 4px 0px rgba(0, 0, 0, 0.85));
+}
+
+.horror-sub-glow {
+  font-family: 'Creepster', 'Butcherman', cursive, sans-serif !important;
+  letter-spacing: 0.03em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  filter: drop-shadow(1px 2px 0px rgba(0, 0, 0, 0.8));
+}
+
