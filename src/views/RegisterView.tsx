@@ -23,6 +23,7 @@ import { GhostCard, RegistrationType, ShirtSize } from '../types';
 import { CardPackRevealModal } from '../components/CardPackRevealModal';
 import { EditableText } from '../components/EditableText';
 import { OfficialShirtImage } from '../components/OfficialShirtImage';
+import { compressImage } from '../lib/imageCompressor';
 
 const SHIRT_SIZES_OPTIONS: { size: ShirtSize; chest: string }[] = [
   { size: 'XS', chest: '34"' },
@@ -879,12 +880,18 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => setSlipImage(reader.result as string);
-                            reader.readAsDataURL(file);
+                            try {
+                              const compressed = await compressImage(file, 1000, 1000, 0.85);
+                              setSlipImage(compressed);
+                            } catch (err) {
+                              console.error('Slip compression error:', err);
+                              const reader = new FileReader();
+                              reader.onloadend = () => setSlipImage(reader.result as string);
+                              reader.readAsDataURL(file);
+                            }
                           }
                         }}
                       />
@@ -914,12 +921,18 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => setSlipImage(reader.result as string);
-                              reader.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImage(file, 1000, 1000, 0.85);
+                                setSlipImage(compressed);
+                              } catch (err) {
+                                console.error('Slip compression error:', err);
+                                const reader = new FileReader();
+                                reader.onloadend = () => setSlipImage(reader.result as string);
+                                reader.readAsDataURL(file);
+                              }
                             }
                           }}
                         />

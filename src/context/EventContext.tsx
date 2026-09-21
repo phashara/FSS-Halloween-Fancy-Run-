@@ -83,6 +83,10 @@ interface EventContextType {
   loginAdmin: (user: string, pass: string) => boolean;
   logoutAdmin: () => void;
 
+  // Official Shirt Image
+  customShirtImage: string | null;
+  setCustomShirtImage: (imgUrl: string | null) => Promise<void>;
+
   // Live CMS Text Editing
   isLiveEditMode: boolean;
   setIsLiveEditMode: (val: boolean) => void;
@@ -149,6 +153,7 @@ const STORAGE_KEYS = {
   ADMIN_SESSION: 'fss2026_admin_session',
   LIVE_EDIT: 'fss2026_live_edit_mode',
   SITE_CONTENT: 'fss2026_site_content',
+  SHIRT_IMAGE: 'fss_custom_shirt_image',
 };
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -238,6 +243,24 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
+  // Custom Uploaded Shirt Image (synced between localStorage & Firestore site_content)
+  const [customShirtImage, setCustomShirtImageState] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE);
+      if (saved) return saved;
+      const cmsSaved = localStorage.getItem(STORAGE_KEYS.SITE_CONTENT);
+      if (cmsSaved) {
+        const parsed = JSON.parse(cmsSaved);
+        if (parsed?.shirt_page?.customShirtImageUrl) {
+          return parsed.shirt_page.customShirtImageUrl;
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
 
   // Sync with Firebase Firestore on mount
@@ -260,6 +283,14 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
             setSiteContent(remoteContent);
             localStorage.setItem(STORAGE_KEYS.SITE_CONTENT, JSON.stringify(remoteContent));
+
+            // Sync custom shirt image if present in Firestore
+            if (remoteContent.shirt_page?.customShirtImageUrl) {
+              setCustomShirtImageState(remoteContent.shirt_page.customShirtImageUrl);
+              try {
+                localStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, remoteContent.shirt_page.customShirtImageUrl);
+              } catch {}
+            }
           }
         },
         (error) => {
@@ -351,6 +382,27 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (defaultData) {
       await updateSiteContent(defaultData);
     }
+  };
+
+  const setCustomShirtImage = async (imgUrl: string | null) => {
+    setCustomShirtImageState(imgUrl);
+    try {
+      if (imgUrl) {
+        localStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, imgUrl);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
+      }
+    } catch (err) {
+      console.warn('LocalStorage error setting custom shirt image:', err);
+    }
+
+    const currentShirtSection = siteContent.shirt_page || DEFAULT_SITE_CONTENT.shirt_page;
+    const updatedShirtSection = {
+      ...currentShirtSection,
+      customShirtImageUrl: imgUrl,
+      updatedAt: new Date().toISOString(),
+    };
+    await updateSiteContent(updatedShirtSection);
   };
 
   const currentCard = cards.find((c) => c.cardId === currentCardId) || null;
@@ -900,6 +952,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         siteContent,
         updateSiteContent,
         resetSiteContentSection,
+        customShirtImage,
+        setCustomShirtImage,
         isFirebaseConnected,
         registerParticipant,
         orderShirt,

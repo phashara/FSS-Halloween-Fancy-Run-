@@ -1,121 +1,290 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, ZoomIn, X, RefreshCw, Sparkles, Check, Image as ImageIcon } from 'lucide-react';
+import {
+  Upload,
+  ZoomIn,
+  X,
+  RefreshCw,
+  Sparkles,
+  Check,
+  Image as ImageIcon,
+  AlertCircle,
+  Link as LinkIcon,
+  Eye,
+  Loader2,
+} from 'lucide-react';
 import officialShirtAsset from '../assets/official_shirt.svg';
+import { useEventContext } from '../context/EventContext';
+import { compressImage } from '../lib/imageCompressor';
 
 interface Props {
   className?: string;
   allowUpload?: boolean;
 }
 
-const STORAGE_KEY = 'fss_custom_shirt_image';
-
 export const OfficialShirtImage: React.FC<Props> = ({
   className = '',
   allowUpload = true,
 }) => {
-  const [imageSrc, setImageSrc] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved || officialShirtAsset;
-    } catch {
-      return officialShirtAsset;
-    }
-  });
+  const { customShirtImage, setCustomShirtImage } = useEventContext();
 
+  // Mode: 'custom' (if exists) or 'original'
+  const [viewMode, setViewMode] = useState<'custom' | 'original'>('custom');
   const [isZoomed, setIsZoomed] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleFileUpload = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      alert('กรุณาเลือกไฟล์รูปภาพ (PNG, JPG, WebP)');
-      return;
+  // Sync viewMode if custom image changes
+  useEffect(() => {
+    if (customShirtImage) {
+      setViewMode('custom');
+      setImageLoadError(false);
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        setImageSrc(result);
-        try {
-          localStorage.setItem(STORAGE_KEY, result);
-        } catch {
-          console.warn('Storage quota exceeded for custom shirt image');
-        }
-        setUploadSuccess(true);
-        setTimeout(() => setUploadSuccess(false), 3000);
+  }, [customShirtImage]);
+
+  // Determine which image source to display
+  const activeImageSrc =
+    viewMode === 'custom' && customShirtImage && !imageLoadError
+      ? customShirtImage
+      : officialShirtAsset;
+
+  const handleProcessFile = async (file: File) => {
+    setIsProcessing(true);
+    setErrorMessage(null);
+    setImageLoadError(false);
+
+    try {
+      // Validate file type
+      if (!file.type.startsWith('image/') && !file.name.match(/\.(jpe?g|png|webp|svg|gif|avif|bmp|heic)$/i)) {
+        throw new Error('กรุณาเลือกไฟล์รูปภาพที่ถูกต้อง (PNG, JPG, JPEG, WebP, SVG, AVIF)');
       }
-    };
-    reader.readAsDataURL(file);
+
+      // Check file size (max 25MB before compression)
+      if (file.size > 25 * 1024 * 1024) {
+        throw new Error('ขนาดไฟล์ใหญ่เกิน 25MB กรุณาเลือกภาพที่มีขนาดเล็กลง');
+      }
+
+      // Compress and optimize down to max 1200x1200px ~120KB
+      const compressedDataUrl = await compressImage(file, 1200, 1200, 0.88);
+
+      // Save to EventContext (which syncs to localStorage and Firestore)
+      await setCustomShirtImage(compressedDataUrl);
+
+      setViewMode('custom');
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 4000);
+    } catch (err: any) {
+      console.error('Shirt upload processing failed:', err);
+      setErrorMessage(err?.message || 'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsProcessing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
-  const handleResetImage = () => {
-    setImageSrc(officialShirtAsset);
+  const handleUrlSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = urlInput.trim();
+    if (!trimmed) return;
+
+    setIsProcessing(true);
+    setErrorMessage(null);
+    setImageLoadError(false);
+
     try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+      // Test loading URL in memory
+      await new Promise((resolve, reject) => {
+        const testImg = new Image();
+        testImg.onload = () => resolve(true);
+        testImg.onerror = () => reject(new Error('ไม่สามารถโหลดภาพจาก URL ที่ระบุได้ กรุณาตรวจสอบลิงก์อีกครั้ง'));
+        testImg.src = trimmed;
+      });
+
+      // Save valid URL
+      await setCustomShirtImage(trimmed);
+      setViewMode('custom');
+      setShowUrlInput(false);
+      setUrlInput('');
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 4000);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'ลิงก์รูปภาพไม่ถูกต้อง');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleResetImage = async () => {
+    if (confirm('คุณต้องการรีเซ็ตกลับเป็นรูปเสื้อดีไซน์ต้นฉบับใช่หรือไม่?')) {
+      await setCustomShirtImage(null);
+      setViewMode('original');
+      setImageLoadError(false);
+      setErrorMessage(null);
+    }
+  };
+
+  const handleImageError = () => {
+    console.warn('Custom shirt image failed to render, falling back to official asset');
+    setImageLoadError(true);
+    setErrorMessage('ไม่สามารถแสดงผลรูปภาพที่อัปโหลดได้ (ไฟล์อาจเสียหาย) ระบบได้แสดงภาพต้นฉบับแทนแล้ว');
   };
 
   return (
     <div className={`w-full flex flex-col items-center select-none ${className}`}>
-      {/* 2D Real Image Frame */}
-      <div className="relative w-full rounded-2xl overflow-hidden bg-slate-950/90 border border-slate-800 shadow-xl group">
-        <img
-          src={imageSrc}
-          alt="FSS Halloween Fancy Run 2026 Official Jersey"
-          referrerPolicy="no-referrer"
-          className="w-full h-auto max-h-[460px] object-contain mx-auto transition-transform duration-300 group-hover:scale-[1.01]"
-        />
+      {/* Real Image Container Frame */}
+      <div
+        className={`relative w-full rounded-3xl overflow-hidden bg-slate-950 border transition-all shadow-2xl group ${
+          isDragging ? 'border-amber-400 ring-4 ring-amber-500/20' : 'border-slate-800 hover:border-slate-700'
+        }`}
+        onDragOver={(e) => {
+          if (!allowUpload) return;
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          if (!allowUpload) return;
+          e.preventDefault();
+          setIsDragging(false);
+          const file = e.dataTransfer.files?.[0];
+          if (file) handleProcessFile(file);
+        }}
+      >
+        {/* Loading Overlay */}
+        {isProcessing && (
+          <div className="absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-amber-400">
+            <Loader2 className="w-8 h-8 animate-spin" />
+            <span className="text-xs font-bold font-mono">กำลังประมวลผลและบีบอัดรูปภาพ...</span>
+          </div>
+        )}
 
-        {/* Action Controls Overlay */}
-        <div className="absolute bottom-3 right-3 flex items-center gap-2">
-          {/* Zoom Button */}
+        {/* Display Image */}
+        <div className="w-full flex items-center justify-center p-2 min-h-[300px] sm:min-h-[380px] bg-gradient-to-b from-slate-900/50 to-slate-950">
+          <img
+            src={activeImageSrc}
+            alt="FSS Halloween Fancy Run 2026 Official Jersey"
+            referrerPolicy="no-referrer"
+            onError={handleImageError}
+            className="w-full h-auto max-h-[480px] object-contain mx-auto transition-transform duration-300 group-hover:scale-[1.01]"
+          />
+        </div>
+
+        {/* Top Badges */}
+        <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2 z-10">
+          {customShirtImage && viewMode === 'custom' && !imageLoadError ? (
+            <span className="px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-[11px] font-bold text-emerald-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
+              <Sparkles className="w-3 h-3 text-emerald-400" /> รูปเสื้อจริงที่อัปโหลด
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded-full bg-slate-950/85 border border-amber-500/40 text-[11px] font-mono font-bold text-amber-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
+              <Sparkles className="w-3 h-3" /> OFFICIAL 2D DESIGN
+            </span>
+          )}
+          <span className="px-2.5 py-1 rounded-full bg-red-950/90 border border-red-500/50 text-[11px] font-bold text-red-200 backdrop-blur-sm shadow-md">
+            ฿300 บาท
+          </span>
+        </div>
+
+        {/* View Switcher Pill (if custom image exists) */}
+        {customShirtImage && !imageLoadError && (
+          <div className="absolute top-3 right-3 z-10 flex items-center rounded-xl bg-slate-950/90 border border-slate-800 p-1 backdrop-blur-sm shadow-lg text-[10px]">
+            <button
+              type="button"
+              onClick={() => setViewMode('custom')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                viewMode === 'custom'
+                  ? 'bg-amber-500 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              รูปที่อัปโหลด
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('original')}
+              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                viewMode === 'original'
+                  ? 'bg-amber-500 text-slate-950 shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              รูปต้นฉบับ
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Action Controls Overlay */}
+        <div className="absolute bottom-3 right-3 z-10 flex flex-wrap items-center gap-2">
+          {/* Zoom Lightbox Button */}
           <button
             type="button"
             onClick={() => setIsZoomed(true)}
-            className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-200 border border-slate-700 backdrop-blur-sm transition-all shadow-md flex items-center gap-1.5 text-xs font-semibold"
+            className="p-2 px-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700 backdrop-blur-sm transition-all shadow-md flex items-center gap-1.5 text-xs font-semibold"
             title="ดูภาพขนาดใหญ่"
           >
-            <ZoomIn className="w-4 h-4 text-amber-400" />
-            <span className="hidden sm:inline">ขยายภาพ</span>
+            <ZoomIn className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">ขยายดูภาพ</span>
           </button>
 
-          {/* Upload Button */}
+          {/* Upload and Control Buttons */}
           {allowUpload && (
             <>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.avif,.heic"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) handleFileUpload(file);
+                  if (file) handleProcessFile(file);
                 }}
               />
+
+              {/* Upload Button */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="p-2 px-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white border border-amber-500/30 backdrop-blur-sm transition-all shadow-lg flex items-center gap-1.5 text-xs font-bold"
-                title="อัปโหลดภาพเสื้อจริงจากเครื่องของคุณ"
+                disabled={isProcessing}
+                className="p-2 px-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white border border-amber-500/30 backdrop-blur-sm transition-all shadow-lg flex items-center gap-1.5 text-xs font-bold disabled:opacity-50"
+                title="อัปโหลดภาพเสื้อจริงจากอุปกรณ์ของคุณ"
               >
                 {uploadSuccess ? (
                   <>
                     <Check className="w-4 h-4 text-emerald-300" />
-                    <span>อัปเดตรูปแล้ว!</span>
+                    <span>บันทึกรูปเสื้อแล้ว!</span>
                   </>
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    <span>ใส่รูปเสื้อของคุณ</span>
+                    <span>{customShirtImage ? 'เปลี่ยนรูปเสื้อ' : 'ใส่รูปเสื้อของคุณ'}</span>
                   </>
                 )}
               </button>
 
-              {imageSrc !== officialShirtAsset && (
+              {/* Link URL Button */}
+              <button
+                type="button"
+                onClick={() => setShowUrlInput(!showUrlInput)}
+                className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-400 border border-slate-700 backdrop-blur-sm transition-all shadow-md text-xs"
+                title="ใส่ลิงก์รูปภาพ (Image URL)"
+              >
+                <LinkIcon className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Reset Button */}
+              {customShirtImage && (
                 <button
                   type="button"
                   onClick={handleResetImage}
-                  className="p-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-700 backdrop-blur-sm transition-all shadow-md text-xs"
+                  className="p-2 rounded-xl bg-slate-900/90 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-700/50 backdrop-blur-sm transition-all shadow-md text-xs"
                   title="รีเซ็ตเป็นภาพตั้งต้น"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -124,28 +293,70 @@ export const OfficialShirtImage: React.FC<Props> = ({
             </>
           )}
         </div>
-
-        {/* Top Badges */}
-        <div className="absolute top-3 left-3 flex items-center gap-2">
-          <span className="px-3 py-1 rounded-full bg-slate-950/85 border border-amber-500/40 text-[11px] font-mono font-bold text-amber-400 backdrop-blur-sm flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> OFFICIAL 2D JERSEY
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-red-950/80 border border-red-500/50 text-[11px] font-bold text-red-200 backdrop-blur-sm">
-            ฿300 บาท
-          </span>
-        </div>
       </div>
+
+      {/* URL Input Bar (Collapsible) */}
+      {showUrlInput && allowUpload && (
+        <form
+          onSubmit={handleUrlSubmit}
+          className="mt-3 w-full p-3 rounded-2xl bg-slate-900 border border-slate-700 shadow-xl flex items-center gap-2 animate-fadeIn"
+        >
+          <LinkIcon className="w-4 h-4 text-amber-400 shrink-0 ml-1" />
+          <input
+            type="url"
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            placeholder="วางลิงก์รูปภาพ เช่น https://example.com/shirt.jpg"
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
+          />
+          <button
+            type="submit"
+            disabled={isProcessing || !urlInput.trim()}
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs shrink-0 transition-colors disabled:opacity-50"
+          >
+            บันทึก
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowUrlInput(false)}
+            className="p-1.5 text-slate-400 hover:text-slate-200 rounded-lg"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </form>
+      )}
+
+      {/* Error Message Notice */}
+      {errorMessage && (
+        <div className="mt-2.5 w-full p-3 rounded-2xl bg-rose-950/80 border border-rose-600/50 text-rose-200 text-xs flex items-center justify-between gap-2 shadow-lg">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="p-1 hover:bg-rose-900/50 rounded-lg text-rose-300"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Caption & Specs */}
       <div className="mt-3 w-full flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 px-1">
-        <span>ผ้าระบายอากาศ Micro Dry-Tech 100% สกรีนลายเรืองแสง</span>
-        <span className="text-amber-400 font-medium">ด้านหน้า (อกซ้ายยันต์ FSS) / ด้านหลัง (ลาย 2026)</span>
+        <span>ผ้าระบายอากาศ Micro Dry-Tech 100% ลาย 12 ผีไทยเรืองแสง Glow in the dark</span>
+        <span className="text-amber-400 font-medium">
+          {customShirtImage && viewMode === 'custom'
+            ? '✓ กำลังแสดงรูปเสื้อจริงที่อัปโหลด'
+            : 'ด้านหน้า (อกซ้ายยันต์ FSS) / ด้านหลัง (ลาย 2026)'}
+        </span>
       </div>
 
       {/* Zoom / Lightbox Modal */}
       {isZoomed && (
         <div
-          className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-3 sm:p-6"
           onClick={() => setIsZoomed(false)}
         >
           <div
@@ -156,7 +367,9 @@ export const OfficialShirtImage: React.FC<Props> = ({
               <div className="flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-amber-400" />
                 <h3 className="text-sm sm:text-base font-bold text-white">
-                  ภาพเสื้อวิ่งที่ระลึก FSS Halloween Fancy Run 2026 (Official Jersey)
+                  {customShirtImage && viewMode === 'custom'
+                    ? 'รูปเสื้อจริงที่อัปโหลด (Custom Uploaded Jersey)'
+                    : 'ภาพแบบเสื้อวิ่ง FSS Halloween Fancy Run 2026 (Official Jersey)'}
                 </h3>
               </div>
               <button
@@ -170,22 +383,37 @@ export const OfficialShirtImage: React.FC<Props> = ({
 
             <div className="w-full max-h-[75vh] overflow-auto flex items-center justify-center rounded-2xl bg-slate-950 p-2">
               <img
-                src={imageSrc}
+                src={activeImageSrc}
                 alt="FSS Official Jersey Full View"
                 referrerPolicy="no-referrer"
+                onError={handleImageError}
                 className="max-w-full max-h-[70vh] object-contain rounded-xl"
               />
             </div>
 
-            <div className="w-full mt-4 flex items-center justify-between text-xs text-slate-400">
-              <span>ภาพดีไซน์ลิขสิทธิ์แท้ คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร • ราคา 300 บาท</span>
-              <button
-                type="button"
-                onClick={() => setIsZoomed(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-xs"
-              >
-                ปิดหน้าต่าง
-              </button>
+            <div className="w-full mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+              <span>
+                คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร • ราคา 300 บาท (รับที่การจัดงานเท่านั้น)
+              </span>
+              <div className="flex items-center gap-2">
+                {customShirtImage && (
+                  <button
+                    type="button"
+                    onClick={() => setViewMode(viewMode === 'custom' ? 'original' : 'custom')}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>{viewMode === 'custom' ? 'สลับดูภาพแบบ 2D ต้นฉบับ' : 'สลับดูรูปจริงที่อัปโหลด'}</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsZoomed(false)}
+                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition-colors"
+                >
+                  ปิดหน้าต่าง
+                </button>
+              </div>
             </div>
           </div>
         </div>

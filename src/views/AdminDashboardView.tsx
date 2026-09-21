@@ -802,18 +802,44 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
 
       {/* Slip Modal View */}
       {viewingSlip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
-          <div className="relative max-w-sm w-full bg-slate-900 border border-slate-700 rounded-3xl p-4 text-center">
-            <button
-              type="button"
-              onClick={() => setViewingSlip(null)}
-              className="absolute top-3 right-3 p-1.5 text-slate-400 hover:text-white rounded-full bg-slate-800"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h4 className="text-sm font-bold text-white mb-3">รูปสลิปการโอนเงิน</h4>
-            <div className="max-h-96 overflow-hidden rounded-xl border border-slate-800">
-              <img src={viewingSlip} alt="Payment Slip" className="w-full h-auto object-contain" />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+          onClick={() => setViewingSlip(null)}
+        >
+          <div
+            className="relative max-w-md w-full bg-slate-900 border border-slate-700 rounded-3xl p-5 text-center shadow-2xl flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>🧾 หลักฐานสลิปการโอนเงิน</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setViewingSlip(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl bg-slate-800 hover:bg-slate-700 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto rounded-2xl bg-slate-950 p-2 border border-slate-800 flex items-center justify-center min-h-[250px]">
+              <img
+                src={viewingSlip}
+                alt="Payment Slip"
+                className="max-w-full max-h-[65vh] object-contain rounded-xl mx-auto shadow-md"
+              />
+            </div>
+
+            <div className="pt-3 flex items-center justify-between text-xs text-slate-400">
+              <span>ตรวจสอบยอด ฿300/ตัว • รับที่การจัดงาน</span>
+              <button
+                type="button"
+                onClick={() => setViewingSlip(null)}
+                className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition-colors"
+              >
+                ปิดหน้าต่าง
+              </button>
             </div>
           </div>
         </div>
