@@ -182,63 +182,204 @@ export const GhostAvatarSvg: React.FC<Props> = ({ speciesId, className = 'w-32 h
       return (
         <svg viewBox="0 0 220 260" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <radialGradient id="popGlow" cx="50%" cy="50%" r="60%">
-              <stop offset="0%" stopColor="#991b1b" stopOpacity="0.8" />
-              <stop offset="50%" stopColor="#450a0a" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            <radialGradient id="popGlowNew" cx="50%" cy="50%" r="65%">
+              <stop offset="0%" stopColor="#7f1d1d" stopOpacity="0.85" />
+              <stop offset="45%" stopColor="#450a0a" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0.95" />
             </radialGradient>
+            <linearGradient id="buffaloSkin" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#292524" />
+              <stop offset="50%" stopColor="#1c1917" />
+              <stop offset="100%" stopColor="#0c0a09" />
+            </linearGradient>
+            <linearGradient id="popHair" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#f1f5f9" />
+              <stop offset="40%" stopColor="#cbd5e1" />
+              <stop offset="100%" stopColor="#64748b" />
+            </linearGradient>
+            <linearGradient id="bloodyOrgan" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ef4444" />
+              <stop offset="60%" stopColor="#991b1b" />
+              <stop offset="100%" stopColor="#450a0a" />
+            </linearGradient>
+            <filter id="horrorShadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" floodColor="#000000" floodOpacity="0.8" />
+            </filter>
           </defs>
-          <circle cx="110" cy="130" r="95" fill="url(#popGlow)" />
 
-          {/* Ancient Cracked Earthen Dragon Jar (โอ่งมังกรสยอง) */}
-          <ellipse cx="110" cy="180" rx="75" ry="52" fill="#1c1917" stroke="#78350f" strokeWidth="6" />
-          <ellipse cx="110" cy="138" rx="55" ry="16" fill="#292524" stroke="#d97706" strokeWidth="4" />
-          {/* Cracks in Jar glowing blood red */}
-          <path d="M85 155 L75 190 L90 215" stroke="#ef4444" strokeWidth="2.5" fill="none" />
-          <path d="M140 160 L150 195 L135 220" stroke="#ef4444" strokeWidth="2" fill="none" />
+          {/* Ominous Dark Blood Mist Background */}
+          <rect width="220" height="260" rx="8" fill="url(#popGlowNew)" />
 
-          {/* Screaming Tormented Souls inside the Jar */}
-          <ellipse cx="90" cy="165" rx="10" ry="13" fill="#dc2626" opacity="0.8" className="animate-pulse" />
-          <ellipse cx="130" cy="165" rx="10" ry="13" fill="#dc2626" opacity="0.8" className="animate-pulse" />
-          <circle cx="90" cy="165" r="4" fill="#fef08a" />
-          <circle cx="130" cy="165" r="4" fill="#fef08a" />
+          {/* Eerie Mist Wisps */}
+          <path d="M10 240 Q60 215 110 235 T210 220" stroke="#7f1d1d" strokeWidth="6" opacity="0.3" fill="none" />
+          <path d="M20 250 Q80 230 140 248 T220 238" stroke="#991b1b" strokeWidth="4" opacity="0.2" fill="none" />
 
-          {/* Bloodcurdling Pop Ghoul Head Crouching & Peering Out */}
-          <circle cx="110" cy="85" r="44" fill="#cbd5e1" stroke="#475569" strokeWidth="2" />
-          {/* Tangled Messy Hag Hair */}
-          <path d="M60 85 C55 30 165 30 160 85 C165 50 140 30 110 30 C80 30 55 50 60 85 Z" fill="#0f172a" />
-          <path d="M65 85 L50 130" stroke="#0f172a" strokeWidth="5" strokeLinecap="round" />
-          <path d="M155 85 L170 130" stroke="#0f172a" strokeWidth="5" strokeLinecap="round" />
+          {/* ================================================================= */}
+          {/* SLAIN DARK WATER BUFFALO (ซากควายดำ / ควายธนู) */}
+          {/* ================================================================= */}
+          <g filter="url(#horrorShadow)">
+            {/* Buffalo Massive Body */}
+            <path
+              d="M45 195 C55 170 110 162 175 172 C198 176 215 190 212 215 C208 238 185 248 135 248 C85 248 45 235 45 195 Z"
+              fill="url(#buffaloSkin)"
+              stroke="#44403c"
+              strokeWidth="2"
+            />
+            {/* Buffalo Folded Hind Leg & Flank */}
+            <path d="M150 185 C175 190 195 205 192 230 C185 242 165 245 145 242" stroke="#292524" strokeWidth="5" fill="none" />
+            {/* Buffalo Rib Bones Shadow Silhouette under Hide */}
+            <path d="M105 190 Q112 210 108 230 M120 188 Q128 208 124 232 M135 188 Q144 208 140 230" stroke="#0c0a09" strokeWidth="3" opacity="0.7" fill="none" />
 
-          {/* Sunken Hollow Bleeding Eyes */}
-          <ellipse cx="92" cy="80" rx="12" ry="14" fill="#020617" />
-          <ellipse cx="128" cy="80" rx="12" ry="14" fill="#020617" />
-          <circle cx="92" cy="78" r="4" fill="#ef4444" />
-          <circle cx="128" cy="78" r="4" fill="#ef4444" />
-          {/* Blood streaming from eyes */}
-          <path d="M92 92 L90 120" stroke="#b91c1c" strokeWidth="3" strokeLinecap="round" />
-          <path d="M128 92 L130 120" stroke="#b91c1c" strokeWidth="3" strokeLinecap="round" />
+            {/* Buffalo Head (Lying to the Left) */}
+            <path
+              d="M50 180 C40 170 25 175 18 190 C12 202 18 215 32 220 C42 224 55 218 60 205 Z"
+              fill="#1c1917"
+              stroke="#44403c"
+              strokeWidth="1.5"
+            />
+            {/* Buffalo Snout & Nostril */}
+            <ellipse cx="22" cy="202" rx="4" ry="7" fill="#0c0a09" />
+            <circle cx="21" cy="200" r="1.5" fill="#44403c" />
+            {/* Slain Dead Buffalo Closed Eye */}
+            <path d="M34 188 Q39 192 44 190" stroke="#57534e" strokeWidth="2" strokeLinecap="round" />
+            {/* Buffalo Ear Drooping */}
+            <path d="M48 202 C55 215 50 225 42 222 Z" fill="#1c1917" stroke="#292524" strokeWidth="1" />
 
-          {/* Gaping Monstrous Maw devouring raw flesh */}
-          <path d="M88 102 Q110 132 132 102 Z" fill="#450a0a" stroke="#991b1b" strokeWidth="3" />
-          {/* Razor needle fangs */}
-          <polygon points="94,103 98,114 102,103" fill="#ffffff" />
-          <polygon points="106,103 110,117 114,103" fill="#ffffff" />
-          <polygon points="118,103 122,114 126,103" fill="#ffffff" />
-          <polygon points="100,122 104,112 108,122" fill="#ffffff" />
-          <polygon points="112,122 116,112 120,122" fill="#ffffff" />
-          {/* Blood dripping from raw meat in mouth */}
-          <path d="M110 116 Q105 138 100 150" stroke="#dc2626" strokeWidth="5" strokeLinecap="round" />
+            {/* Massive Curved Buffalo Horns (เขาควายโค้งใหญ่) */}
+            {/* Horn 1 (Left - Foreground) */}
+            <path
+              d="M44 178 C35 150 18 135 10 142 C4 148 12 165 38 184 Z"
+              fill="#292524"
+              stroke="#78716c"
+              strokeWidth="1.5"
+            />
+            <path d="M10 142 Q22 155 42 180" stroke="#a8a29e" strokeWidth="1.5" opacity="0.6" fill="none" />
 
-          {/* Razor-sharp Black Claws clutching the jar rim */}
-          <g stroke="#f59e0b" strokeWidth="3" strokeLinecap="round">
-            <path d="M68 132 L72 120 L78 132" />
-            <path d="M78 132 L82 120 L88 132" />
-            <path d="M88 132 L92 120 L98 132" />
-            <path d="M122 132 L126 120 L132 132" />
-            <path d="M132 132 L136 120 L142 132" />
-            <path d="M142 132 L146 120 L152 132" />
+            {/* Horn 2 (Right - Curved upward in background) */}
+            <path
+              d="M52 173 C52 145 68 132 76 138 C80 144 72 158 56 180 Z"
+              fill="#1c1917"
+              stroke="#57534e"
+              strokeWidth="1.2"
+            />
           </g>
+
+          {/* ================================================================= */}
+          {/* THE CRONE / YAI POB (ยายปอบ) SITTING ON THE BUFFALO */}
+          {/* ================================================================= */}
+          <g filter="url(#horrorShadow)">
+            {/* Tattered Crimson/Dark Red Sarong (ผ้านุ่งสีแดงเก่าขาด) */}
+            <path
+              d="M75 148 C75 148 90 140 125 142 C140 143 150 155 148 185 C145 205 130 210 90 205 C75 202 70 185 75 148 Z"
+              fill="#7f1d1d"
+              stroke="#991b1b"
+              strokeWidth="2"
+            />
+            {/* Sarong Folds and Rips */}
+            <path d="M88 152 Q95 175 92 202 M110 148 Q118 175 120 205 M132 158 Q135 180 138 200" stroke="#450a0a" strokeWidth="2.5" fill="none" />
+            <path d="M80 195 L95 190 L98 204 L85 203 Z" fill="#450a0a" />
+
+            {/* Emaciated Torso in Faded Dusty Salmon/Pink Tank Top (เสื้อกล้ามสีชมพูหม่นขาด) */}
+            <path
+              d="M92 98 L124 98 L126 148 C120 152 95 152 88 148 L92 98 Z"
+              fill="#be185d"
+              stroke="#9d174d"
+              strokeWidth="1.5"
+            />
+            {/* Ripped Tears in Pink Tank Top revealing greyish bone ribs */}
+            <path d="M96 112 Q102 114 98 120" stroke="#1c1917" strokeWidth="2" fill="none" />
+            <path d="M112 118 Q118 120 114 128" stroke="#1c1917" strokeWidth="2" fill="none" />
+            <path d="M102 132 Q108 134 105 140" stroke="#1c1917" strokeWidth="2" fill="none" />
+
+            {/* Crone's Right Arm Bracing on Buffalo's Flank */}
+            <path d="M92 104 L82 125 L78 155" stroke="#94a3b8" strokeWidth="6" strokeLinecap="round" />
+            {/* Clawed Right Hand Gripping Buffalo */}
+            <path d="M78 155 L74 165 M78 156 L77 167 M80 156 L82 167" stroke="#334155" strokeWidth="2" strokeLinecap="round" />
+
+            {/* Crone's Left Arm Raising Fresh Bloodied Organ */}
+            <path d="M124 105 L138 95 L144 80" stroke="#94a3b8" strokeWidth="6" strokeLinecap="round" />
+            {/* Clawed Left Hand Holding Fresh Meat/Heart */}
+            <path d="M144 80 L146 72 M144 81 L150 74 M143 83 L152 79" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+
+            {/* THE FRESH BLOODY ORGAN / HEART (ก้อนเนื้อสด / ตับสด) */}
+            <path
+              d="M146 66 C140 60 152 50 162 58 C170 65 165 78 155 82 C148 84 144 75 146 66 Z"
+              fill="url(#bloodyOrgan)"
+              stroke="#ef4444"
+              strokeWidth="1.5"
+            />
+            {/* Dripping Fresh Blood Drops from Heart */}
+            <circle cx="152" cy="86" r="2.5" fill="#dc2626" />
+            <circle cx="149" cy="94" r="1.8" fill="#ef4444" />
+            <circle cx="154" cy="103" r="1.5" fill="#dc2626" />
+
+            {/* Crone's Skeletal Neck */}
+            <rect x="103" y="85" width="10" height="15" fill="#cbd5e1" />
+
+            {/* Haggard Elderly Face (ใบหน้ายายแก่ซูบตอบ สยดสยอง) */}
+            <path
+              d="M98 56 C95 45 116 42 122 52 C126 62 124 78 116 84 C108 88 96 82 98 56 Z"
+              fill="#cbd5e1"
+              stroke="#64748b"
+              strokeWidth="1.5"
+            />
+            {/* Sunken Wrinkles & Cheek Hollows */}
+            <path d="M102 54 Q110 52 118 54" stroke="#64748b" strokeWidth="1" fill="none" />
+            <path d="M100 68 Q105 74 104 80" stroke="#475569" strokeWidth="1.5" fill="none" />
+            <path d="M118 68 Q115 74 116 80" stroke="#475569" strokeWidth="1.5" fill="none" />
+
+            {/* Deep Sunken Eye Sockets with Demonic Gaze */}
+            <ellipse cx="106" cy="62" rx="4" ry="5" fill="#0f172a" />
+            <ellipse cx="118" cy="62" rx="4" ry="5" fill="#0f172a" />
+            {/* Piercing Red/Yellow Pupils */}
+            <circle cx="107" cy="62" r="1.8" fill="#ef4444" />
+            <circle cx="119" cy="62" r="1.8" fill="#ef4444" />
+            <circle cx="107" cy="62" r="0.8" fill="#fef08a" />
+            <circle cx="119" cy="62" r="0.8" fill="#fef08a" />
+
+            {/* Sharp Hooked Witch Nose */}
+            <path d="M112 60 L115 70 L111 72 Z" fill="#94a3b8" />
+
+            {/* Sinister Open Mouth */}
+            <path d="M108 76 Q115 78 120 74 Q114 84 108 76 Z" fill="#450a0a" stroke="#991b1b" strokeWidth="1" />
+
+            {/* LONG SINUOUS CRIMSON TONGUE REACHING TOWARD THE RAW HEART */}
+            <path
+              d="M114 77 C122 76 130 72 135 66 C140 60 144 62 146 64 C140 70 132 78 116 80 Z"
+              fill="#f43f5e"
+              stroke="#e11d48"
+              strokeWidth="1.5"
+            />
+            {/* Saliva / Blood thread connecting tongue to heart */}
+            <path d="M144 64 Q146 60 148 62" stroke="#fecdd3" strokeWidth="1.5" opacity="0.8" fill="none" />
+
+            {/* WILD FLOWING SILVER-GREY HAIR (ผมหงอกยาวสยายปรกไหล่) */}
+            {/* Hair Left Cascading */}
+            <path
+              d="M102 48 C90 45 78 60 74 85 C70 110 72 135 70 155 C74 150 78 120 84 95 C88 78 95 62 102 48 Z"
+              fill="url(#popHair)"
+              opacity="0.95"
+            />
+            <path d="M80 75 Q72 110 70 145" stroke="#f8fafc" strokeWidth="1" opacity="0.6" fill="none" />
+            <path d="M88 65 Q82 95 78 135" stroke="#cbd5e1" strokeWidth="1.2" opacity="0.7" fill="none" />
+
+            {/* Hair Right Cascading over back and buffalo flank */}
+            <path
+              d="M118 46 C128 45 138 58 138 78 C140 98 145 125 140 150 C136 142 132 115 130 92 C128 75 122 58 118 46 Z"
+              fill="url(#popHair)"
+              opacity="0.95"
+            />
+            <path d="M125 60 Q135 88 136 125" stroke="#f8fafc" strokeWidth="1" opacity="0.6" fill="none" />
+            <path d="M130 70 Q138 100 134 135" stroke="#cbd5e1" strokeWidth="1.2" opacity="0.7" fill="none" />
+
+            {/* Crown unkempt wild strands */}
+            <path d="M98 48 Q94 36 90 32 M108 44 Q108 30 110 26 M118 46 Q125 34 132 30" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
+          </g>
+
+          {/* Blood Pool Dripping from Buffalo Flank to Ground */}
+          <path d="M70 238 Q110 248 160 238 Q130 252 85 248 Z" fill="#991b1b" opacity="0.8" />
+          <circle cx="105" cy="244" r="2" fill="#ef4444" />
+          <circle cx="135" cy="243" r="1.5" fill="#ef4444" />
         </svg>
       );
 
@@ -624,38 +765,45 @@ export const GhostAvatarSvg: React.FC<Props> = ({ speciesId, className = 'w-32 h
         </svg>
       );
 
-    case 'phiruen':
+    case 'phi_am':
       return (
         <svg viewBox="0 0 220 260" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <radialGradient id="ruenGlow" cx="50%" cy="40%" r="60%">
-              <stop offset="0%" stopColor="#0284c7" stopOpacity="0.8" />
-              <stop offset="60%" stopColor="#082f49" stopOpacity="0.5" />
-              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            <radialGradient id="shadowGlow" cx="50%" cy="45%" r="60%">
+              <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.8" />
+              <stop offset="50%" stopColor="#1e1b4b" stopOpacity="0.7" />
+              <stop offset="100%" stopColor="#030712" stopOpacity="0" />
+            </radialGradient>
+            <radialGradient id="shadowEyes" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#a5b4fc" />
+              <stop offset="50%" stopColor="#6366f1" />
+              <stop offset="100%" stopColor="#312e81" />
             </radialGradient>
           </defs>
-          <circle cx="110" cy="100" r="95" fill="url(#ruenGlow)" />
+          {/* Dark Shadowy Mist Aura */}
+          <circle cx="110" cy="115" r="95" fill="url(#shadowGlow)" />
 
-          {/* Abandoned Dilapidated Spirit Shrine Roof with Cracks */}
-          <polygon points="110,25 165,68 55,68" fill="#0369a1" stroke="#38bdf8" strokeWidth="3.5" />
-          <path d="M100 35 L120 50 L110 65" stroke="#f43f5e" strokeWidth="2" fill="none" />
-          <rect x="72" y="68" width="76" height="55" fill="#082f49" stroke="#0284c7" strokeWidth="2" />
+          {/* Wispy Shadow Tentacles / Smoke Tendrils */}
+          <path d="M40 180 Q20 120 45 70 Q70 20 110 30 Q150 20 175 70 Q200 120 180 180 Q160 240 110 245 Q60 240 40 180 Z" fill="#09090b" opacity="0.9" />
+          <path d="M30 190 Q15 220 10 250" stroke="#312e81" strokeWidth="4" strokeLinecap="round" opacity="0.7" />
+          <path d="M190 190 Q205 220 210 250" stroke="#312e81" strokeWidth="4" strokeLinecap="round" opacity="0.7" />
+          <path d="M110 220 Q110 245 105 258" stroke="#4338ca" strokeWidth="5" strokeLinecap="round" opacity="0.6" />
 
-          {/* Ancient Masked House Spirit Face Floating within the Shrine */}
-          <circle cx="110" cy="98" r="28" fill="#e0f2fe" stroke="#38bdf8" strokeWidth="2.5" />
-          {/* Glowing Ominous Crimson Eye Slits */}
-          <ellipse cx="100" cy="94" rx="5" ry="6" fill="#0c4a6e" />
-          <ellipse cx="120" cy="94" rx="5" ry="6" fill="#0c4a6e" />
-          <circle cx="100" cy="94" r="2.5" fill="#ef4444" />
-          <circle cx="120" cy="94" r="2.5" fill="#ef4444" />
+          {/* Faceless Shadow Form Silhouette */}
+          <ellipse cx="110" cy="95" rx="36" ry="44" fill="#020617" stroke="#4338ca" strokeWidth="2" />
 
-          {/* Eerie Ancestral Smile */}
-          <path d="M102 110 Q110 118 118 110" stroke="#0284c7" strokeWidth="3" strokeLinecap="round" />
+          {/* Glowing Hypnotic Eyes */}
+          <ellipse cx="94" cy="90" rx="10" ry="12" fill="url(#shadowEyes)" className="animate-pulse" />
+          <ellipse cx="126" cy="90" rx="10" ry="12" fill="url(#shadowEyes)" className="animate-pulse" />
+          <circle cx="94" cy="90" r="3" fill="#ffffff" />
+          <circle cx="126" cy="90" r="3" fill="#ffffff" />
 
-          {/* Weathered Funeral Shroud draped over Shrine Pillar */}
-          <path d="M85 125 L135 125 L125 240 L95 240 Z" fill="#075985" stroke="#38bdf8" strokeWidth="2" />
-          {/* Floating Sacred Holy Cotton Thread (สายสิญจน์ผูกวิญญาณ) */}
-          <path d="M60 90 Q110 140 160 90" stroke="#f8fafc" strokeWidth="2" strokeDasharray="3 3" fill="none" />
+          {/* Chest-Crushing Shadow Claws reaching downward */}
+          <path d="M80 140 Q60 175 50 210 Q65 195 85 170" fill="#0f172a" stroke="#6366f1" strokeWidth="1.5" />
+          <path d="M140 140 Q160 175 170 210 Q155 195 135 170" fill="#0f172a" stroke="#6366f1" strokeWidth="1.5" />
+
+          {/* Eerie Whisper Smile */}
+          <path d="M96 118 Q110 128 124 118" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.7" />
         </svg>
       );
 

@@ -11,17 +11,27 @@ import {
   ArrowRight,
   ShieldCheck,
   AlertCircle,
+  Upload,
+  Link as LinkIcon,
+  RefreshCw,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { GhostCardView } from '../components/GhostCardView';
 import { THAI_GHOSTS } from '../data/ghosts';
 
 export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) => {
-  const { currentCard, currentRunner, cards, runners, setCurrentCardId } = useEventContext();
+  const { currentCard, currentRunner, cards, runners, setCurrentCardId, updateCardCustomImage, ghostSpeciesList } = useEventContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [urlInputOpen, setUrlInputOpen] = useState(false);
+  const [customUrl, setCustomUrl] = useState('');
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null);
 
-  const species = currentCard ? THAI_GHOSTS[currentCard.speciesId] : null;
+  const species = currentCard
+    ? ghostSpeciesList.find((g) => g.id === currentCard.speciesId) || THAI_GHOSTS[currentCard.speciesId]
+    : null;
   const ghostHeadline = species
     ? species.name.startsWith('ผี') || species.name.startsWith('นาง')
       ? `คุณคือ${species.name}`
@@ -84,6 +94,30 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
         </form>
       </div>
 
+      {/* Quick Select Runner Card Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
+        <span className="text-[11px] text-slate-400 font-bold shrink-0">เลือกดูการ์ดตัวอย่าง:</span>
+        {cards.map((c) => {
+          const sp = ghostSpeciesList.find((g) => g.id === c.speciesId) || THAI_GHOSTS[c.speciesId];
+          const isSelected = currentCard?.cardId === c.cardId;
+          return (
+            <button
+              key={c.cardId}
+              type="button"
+              onClick={() => setCurrentCardId(c.cardId)}
+              className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border ${
+                isSelected
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-105'
+                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-slate-500'
+              }`}
+            >
+              <span>{sp?.name || c.speciesId}</span>
+              <span className="text-[10px] opacity-75 font-mono">({c.cardId})</span>
+            </button>
+          );
+        })}
+      </div>
+
       {searchError && (
         <div className="p-3.5 rounded-xl bg-rose-950 border border-rose-500 text-rose-200 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
@@ -110,6 +144,134 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
               </div>
             )}
             <GhostCardView card={currentCard} showModeToggle={true} />
+
+            {/* Quick Prominent Photo Uploader Box */}
+            <div className="w-full max-w-[340px] sm:max-w-[400px] mt-4 p-4 rounded-2xl bg-gradient-to-br from-[#1a0e28] via-slate-900 to-[#220d18] border border-amber-500/50 shadow-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">📸</span>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                      <span>เปลี่ยนรูปบนการ์ดใบนี้</span>
+                      <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded">
+                        {currentCard.cardId}
+                      </span>
+                    </h4>
+                    <p className="text-[10px] text-slate-300">
+                      ใส่รูปของคุณหรือรูปผีแทนภาพวาด {species?.name}
+                    </p>
+                  </div>
+                </div>
+                {currentCard.customImageUrl && (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/60 text-[10px] font-bold text-emerald-300 shrink-0">
+                    ใส่รูปแล้ว ✓
+                  </span>
+                )}
+              </div>
+
+              {uploadMsg && (
+                <div className="text-[11px] p-2 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-200 text-center animate-fadeIn font-medium">
+                  {uploadMsg}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <label className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 hover:from-orange-500 hover:to-yellow-500 text-slate-950 font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-orange-950/40 transition-all active:scale-95 disabled:opacity-50">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={isUploadingPhoto}
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setIsUploadingPhoto(true);
+                      setUploadMsg('กำลังประมวลผลรูปภาพ...');
+                      try {
+                        const { compressImage } = await import('../lib/imageCompressor');
+                        const compressed = await compressImage(file, 1200, 1200, 0.88);
+                        updateCardCustomImage(currentCard.cardId, compressed);
+                        setUploadMsg('เปลี่ยนรูปภาพบนการ์ดเรียบร้อยแล้ว!');
+                        setTimeout(() => setUploadMsg(null), 3500);
+                      } catch (err: any) {
+                        setUploadMsg(err?.message || 'เกิดข้อผิดพลาดในการโหลดรูป');
+                      } finally {
+                        setIsUploadingPhoto(false);
+                      }
+                    }}
+                  />
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{isUploadingPhoto ? 'กำลังประมวลผล...' : 'เลือกรูปจากเครื่อง/มือถือ'}</span>
+                </label>
+
+                <button
+                  type="button"
+                  onClick={() => setUrlInputOpen(!urlInputOpen)}
+                  title="ใส่ลิงก์รูปภาพ (URL)"
+                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 transition-colors text-xs font-bold"
+                >
+                  <LinkIcon className="w-4 h-4" />
+                </button>
+
+                {currentCard.customImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('ต้องการรีเซ็ตรูปภาพกลับเป็นภาพวาดดั้งเดิมใช่หรือไม่?')) {
+                        updateCardCustomImage(currentCard.cardId, null);
+                        setUploadMsg('รีเซ็ตเป็นภาพวาดดั้งเดิมแล้ว');
+                        setTimeout(() => setUploadMsg(null), 3000);
+                      }
+                    }}
+                    title="รีเซ็ตเป็นภาพวาดดั้งเดิม"
+                    className="p-2.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-rose-300 text-xs transition-colors"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              {urlInputOpen && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!customUrl.trim()) return;
+                    setIsUploadingPhoto(true);
+                    setUploadMsg('กำลังตรวจสอบลิงก์รูปภาพ...');
+                    const img = new Image();
+                    img.onload = () => {
+                      updateCardCustomImage(currentCard.cardId, customUrl.trim());
+                      setUrlInputOpen(false);
+                      setCustomUrl('');
+                      setIsUploadingPhoto(false);
+                      setUploadMsg('เปลี่ยนรูปจากลิงก์เรียบร้อยแล้ว!');
+                      setTimeout(() => setUploadMsg(null), 3500);
+                    };
+                    img.onerror = () => {
+                      setIsUploadingPhoto(false);
+                      setUploadMsg('ไม่สามารถโหลดภาพจาก URL นี้ได้ กรุณาตรวจดูลิงก์');
+                    };
+                    img.src = customUrl.trim();
+                  }}
+                  className="flex items-center gap-1.5 pt-1 animate-fadeIn"
+                >
+                  <input
+                    type="url"
+                    value={customUrl}
+                    onChange={(e) => setCustomUrl(e.target.value)}
+                    placeholder="วางลิงก์รูปภาพ เช่น https://.../photo.jpg"
+                    className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isUploadingPhoto || !customUrl.trim()}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition-colors disabled:opacity-50"
+                  >
+                    ใช้รูปนี้
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
 
           {/* Details & Mission Evolution Column */}

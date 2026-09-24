@@ -12,11 +12,21 @@ import {
   Shirt,
   Sparkles,
   Zap,
+  Smartphone,
+  Upload,
+  Image as ImageIcon,
+  RefreshCw,
+  X,
+  Link as LinkIcon,
 } from 'lucide-react';
+import { useEventContext } from '../context/EventContext';
+import { compressImage } from '../lib/imageCompressor';
 import { THAI_GHOSTS } from '../data/ghosts';
 import { GhostCard } from '../types';
 import { GhostAvatarSvg } from './GhostAvatarSvg';
 import { RealisticGhostPortrait, REALISTIC_GHOST_ASSETS } from './RealisticGhostPortrait';
+import { GhostStoryModal } from './GhostStoryModal';
+import { generateGhostStoryCanvas, shareToStoryDirectly } from '../utils/storyCanvasGenerator';
 
 interface Props {
   card: GhostCard;
@@ -24,6 +34,7 @@ interface Props {
   onShare?: () => void;
   showModeToggle?: boolean;
   compact?: boolean;
+  initialRatio?: 'standard' | 'story916';
 }
 
 export const GhostCardView: React.FC<Props> = ({
@@ -32,15 +43,59 @@ export const GhostCardView: React.FC<Props> = ({
   onShare,
   showModeToggle = true,
   compact = false,
+  initialRatio = 'standard',
 }) => {
   const [displayMode, setDisplayMode] = useState<'private' | 'social'>('private');
   const [artMode, setArtMode] = useState<'realistic' | 'talisman'>('realistic');
+  const [cardRatio, setCardRatio] = useState<'standard' | 'story916'>(initialRatio);
+  const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [tilt, setTilt] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDownloading, setIsDownloading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const species = THAI_GHOSTS[card.speciesId] || THAI_GHOSTS.krasue;
+  const { updateCardCustomImage, adminUser, ghostSpeciesList } = useEventContext();
+  const [isUploading, setIsUploading] = useState(false);
+  const [showUrlModal, setShowUrlModal] = useState(false);
+  const [customUrlInput, setCustomUrlInput] = useState('');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      if (!file.type.startsWith('image/')) {
+        throw new Error('กรุณาเลือกไฟล์รูปภาพที่ถูกต้อง');
+      }
+      const compressedDataUrl = await compressImage(file, 1200, 1200, 0.88);
+      updateCardCustomImage(card.cardId, compressedDataUrl);
+    } catch (err: any) {
+      setUploadError(err.message || 'เกิดข้อผิดพลาดในการโหลดรูปภาพ');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleUrlSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customUrlInput.trim()) return;
+    updateCardCustomImage(card.cardId, customUrlInput.trim());
+    setCustomUrlInput('');
+    setShowUrlModal(false);
+  };
+
+  const handleResetImage = () => {
+    updateCardCustomImage(card.cardId, null);
+  };
+
+  const species =
+    ghostSpeciesList?.find((g) => g.id === card.speciesId) ||
+    THAI_GHOSTS[card.speciesId] ||
+    THAI_GHOSTS.krasue;
   const ghostHeadline =
     species.name.startsWith('ผี') || species.name.startsWith('นาง')
       ? `คุณคือ${species.name}`
@@ -73,93 +128,111 @@ export const GhostCardView: React.FC<Props> = ({
     setTilt({ x: 0, y: 0 });
   };
 
-  // Download card snapshot
-  const handleDownload = () => {
+  // Download card snapshot (supports both Standard and 9:16 Story HD)
+  const handleDownload = async () => {
     setIsDownloading(true);
-    setTimeout(() => {
-      setIsDownloading(false);
-      // Create simulated download of the card
-      const canvas = document.createElement('canvas');
-      canvas.width = 600;
-      canvas.height = 880;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        // Gradient background
-        const grad = ctx.createLinearGradient(0, 0, 600, 880);
-        grad.addColorStop(0, '#0f172a');
-        grad.addColorStop(0.5, '#1e1b4b');
-        grad.addColorStop(1, '#090514');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 600, 880);
-
-        // Border
-        ctx.strokeStyle = card.rarity === 'Legendary' ? '#f59e0b' : card.rarity === 'Epic' ? '#a855f7' : '#3b82f6';
-        ctx.lineWidth = 12;
-        ctx.strokeRect(20, 20, 560, 840);
-
-        // Text
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 28px Creepster, Prompt, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('FSS HALLOWEEN FANCY RUN 2026', 300, 68);
-
-        // Badge: วิญญาณประจำตัวของคุณ
-        ctx.fillStyle = '#f87171';
-        ctx.font = 'bold 16px Prompt, sans-serif';
-        ctx.fillText('👻 วิญญาณประจำตัวของคุณ (REALISTIC RELIC)', 300, 100);
-
-        // Headline: คุณคือผี...
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 36px Prompt, sans-serif';
-        ctx.fillText(ghostHeadline, 300, 142);
-
-        ctx.fillStyle = '#fb923c';
-        ctx.font = '19px Prompt, sans-serif';
-        ctx.fillText(species.title, 300, 175);
-
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '20px Prompt, sans-serif';
-        ctx.fillText(`เจ้าของการ์ด: ${card.nickname}  |  Card ID: ${card.cardId}`, 300, 215);
-        ctx.fillText(`Level: ${card.level} (${card.level === 3 ? 'ULTIMATE' : card.level === 2 ? 'UNLEASHED' : 'AWAKENED'})  |  RARITY: ${card.rarity.toUpperCase()}`, 300, 245);
-
-        ctx.fillStyle = '#38bdf8';
-        ctx.font = 'italic 17px Prompt, sans-serif';
-        ctx.fillText(`"${card.customQuote || species.tagline}"`, 300, 280);
-
-        // Realistic Portrait Badge Box in Canvas
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(160, 310, 280, 260);
-        ctx.strokeStyle = '#f59e0b';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(160, 310, 280, 260);
-
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = 'bold 20px Prompt, sans-serif';
-        ctx.fillText('📸 ภาพการ์ดเสมือนจริง 3D', 300, 420);
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '15px Prompt, sans-serif';
-        ctx.fillText(species.lore.slice(0, 32) + '...', 300, 460);
-
-        // Stats summary
-        ctx.fillStyle = '#e2e8f0';
-        ctx.font = '19px Prompt, sans-serif';
-        ctx.fillText(`ความหลอน: ${card.stats.spookiness}  |  ความเร็ว: ${card.stats.speed}  |  พลังแฝง: ${card.stats.latentPower}`, 300, 615);
-        ctx.fillText(`การพรางตัว: ${card.stats.stealth}  |  ความเฮี้ยน: ${card.stats.hauntingAura}`, 300, 650);
-
-        ctx.fillStyle = '#34d399';
-        ctx.font = 'bold 18px Prompt, sans-serif';
-        ctx.fillText('รางวัล 350 ท่านแรก: เหรียญที่ระลึก Finisher & คูปองอาหาร', 300, 770);
-
-        ctx.fillStyle = '#64748b';
-        ctx.font = '16px Prompt, sans-serif';
-        ctx.fillText('31 ตุลาคม 2569 • คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร', 300, 820);
-
+    try {
+      if (cardRatio === 'story916') {
+        const canvas = await generateGhostStoryCanvas(card, {
+          artMode,
+          isSocialMode: displayMode === 'social',
+        });
         const a = document.createElement('a');
         a.href = canvas.toDataURL('image/png');
-        a.download = `GhostCard-${card.cardId}-${card.nickname}.png`;
+        a.download = `FSS-Story-9x16-${card.cardId}-${species.name}.png`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
+      } else {
+        // Standard card canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 880;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          // Gradient background
+          const grad = ctx.createLinearGradient(0, 0, 600, 880);
+          grad.addColorStop(0, '#0f172a');
+          grad.addColorStop(0.5, '#1e1b4b');
+          grad.addColorStop(1, '#090514');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, 600, 880);
+
+          // Border
+          ctx.strokeStyle = card.rarity === 'Legendary' ? '#f59e0b' : card.rarity === 'Epic' ? '#a855f7' : '#3b82f6';
+          ctx.lineWidth = 12;
+          ctx.strokeRect(20, 20, 560, 840);
+
+          // Text
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 28px Creepster, Prompt, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('FSS HALLOWEEN FANCY RUN 2026', 300, 68);
+
+          // Badge: วิญญาณประจำตัวของคุณ
+          ctx.fillStyle = '#f87171';
+          ctx.font = 'bold 16px Prompt, sans-serif';
+          ctx.fillText('👻 วิญญาณประจำตัวของคุณ (REALISTIC RELIC)', 300, 100);
+
+          // Headline: คุณคือผี...
+          ctx.fillStyle = '#fbbf24';
+          ctx.font = 'bold 36px Prompt, sans-serif';
+          ctx.fillText(ghostHeadline, 300, 142);
+
+          ctx.fillStyle = '#fb923c';
+          ctx.font = '19px Prompt, sans-serif';
+          ctx.fillText(species.title, 300, 175);
+
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '20px Prompt, sans-serif';
+          ctx.fillText(`เจ้าของการ์ด: ${card.nickname}  |  Card ID: ${card.cardId}`, 300, 215);
+          ctx.fillText(`Level: ${card.level} (${card.level === 3 ? 'ULTIMATE' : card.level === 2 ? 'UNLEASHED' : 'AWAKENED'})  |  RARITY: ${card.rarity.toUpperCase()}`, 300, 245);
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.font = 'italic 17px Prompt, sans-serif';
+          ctx.fillText(`"${card.customQuote || species.tagline}"`, 300, 280);
+
+          // Realistic Portrait Badge Box in Canvas
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(160, 310, 280, 260);
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(160, 310, 280, 260);
+
+          ctx.fillStyle = '#f59e0b';
+          ctx.font = 'bold 20px Prompt, sans-serif';
+          ctx.fillText('📸 ภาพการ์ดเสมือนจริง 3D', 300, 420);
+          ctx.fillStyle = '#94a3b8';
+          ctx.font = '15px Prompt, sans-serif';
+          ctx.fillText(species.lore.slice(0, 32) + '...', 300, 460);
+
+          // Stats summary
+          ctx.fillStyle = '#e2e8f0';
+          ctx.font = '19px Prompt, sans-serif';
+          ctx.fillText(`ความหลอน: ${card.stats.spookiness}  |  ความเร็ว: ${card.stats.speed}  |  พลังแฝง: ${card.stats.latentPower}`, 300, 615);
+          ctx.fillText(`การพรางตัว: ${card.stats.stealth}  |  ความเฮี้ยน: ${card.stats.hauntingAura}`, 300, 650);
+
+          ctx.fillStyle = '#34d399';
+          ctx.font = 'bold 18px Prompt, sans-serif';
+          ctx.fillText('รางวัล 350 ท่านแรก: เหรียญที่ระลึก Finisher & คูปองอาหาร', 300, 770);
+
+          ctx.fillStyle = '#64748b';
+          ctx.font = '16px Prompt, sans-serif';
+          ctx.fillText('31 ตุลาคม 2569 • คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร', 300, 820);
+
+          const a = document.createElement('a');
+          a.href = canvas.toDataURL('image/png');
+          a.download = `GhostCard-${card.cardId}-${card.nickname}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
       }
-    }, 400);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   // Rarity Styling
@@ -217,33 +290,66 @@ export const GhostCardView: React.FC<Props> = ({
 
   return (
     <div className="flex flex-col items-center">
-      {/* Mode Switcher Tabs */}
+      {/* Mode & Ratio Switcher Tabs */}
       {showModeToggle && (
-        <div className="flex items-center gap-2 mb-4 bg-slate-900/90 p-1.5 rounded-full border border-slate-800">
-          <button
-            type="button"
-            onClick={() => setDisplayMode('private')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
-              displayMode === 'private'
-                ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            โหมดส่วนตัว (มี QR จริง)
-          </button>
-          <button
-            type="button"
-            onClick={() => setDisplayMode('social')}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${
-              displayMode === 'social'
-                ? 'bg-purple-600 text-white font-bold shadow-md shadow-purple-600/30'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Share2 className="w-4 h-4" />
-            โหมดแชร์โซเชียล (ปลอดภัย)
-          </button>
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+          {/* Aspect Ratio Switcher: Standard Card vs Story 9:16 */}
+          <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-full border border-slate-800 shadow-md">
+            <button
+              type="button"
+              onClick={() => setCardRatio('standard')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all ${
+                cardRatio === 'standard'
+                  ? 'bg-slate-700 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <span>🎴 การ์ดปกติ</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCardRatio('story916')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all ${
+                cardRatio === 'story916'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-purple-900/40'
+                  : 'text-purple-300 hover:text-white'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5 text-pink-300" />
+              <span>สตอรี่ 9:16</span>
+              <span className="text-[9px] px-1.5 py-0.2 bg-amber-400 text-slate-950 rounded-full font-extrabold">
+                HD
+              </span>
+            </button>
+          </div>
+
+          {/* Display Mode: Private vs Social */}
+          <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-full border border-slate-800 shadow-md">
+            <button
+              type="button"
+              onClick={() => setDisplayMode('private')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                displayMode === 'private'
+                  ? 'bg-amber-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>ส่วนตัว (QR จริง)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDisplayMode('social')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                displayMode === 'social'
+                  ? 'bg-purple-600 text-white font-bold shadow-md shadow-purple-600/30'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>แชร์โซเชียล</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -257,11 +363,33 @@ export const GhostCardView: React.FC<Props> = ({
           transition: 'transform 0.15s ease-out',
         }}
         className={`relative w-full ${
-          compact ? 'max-w-xs' : 'max-w-sm sm:max-w-md'
-        } rounded-2xl overflow-hidden bg-gradient-to-b from-[#181329] via-[#0f0b1c] to-[#0a0714] border-2 ${
+          cardRatio === 'story916'
+            ? 'aspect-[9/16] max-w-[340px] sm:max-w-[375px] flex flex-col justify-between'
+            : compact
+            ? 'max-w-xs'
+            : 'max-w-sm sm:max-w-md'
+        } rounded-2xl sm:rounded-3xl overflow-hidden bg-gradient-to-b from-[#181329] via-[#0f0b1c] to-[#0a0714] border-2 ${
           rarityConfig.borderClass
-        } ${rarityConfig.glow} ${levelInfo.accentBorder} p-4 sm:p-5 select-none transition-all duration-300`}
+        } ${rarityConfig.glow} ${levelInfo.accentBorder} p-3.5 sm:p-5 select-none transition-all duration-300`}
       >
+        {/* Story 9:16 Simulated Top Progress Indicators */}
+        {cardRatio === 'story916' && (
+          <div className="relative z-20 w-full mb-1">
+            <div className="flex gap-1 mb-1.5">
+              <div className="h-1 flex-1 bg-amber-400/90 rounded-full" />
+              <div className="h-1 flex-1 bg-white/30 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-slate-300 px-0.5">
+              <span className="flex items-center gap-1 text-amber-400 font-bold font-mono">
+                <Smartphone className="w-3 h-3" />
+                <span>9:16 STORY MODE</span>
+              </span>
+              <span className="text-[9px] text-pink-300 bg-pink-950/80 px-2 py-0.5 rounded-full border border-pink-500/40">
+                IG / FB Story Ready
+              </span>
+            </div>
+          </div>
+        )}
         {/* Background Atmospheric Watermark and Glow */}
         <div
           className="absolute -top-24 -right-24 w-60 h-60 rounded-full blur-3xl pointer-events-none opacity-25"
@@ -335,43 +463,163 @@ export const GhostCardView: React.FC<Props> = ({
             ธา ๛
           </span>
 
-          {/* Realism Art Mode Switcher */}
-          <div className="relative z-10 flex items-center justify-between w-full px-1 mb-2">
-            <div className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-300">
+          {/* Realism Art Mode Switcher & Custom Image Actions */}
+          <div className="relative z-10 flex flex-wrap items-center justify-between w-full px-1 mb-2 gap-1.5">
+            <div className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold text-amber-300">
               <Sparkles className="w-3 h-3 text-amber-400" />
-              <span>ภาพการ์ดเสมือนจริง</span>
+              <span>ภาพการ์ด</span>
+              {card.customImageUrl && (
+                <span className="text-[9px] px-1.5 py-0.2 bg-emerald-950 text-emerald-300 border border-emerald-500/50 rounded-full font-mono">
+                  ภาพที่อัปโหลด
+                </span>
+              )}
             </div>
-            <div className="inline-flex p-0.5 rounded-lg bg-black/85 border border-slate-700/80 text-[9px] sm:text-[10px]">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setArtMode('realistic');
-                }}
-                className={`px-2 py-0.5 rounded-md font-bold transition-all ${
-                  artMode === 'realistic'
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                📸 เสมือนจริง
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setArtMode('talisman');
-                }}
-                className={`px-2 py-0.5 rounded-md font-bold transition-all ${
-                  artMode === 'talisman'
-                    ? 'bg-purple-600 text-white shadow-md font-extrabold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                🔮 ยันต์โบราณ
-              </button>
+
+            <div className="inline-flex items-center gap-1">
+              <div className="inline-flex p-0.5 rounded-lg bg-black/85 border border-slate-700/80 text-[9px] sm:text-[10px]">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setArtMode('realistic');
+                  }}
+                  className={`px-2 py-0.5 rounded-md font-bold transition-all ${
+                    artMode === 'realistic'
+                      ? 'bg-amber-500 text-slate-950 shadow-md font-extrabold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  📸 เสมือนจริง
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setArtMode('talisman');
+                  }}
+                  className={`px-2 py-0.5 rounded-md font-bold transition-all ${
+                    artMode === 'talisman'
+                      ? 'bg-purple-600 text-white shadow-md font-extrabold'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  🔮 ยันต์โบราณ
+                </button>
+              </div>
+
+              {/* Upload image button & URL option */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+                id={`card-upload-${card.cardId}`}
+              />
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  title="อัปโหลดรูปภาพจากอุปกรณ์"
+                  className="px-2 py-0.5 rounded-md bg-red-950/80 hover:bg-red-900 border border-red-500/60 text-red-200 text-[9px] sm:text-[10px] font-bold flex items-center gap-1 shadow-sm transition-colors"
+                >
+                  <Upload className="w-2.5 h-2.5 text-amber-400" />
+                  <span>{isUploading ? 'กำลังโหลด...' : 'ใส่รูปแทน'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowUrlModal(true);
+                  }}
+                  title="ใส่ URL ลิงก์รูปภาพโดยตรง"
+                  className="p-1 rounded-md bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[9px] border border-slate-700 transition-colors"
+                >
+                  <LinkIcon className="w-2.5 h-2.5 text-amber-400" />
+                </button>
+
+                {card.customImageUrl && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleResetImage();
+                    }}
+                    title="รีเซ็ตเป็นภาพวาดดั้งเดิม"
+                    className="p-1 rounded-md bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-[9px] transition-colors"
+                  >
+                    <RefreshCw className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* URL Input Modal */}
+          {showUrlModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+              onClick={() => setShowUrlModal(false)}
+            >
+              <div
+                className="w-full max-w-sm p-5 rounded-2xl bg-slate-900 border border-amber-500/40 space-y-4 shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                    <LinkIcon className="w-4 h-4 text-amber-400" />
+                    ใส่ URL รูปภาพแทนภาพผี
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => setShowUrlModal(false)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <form onSubmit={handleUrlSubmit} className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">
+                      URL ของรูปภาพ (เช่น https://...):
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      value={customUrlInput}
+                      onChange={(e) => setCustomUrlInput(e.target.value)}
+                      placeholder="https://example.com/photo.jpg"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowUrlModal(false)}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-md transition-colors"
+                    >
+                      บันทึกรูป
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {uploadError && (
+            <div className="relative z-10 w-full mb-2 p-1.5 rounded bg-red-950/90 border border-red-500/60 text-red-200 text-[10px] text-center">
+              {uploadError}
+            </div>
+          )}
 
           {/* Ghost Realistic Portrait Artwork */}
           <div className="relative py-1 flex items-center justify-center">
@@ -379,6 +627,7 @@ export const GhostCardView: React.FC<Props> = ({
               speciesId={card.speciesId}
               scaryLevel={card.level}
               mode={artMode}
+              customImageUrl={card.customImageUrl}
               className="w-48 h-64 sm:w-56 sm:h-72"
             />
 
@@ -585,36 +834,65 @@ export const GhostCardView: React.FC<Props> = ({
 
       {/* Action Toolbar Below Card */}
       {!compact && (
-        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mt-4 w-full max-w-sm sm:max-w-md">
+        <div className="flex flex-col gap-2 mt-4 w-full max-w-sm sm:max-w-md">
+          {/* Real Story Sharing Button (Web Share API + 9:16 HD) */}
           <button
             type="button"
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-semibold rounded-xl border border-slate-700 shadow-md transition-colors"
+            onClick={() => setIsStoryModalOpen(true)}
+            className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:from-purple-500 hover:to-amber-400 text-white font-bold text-xs sm:text-sm shadow-xl shadow-purple-950/50 border border-purple-400/40 flex items-center justify-center gap-2 transition-all transform active:scale-[0.99] group"
           >
-            <Download className="w-4 h-4 text-amber-400" />
-            {isDownloading ? 'กำลังสร้างรูปภาพ...' : 'ดาวน์โหลดการ์ด'}
+            <Smartphone className="w-4 h-4 text-amber-200 group-hover:scale-110 transition-transform" />
+            <span>แชร์ไปสตอรี่ (Story 9:16)</span>
+            <span className="text-[10px] bg-black/40 text-amber-300 px-2 py-0.5 rounded-full font-mono font-bold">
+              IG • FB • TikTok
+            </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setDisplayMode('social');
-              if (onShare) onShare();
-              else {
-                navigator.clipboard?.writeText(
-                  `ฉันได้การ์ด "${species.name}" (ระดับ ${card.rarity} - LV.${card.level}) ในงาน FSS Halloween Fancy Run 2026! มาค้นหาผีของคุณกัน: ${window.location.origin}`
-                );
-                alert('คัดลอกข้อความแชร์พร้อมลิงก์เรียบร้อยแล้ว!');
-              }
-            }}
-            className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-lg shadow-purple-900/30 transition-all"
-          >
-            <Share2 className="w-4 h-4" />
-            แชร์ลงโซเชียล
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs sm:text-sm font-semibold rounded-xl border border-slate-700 shadow-md transition-colors"
+            >
+              <Download className="w-4 h-4 text-amber-400" />
+              <span>
+                {isDownloading
+                  ? 'กำลังสร้าง...'
+                  : cardRatio === 'story916'
+                  ? 'ดาวน์โหลด 9:16 HD'
+                  : 'ดาวน์โหลดการ์ด'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setDisplayMode('social');
+                if (onShare) onShare();
+                else {
+                  navigator.clipboard?.writeText(
+                    `ฉันได้การ์ด "${species.name}" (ระดับ ${card.rarity} - LV.${card.level}) ในงาน FSS Halloween Fancy Run 2026! มาค้นหาผีของคุณกัน: ${window.location.origin}`
+                  );
+                  alert('คัดลอกข้อความแชร์พร้อมลิงก์เรียบร้อยแล้ว!');
+                }
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white text-xs sm:text-sm font-semibold rounded-xl border border-slate-700 shadow-md transition-all"
+            >
+              <Share2 className="w-4 h-4 text-purple-400" />
+              <span>แชร์ข้อความ/ลิงก์</span>
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Story 9:16 Share & Download Modal */}
+      <GhostStoryModal
+        isOpen={isStoryModalOpen}
+        onClose={() => setIsStoryModalOpen(false)}
+        card={card}
+        artMode={artMode}
+      />
     </div>
   );
 };

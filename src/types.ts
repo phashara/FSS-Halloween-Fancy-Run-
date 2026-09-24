@@ -13,7 +13,7 @@ export type GhostSpeciesId =
   | 'headless'
   | 'nangram'
   | 'phiphong'
-  | 'phiruen';
+  | 'phi_am';
 
 export interface GhostCardStats {
   spookiness: number; // ความหลอน
@@ -35,6 +35,7 @@ export interface GhostSpecies {
   element: string;
   baseStats: GhostCardStats;
   avatarSvg: string;
+  customImageUrl?: string;
   lore: string;
 }
 
@@ -52,24 +53,57 @@ export interface GhostCard {
   unlockedAtLv2?: string;
   unlockedAtLv3?: string;
   customQuote?: string;
+  customImageUrl?: string;
 }
 
 export type RegistrationType = 'RUN_FREE' | 'RUN_AND_SHIRT' | 'SHIRT_ONLY';
+
+export type ParticipantCategory = 'student' | 'alumni' | 'staff' | 'general';
+export type StudentYear = '1' | '2' | '3' | '4' | '>4';
+export type ParticipantGender = 'female' | 'male' | 'unspecified' | 'nonbinary';
 
 export interface RunnerRegistration {
   regId: string; // e.g. "REG-1042"
   bibNumber?: string; // e.g. "BIB-5088"
   regType: RegistrationType;
+  // 1. ชื่อภาษาไทย
+  nameThai: string;
+  // 2. ชื่อภาษาอังกฤษ
+  nameEng: string;
+  // Fallback / Combined full name
   fullName: string;
+  // 3. ชื่อเล่น
   nickname: string;
+  // 4. เพศ: หญิง | ชาย | ไม่ระบุเพศ
+  gender: ParticipantGender;
+  // 5. อายุ & วันเดือนปีเกิด ค.ศ. เช่น 01/09/2026
   age: number;
-  gender: 'male' | 'female' | 'nonbinary' | 'unspecified';
+  birthDate?: string; // e.g. "01/09/2002"
+  birthDay?: string;
+  birthMonth?: string;
+  birthYear?: string;
+  // 6. ประเภทผู้สมัคร
+  participantCategory?: ParticipantCategory; // นิสิต | ศิษย์เก่า | บุคลากร | บุคคลทั่วไป
+  studentYear?: StudentYear; // 1 | 2 | 3 | 4 | >4
+  studentId?: string; // รหัสนิสิต
+  facultyGroup?: string; // กลุ่มวิทยาศาสตร์สุขภาพ, วิทยาศาสตร์และเทคโนโลยี, มนุษยศาสตร์และสังคมศาสตร์
+  faculty?: string; // คณะ
+  staffDepartmentGroup?: string; // สำนักงานอธิการบดี, หน่วยงานบริการวิชาการ, คณะและวิทยาลัย, โรงเรียนสาธิต
+  staffDepartment?: string; // สังกัด/กอง/สำนัก
+  // 7. เบอร์โทรผู้สมัคร
   phone: string;
   email: string;
   province: string;
   organization?: string;
+  // 8. ผู้ติดต่อฉุกเฉิน
   emergencyContactName: string;
   emergencyContactPhone: string;
+  emergencyContactRelation?: string; // ความเกี่ยวข้อง เช่น บิดา/มารดา, คู่สมรส, ญาติ, เพื่อน
+  // 9. รับรู้ข่าวสารจากไหน: Facebook ig tiktok เว็บไซต์ โปสเตอร์เชิญชวน
+  infoSource?: string;
+  // 10. สนใจซื้อเสื้อไหม yes / No
+  interestedInShirt?: 'yes' | 'no';
+  // Additional safety & details
   medicalConditions?: string;
   teamName?: string;
   displayNameType: 'fullName' | 'nickname' | 'teamName' | 'anonymous';

@@ -26,7 +26,7 @@ export const GHOST_QUIZ_QUESTIONS: QuizQuestion[] = [
       {
         text: 'ตั้งสติ แผ่เมตตา แล้วเดินต่อไปแบบสุภาพชน',
         description: 'สายซัพพอร์ต จิตใจสงบนิ่ง ปลอดภัยไว้ก่อน',
-        biasSpecies: ['tani', 'phiruen', 'nangram'],
+        biasSpecies: ['tani', 'nangram'],
         statBoost: { hauntingAura: 7, latentPower: 5 },
       },
     ],
@@ -38,7 +38,7 @@ export const GHOST_QUIZ_QUESTIONS: QuizQuestion[] = [
       {
         text: 'กลางดงกล้วยตานี หรือใต้ต้นไม้ใหญ่ร่มรื่น',
         description: 'บรรยากาศเขียวขจี เงียบสงบแต่น่าขนลุกเบาๆ',
-        biasSpecies: ['tani', 'phiruen'],
+        biasSpecies: ['tani', 'kongkoi'],
         statBoost: { stealth: 8, latentPower: 5 },
       },
       {
@@ -68,7 +68,7 @@ export const GHOST_QUIZ_QUESTIONS: QuizQuestion[] = [
       {
         text: 'ลุยเดี่ยวแบบฉลุย เงียบกริบ ไร้ร่องรอย',
         description: 'อิสระสูงสุด คล่องตัว ไม่มีใครมาถ่วงความเร็ว',
-        biasSpecies: ['krasue', 'headless', 'kongkoi'],
+        biasSpecies: ['krasue', 'headless', 'kongkoi', 'phi_am'],
         statBoost: { speed: 8, stealth: 6 },
       },
       {
@@ -80,7 +80,7 @@ export const GHOST_QUIZ_QUESTIONS: QuizQuestion[] = [
       {
         text: 'คอยประคองคนข้างหลัง ช่วยเพื่อนร่วมทีมเข้าเส้นชัย',
         description: 'สายซัพพอร์ตตัวจริง วิ่งไม่ทิ้งใครไว้ข้างหลัง',
-        biasSpecies: ['tani', 'maenak', 'phiruen'],
+        biasSpecies: ['tani', 'maenak'],
         statBoost: { hauntingAura: 8, latentPower: 7 },
       },
       {
@@ -116,7 +116,7 @@ export const GHOST_QUIZ_QUESTIONS: QuizQuestion[] = [
       {
         text: 'พลังแห่งความเมตตาและรอยยิ้ม สะกดให้ทุกคนหลีกทางให้',
         description: 'ออร่าบริสุทธิ์ ชวนให้ทุกคนเอ็นดูและส่งเสียงเชียร์',
-        biasSpecies: ['tani', 'kuman', 'phiruen', 'nangram'],
+        biasSpecies: ['tani', 'kuman', 'nangram'],
         statBoost: { hauntingAura: 8, stealth: 7 },
       },
     ],
@@ -134,7 +134,7 @@ export const GHOST_QUIZ_QUESTIONS: QuizQuestion[] = [
       {
         text: '"ชวนเขามากินกล้วยกับน้ำเกลือแร่ด้วยกันสิ เผื่อเขาเหนื่อย"',
         description: 'สายมิตรภาพ แบ่งปันน้ำใจแม้กระทั่งกับวิญญาณ',
-        biasSpecies: ['tani', 'phiruen'],
+        biasSpecies: ['tani', 'kuman'],
         statBoost: { latentPower: 8, hauntingAura: 5 },
       },
       {
@@ -164,7 +164,7 @@ export const GHOST_QUIZ_QUESTIONS: QuizQuestion[] = [
       {
         text: 'วิ่งสลับเดิน ชมวิว ฟังเพลง ชมนกชมไม้',
         description: 'เน้นสุขภาพกายและใจ ถ่ายรูปเซลฟี่ทุกหลักกิโล',
-        biasSpecies: ['tani', 'phiruen', 'nangram'],
+        biasSpecies: ['tani', 'nangram'],
         statBoost: { stealth: 8, hauntingAura: 6 },
       },
       {
@@ -206,7 +206,7 @@ export const GHOST_QUIZ_QUESTIONS: QuizQuestion[] = [
       {
         text: 'มองเงาตัวเองในกระจก แล้วเห็นเงาไม่ยอมก้มตาม',
         description: 'จิตสัมผัสความลี้ลับที่ไม่มีคำอธิบายทางวิทยาศาสตร์',
-        biasSpecies: ['pret', 'kongkoi', 'phiruen'],
+        biasSpecies: ['pret', 'kongkoi', 'headless', 'phi_am'],
         statBoost: { hauntingAura: 9, latentPower: 7 },
       },
     ],

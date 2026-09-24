@@ -16,14 +16,33 @@ import {
   Plus,
   Minus,
   Trash2,
+  GraduationCap,
+  Building2,
+  Phone,
+  Calendar,
+  Radio,
+  Share2,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { GHOST_QUIZ_QUESTIONS } from '../data/quiz';
-import { GhostCard, RegistrationType, ShirtSize } from '../types';
+import {
+  GhostCard,
+  ParticipantCategory,
+  ParticipantGender,
+  RegistrationType,
+  ShirtSize,
+  StudentYear,
+} from '../types';
 import { CardPackRevealModal } from '../components/CardPackRevealModal';
 import { EditableText } from '../components/EditableText';
 import { OfficialShirtImage } from '../components/OfficialShirtImage';
 import { compressImage } from '../lib/imageCompressor';
+import {
+  FACULTY_GROUPS,
+  STAFF_DEPARTMENT_GROUPS,
+  INFO_SOURCES,
+  MONTH_NAMES_THAI,
+} from '../data/nuDepartments';
 
 const SHIRT_SIZES_OPTIONS: { size: ShirtSize; chest: string }[] = [
   { size: 'XS', chest: '34"' },
@@ -34,6 +53,9 @@ const SHIRT_SIZES_OPTIONS: { size: ShirtSize; chest: string }[] = [
   { size: '2XL', chest: '44"' },
   { size: '3XL', chest: '48"' },
 ];
+
+const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1).padStart(2, '0'));
+const YEARS = Array.from({ length: 80 }, (_, i) => String(2026 - i));
 
 interface Props {
   initialType?: RegistrationType;
@@ -46,20 +68,85 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [regType, setRegType] = useState<RegistrationType>(initialType);
 
-  // Runner info form state
-  const [fullName, setFullName] = useState('');
+  // 1. ชื่อภาษาไทย
+  const [nameThai, setNameThai] = useState('');
+  // 2. ชื่อภาษาอังกฤษ
+  const [nameEng, setNameEng] = useState('');
+  // 3. ชื่อเล่น
   const [nickname, setNickname] = useState('');
-  const [age, setAge] = useState<number>(25);
-  const [gender, setGender] = useState<'male' | 'female' | 'nonbinary' | 'unspecified'>('female');
+  // 4. เพศ dropdown: หญิง | ชาย | ไม่ระบุเพศ
+  const [gender, setGender] = useState<ParticipantGender>('female');
+
+  // 5. อายุ dropdown: วัน เดือน ปี เกิด แบบ ค.ศ. เช่น 01/09/2026
+  const [birthDay, setBirthDay] = useState('01');
+  const [birthMonth, setBirthMonth] = useState('09');
+  const [birthYear, setBirthYear] = useState('2002');
+  const [age, setAge] = useState<number>(24);
+
+  // 6. ประเภทให้เลือก: นิสิต | ศิษย์เก่า | บุคลากร | บุคคลทั่วไป
+  const [participantCategory, setParticipantCategory] = useState<ParticipantCategory>('student');
+  const [studentYear, setStudentYear] = useState<StudentYear>('1');
+  const [studentId, setStudentId] = useState('');
+  const [faculty, setFaculty] = useState('คณะแพทยศาสตร์');
+  const [staffDepartment, setStaffDepartment] = useState(
+    'กองกลาง (งานสารบรรณ, การประชุม, ยานพาหนะ, ประชาสัมพันธ์)'
+  );
+
+  // 7. เบอร์โทรผู้สมัคร
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [province, setProvince] = useState('กรุงเทพมหานคร');
+  const [province, setProvince] = useState('พิษณุโลก');
   const [organization, setOrganization] = useState('');
+
+  // 8. ข้อมูลผู้ติดต่อฉุกเฉิน
   const [emergencyContactName, setEmergencyContactName] = useState('');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
+  const [emergencyContactRelation, setEmergencyContactRelation] = useState('มารดา');
+
+  // 9. รับรู้ข่าวสารจากไหน: Facebook | ig | tiktok | เว็บไซต์ | โปสเตอร์เชิญชวน
+  const [infoSource, setInfoSource] = useState<string>('Facebook');
+
+  // 10. สนใจซื้อเสื้อไหม: yes | No (Radio button)
+  const [interestedInShirt, setInterestedInShirt] = useState<'yes' | 'no'>(
+    initialType === 'RUN_AND_SHIRT' || initialType === 'SHIRT_ONLY' ? 'yes' : 'no'
+  );
+
   const [medicalConditions, setMedicalConditions] = useState('');
   const [teamName, setTeamName] = useState('');
   const [displayNameType, setDisplayNameType] = useState<'fullName' | 'nickname' | 'teamName' | 'anonymous'>('nickname');
+
+  // Calculate age when birth date changes
+  const handleBirthDateChange = (d: string, m: string, y: string) => {
+    setBirthDay(d);
+    setBirthMonth(m);
+    setBirthYear(y);
+
+    const dayNum = parseInt(d, 10);
+    const monthNum = parseInt(m, 10);
+    const yearNum = parseInt(y, 10);
+    if (dayNum && monthNum && yearNum) {
+      const today = new Date();
+      let calculatedAge = today.getFullYear() - yearNum;
+      const mDiff = today.getMonth() + 1 - monthNum;
+      if (mDiff < 0 || (mDiff === 0 && today.getDate() < dayNum)) {
+        calculatedAge--;
+      }
+      setAge(Math.max(0, calculatedAge));
+    }
+  };
+
+  const handleShirtInterestChange = (val: 'yes' | 'no') => {
+    setInterestedInShirt(val);
+    if (val === 'yes') {
+      if (regType === 'RUN_FREE') {
+        setRegType('RUN_AND_SHIRT');
+      }
+    } else {
+      if (regType === 'RUN_AND_SHIRT') {
+        setRegType('RUN_FREE');
+      }
+    }
+  };
 
   // Minor
   const isMinor = age < 18;
@@ -114,22 +201,58 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
 
   const handleStep2Next = () => {
     setErrorMsg('');
-    if (!fullName.trim()) {
-      setErrorMsg('กรุณากรอกชื่อ-นามสกุลจริง');
+    if (!nameThai.trim()) {
+      setErrorMsg('กรุณากรอก 1. ชื่อภาษาไทย');
+      return;
+    }
+    if (!nameEng.trim()) {
+      setErrorMsg('กรุณากรอก 2. ชื่อภาษาอังกฤษ');
       return;
     }
     if (!nickname.trim()) {
-      setErrorMsg('กรุณากรอกชื่อเล่นสำหรับการทำการ์ด');
+      setErrorMsg('กรุณากรอก 3. ชื่อเล่นสำหรับการทำการ์ด');
       return;
     }
     if (!phone.trim() || phone.length < 9) {
-      setErrorMsg('กรุณากรอกเบอร์โทรศัพท์ที่ถูกต้อง');
+      setErrorMsg('กรุณากรอก 7. เบอร์โทรผู้สมัครที่ถูกต้อง');
       return;
     }
+
+    // Category specific validations
+    if (participantCategory === 'student') {
+      if (!studentId.trim()) {
+        setErrorMsg('กรุณากรอกรหัสนิสิต');
+        return;
+      }
+      if (!faculty) {
+        setErrorMsg('กรุณาเลือกคณะ');
+        return;
+      }
+    } else if (participantCategory === 'alumni') {
+      if (!studentId.trim()) {
+        setErrorMsg('กรุณากรอกรหัสนิสิต (ศิษย์เก่า)');
+        return;
+      }
+      if (!faculty) {
+        setErrorMsg('กรุณาเลือกคณะ');
+        return;
+      }
+    } else if (participantCategory === 'staff') {
+      if (!staffDepartment) {
+        setErrorMsg('กรุณาเลือกสังกัด/หน่วยงานของบุคลากร');
+        return;
+      }
+    }
+
     if (!emergencyContactName.trim() || !emergencyContactPhone.trim()) {
-      setErrorMsg('กรุณาระบุชื่อและเบอร์ติดต่อกรณีฉุกเฉินเพื่อความปลอดภัย');
+      setErrorMsg('กรุณากรอก 8. ชื่อและเบอร์โทรผู้ติดต่อฉุกเฉินเพื่อความปลอดภัย');
       return;
     }
+    if (!emergencyContactRelation.trim()) {
+      setErrorMsg('กรุณาระบุความเกี่ยวข้องของผู้ติดต่อฉุกเฉิน');
+      return;
+    }
+
     if (isMinor && (!guardianName.trim() || !guardianPhone.trim())) {
       setErrorMsg('ผู้สมัครอายุต่ำกว่า 18 ปี ต้องระบุชื่อและเบอร์โทรผู้ปกครอง');
       return;
@@ -139,7 +262,7 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
       return;
     }
 
-    if (regType === 'RUN_AND_SHIRT' || regType === 'SHIRT_ONLY') {
+    if (interestedInShirt === 'yes' || regType === 'RUN_AND_SHIRT' || regType === 'SHIRT_ONLY') {
       setStep(3); // Go to shirt & payment
     } else {
       setStep(4); // Free run goes directly to quiz
@@ -172,18 +295,45 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
   };
 
   const handleSubmitRegistration = (finalAnswers = quizAnswers) => {
+    const birthDateFormatted = `${birthDay}/${birthMonth}/${birthYear}`;
+    const selectedFacultyGroup = FACULTY_GROUPS.find((g) => g.faculties.includes(faculty))?.groupName;
+    const selectedStaffGroup = STAFF_DEPARTMENT_GROUPS.find((g) => g.departments.includes(staffDepartment))?.groupName;
+
+    const computedOrg =
+      participantCategory === 'student' || participantCategory === 'alumni'
+        ? `${faculty} (มหาวิทยาลัยนเรศวร)`
+        : participantCategory === 'staff'
+        ? staffDepartment
+        : organization.trim() || 'บุคคลทั่วไป';
+
     const { runner, card } = registerParticipant({
-      regType,
-      fullName,
-      nickname,
+      regType: interestedInShirt === 'yes' && regType === 'RUN_FREE' ? 'RUN_AND_SHIRT' : regType,
+      fullName: nameThai.trim(),
+      nameThai: nameThai.trim(),
+      nameEng: nameEng.trim(),
+      nickname: nickname.trim(),
       age: Number(age),
       gender,
-      phone,
-      email,
-      province,
-      organization,
-      emergencyContactName,
-      emergencyContactPhone,
+      birthDate: birthDateFormatted,
+      birthDay,
+      birthMonth,
+      birthYear,
+      participantCategory,
+      studentYear: participantCategory === 'student' ? studentYear : undefined,
+      studentId: participantCategory === 'student' || participantCategory === 'alumni' ? studentId.trim() : undefined,
+      facultyGroup: participantCategory === 'student' || participantCategory === 'alumni' ? selectedFacultyGroup : undefined,
+      faculty: participantCategory === 'student' || participantCategory === 'alumni' ? faculty : undefined,
+      staffDepartmentGroup: participantCategory === 'staff' ? selectedStaffGroup : undefined,
+      staffDepartment: participantCategory === 'staff' ? staffDepartment : undefined,
+      phone: phone.trim(),
+      email: email.trim(),
+      province: province.trim(),
+      organization: computedOrg,
+      emergencyContactName: emergencyContactName.trim(),
+      emergencyContactPhone: emergencyContactPhone.trim(),
+      emergencyContactRelation: emergencyContactRelation.trim(),
+      infoSource,
+      interestedInShirt,
       medicalConditions,
       teamName,
       displayNameType,
@@ -193,12 +343,12 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
       agreedTerms,
       agreedPhotoRelease,
       agreedDataPolicy,
-      shirtSize: regType !== 'RUN_FREE' ? shirtSizes[0] || 'L' : undefined,
-      shirtSizes: regType !== 'RUN_FREE' ? shirtSizes : undefined,
-      shirtQuantity: regType !== 'RUN_FREE' ? shirtQuantity : undefined,
+      shirtSize: interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? shirtSizes[0] || 'L' : undefined,
+      shirtSizes: interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? shirtSizes : undefined,
+      shirtQuantity: interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? shirtQuantity : undefined,
       deliveryMethod: 'pickup_event',
       shippingAddress: undefined,
-      slipImage: regType !== 'RUN_FREE' ? slipImage : undefined,
+      slipImage: interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? slipImage : undefined,
       quizAnswers: finalAnswers,
     });
 
@@ -387,28 +537,44 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
           </div>
 
           <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
-            {/* Identity Group */}
+            {/* Section 1: ข้อมูลส่วนตัว (1-5) */}
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
-                <User className="w-4 h-4" /> 1. ข้อมูลส่วนตัว
+                <User className="w-4 h-4" /> ข้อมูลส่วนบุคคล (1 - 5)
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 1. ชื่อภาษาไทย */}
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">
-                    ชื่อ-นามสกุลจริง (สำหรับประกันอุบัติเหตุ) *
+                    1. ชื่อภาษาไทย *
                   </label>
                   <input
                     type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="เช่น สมชาย ใจกล้า"
+                    value={nameThai}
+                    onChange={(e) => setNameThai(e.target.value)}
+                    placeholder="เช่น นายสมชาย ใจกล้า"
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
                   />
                 </div>
 
+                {/* 2. ชื่อภาษาอังกฤษ */}
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">
-                    ชื่อเล่น (จะแสดงบนหน้าการ์ดผี) *
+                    2. ชื่อภาษาอังกฤษ *
+                  </label>
+                  <input
+                    type="text"
+                    value={nameEng}
+                    onChange={(e) => setNameEng(e.target.value)}
+                    placeholder="เช่น Mr. Somchai Jaikla"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* 3. ชื่อเล่น */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    3. ชื่อเล่น (จะปรากฏบนการ์ดวิญญาณผี) *
                   </label>
                   <input
                     type="text"
@@ -420,133 +586,474 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
                   />
                 </div>
 
+                {/* 4. เพศ */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">อายุ (ปี) *</label>
-                  <input
-                    type="number"
-                    value={age}
-                    min={5}
-                    max={99}
-                    onChange={(e) => setAge(Number(e.target.value))}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">เพศ</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    4. เพศ *
+                  </label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value as any)}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
                   >
-                    <option value="male">ชาย</option>
                     <option value="female">หญิง</option>
-                    <option value="nonbinary">Non-binary / ความหลากหลาย</option>
-                    <option value="unspecified">ไม่ระบุ</option>
+                    <option value="male">ชาย</option>
+                    <option value="unspecified">ไม่ระบุเพศ</option>
                   </select>
                 </div>
 
+                {/* 5. อายุ dropdown ไปที่ เลือกวัน เดือน ปี เกิด แบบ ค.ศ. เช่น 01/09/2026 */}
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="block text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" /> 5. อายุ (เลือกวัน เดือน ปี เกิด แบบ ค.ศ. เช่น 01/09/2026) *
+                    </label>
+                    <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 font-mono font-bold border border-amber-500/30">
+                      วันเกิด: {birthDay}/{birthMonth}/{birthYear} (อายุคำนวณได้: {age} ปี)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
+                    <div>
+                      <span className="text-[10px] text-slate-400 block mb-1">วัน (01 - 31)</span>
+                      <select
+                        value={birthDay}
+                        onChange={(e) => handleBirthDateChange(e.target.value, birthMonth, birthYear)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm font-mono focus:border-amber-400 focus:outline-none"
+                      >
+                        {DAYS.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 block mb-1">เดือน (ม.ค. - ธ.ค.)</span>
+                      <select
+                        value={birthMonth}
+                        onChange={(e) => handleBirthDateChange(birthDay, e.target.value, birthYear)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                      >
+                        {MONTH_NAMES_THAI.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] text-slate-400 block mb-1">ปีเกิด ค.ศ.</span>
+                      <select
+                        value={birthYear}
+                        onChange={(e) => handleBirthDateChange(birthDay, birthMonth, e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm font-mono focus:border-amber-400 focus:outline-none"
+                      >
+                        {YEARS.map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: ประเภทให้เลือก (6) */}
+            <div className="space-y-4 pt-4 border-t border-slate-800">
+              <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <GraduationCap className="w-4 h-4" /> 6. ประเภทผู้สมัคร & สังกัด
+              </h3>
+              
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  ประเภทให้เลือก *
+                </label>
+                <select
+                  value={participantCategory}
+                  onChange={(e) => setParticipantCategory(e.target.value as ParticipantCategory)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-amber-400 font-bold text-sm focus:border-amber-400 focus:outline-none"
+                >
+                  <option value="student">นิสิต (มหาวิทยาลัยนเรศวร)</option>
+                  <option value="alumni">ศิษย์เก่า (มหาวิทยาลัยนเรศวร)</option>
+                  <option value="staff">บุคลากร (มหาวิทยาลัยนเรศวร)</option>
+                  <option value="general">บุคคลทั่วไป</option>
+                </select>
+              </div>
+
+              {/* Sub-fields for: นิสิต */}
+              {participantCategory === 'student' && (
+                <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                    <GraduationCap className="w-4 h-4" /> ข้อมูลเฉพาะสำหรับนิสิต ม.นเรศวร
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">
+                        ชั้นปี *
+                      </label>
+                      <select
+                        value={studentYear}
+                        onChange={(e) => setStudentYear(e.target.value as StudentYear)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                      >
+                        <option value="1">ชั้นปี 1</option>
+                        <option value="2">ชั้นปี 2</option>
+                        <option value="3">ชั้นปี 3</option>
+                        <option value="4">ชั้นปี 4</option>
+                        <option value=">4">มากกว่า 4</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">
+                        รหัสนิสิต *
+                      </label>
+                      <input
+                        type="text"
+                        value={studentId}
+                        onChange={(e) => setStudentId(e.target.value)}
+                        placeholder="เช่น 65312345"
+                        maxLength={12}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm font-mono focus:border-amber-400 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] text-slate-300 mb-1">
+                        คณะ / วิทยาลัย (3 กลุ่มสังกัด) *
+                      </label>
+                      <select
+                        value={faculty}
+                        onChange={(e) => setFaculty(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                      >
+                        {FACULTY_GROUPS.map((group) => (
+                          <optgroup key={group.groupName} label={`--- ${group.groupName} ---`}>
+                            {group.faculties.map((f) => (
+                              <option key={f} value={f}>
+                                {f}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-fields for: ศิษย์เก่า */}
+              {participantCategory === 'alumni' && (
+                <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                    <GraduationCap className="w-4 h-4" /> ข้อมูลเฉพาะสำหรับศิษย์เก่า ม.นเรศวร
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">
+                        รหัสนิสิตเดิม *
+                      </label>
+                      <input
+                        type="text"
+                        value={studentId}
+                        onChange={(e) => setStudentId(e.target.value)}
+                        placeholder="เช่น 58312345"
+                        maxLength={12}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm font-mono focus:border-amber-400 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">
+                        คณะที่สำเร็จการศึกษา *
+                      </label>
+                      <select
+                        value={faculty}
+                        onChange={(e) => setFaculty(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                      >
+                        {FACULTY_GROUPS.map((group) => (
+                          <optgroup key={group.groupName} label={`--- ${group.groupName} ---`}>
+                            {group.faculties.map((f) => (
+                              <option key={f} value={f}>
+                                {f}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-fields for: บุคลากร */}
+              {participantCategory === 'staff' && (
+                <div className="p-4 rounded-2xl bg-blue-950/20 border border-blue-500/30 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-blue-400">
+                    <Building2 className="w-4 h-4" /> สังกัด / หน่วยงาน (บุคลากร ม.นเรศวร)
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">
+                      เลือกหน่วยงาน / กอง / สำนัก / คณะ / โรงเรียนสาธิต *
+                    </label>
+                    <select
+                      value={staffDepartment}
+                      onChange={(e) => setStaffDepartment(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                    >
+                      {STAFF_DEPARTMENT_GROUPS.map((grp) => (
+                        <optgroup key={grp.groupName} label={`--- ${grp.groupName} ---`}>
+                          {grp.departments.map((dep) => (
+                            <option key={dep} value={dep}>
+                              {dep}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Sub-fields for: บุคคลทั่วไป */}
+              {participantCategory === 'general' && (
+                <div className="p-4 rounded-2xl bg-slate-950/40 border border-slate-800 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">
+                        สังกัด / บริษัท / ชมรมวิ่ง (ถ้ามี)
+                      </label>
+                      <input
+                        type="text"
+                        value={organization}
+                        onChange={(e) => setOrganization(e.target.value)}
+                        placeholder="เช่น ชมรมวิ่งมิดไนท์ หรือ บริษัท ABC"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-300 mb-1">จังหวัดที่อยู่</label>
+                      <input
+                        type="text"
+                        value={province}
+                        onChange={(e) => setProvince(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Section 3: ข้อมูลการติดต่อ & ผู้ติดต่อฉุกเฉิน (7-8) */}
+            <div className="space-y-4 pt-4 border-t border-slate-800">
+              <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <Phone className="w-4 h-4" /> ข้อมูลติดต่อ & กรณีฉุกเฉิน (7 - 8)
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* 7. เบอร์โทรผู้สมัคร */}
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">
-                    เบอร์โทรศัพท์ (สำหรับค้นหาและแจ้งเหตุฉุกเฉิน) *
+                    7. เบอร์โทรผู้สมัคร *
                   </label>
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="0812345678"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
+                    placeholder="เช่น 0812345678"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm font-mono focus:border-amber-400 focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">อีเมล</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    อีเมล (สำหรับส่งการ์ดและผลงาน)
+                  </label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="somchai@example.com"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">จังหวัดที่อยู่</label>
-                  <input
-                    type="text"
-                    value={province}
-                    onChange={(e) => setProvince(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">สังกัด / ชมรม / องค์กร (ถ้ามี)</label>
-                  <input
-                    type="text"
-                    value={organization}
-                    onChange={(e) => setOrganization(e.target.value)}
-                    placeholder="เช่น ชมรมวิ่งมิดไนท์ หรือ FSS"
+                    placeholder="name@example.com"
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
                   />
                 </div>
               </div>
+
+              {/* 8. ชื่อผู้ติดต่อฉุกเฉิน เบอร์โทร ความเกี่ยวข้อง */}
+              <div className="p-4 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-3">
+                <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                  <HeartPulse className="w-4 h-4" /> 8. ข้อมูลผู้ติดต่อฉุกเฉิน (ชื่อ, เบอร์โทร, ความเกี่ยวข้อง) *
+                </span>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">
+                      ชื่อผู้ติดต่อฉุกเฉิน *
+                    </label>
+                    <input
+                      type="text"
+                      value={emergencyContactName}
+                      onChange={(e) => setEmergencyContactName(e.target.value)}
+                      placeholder="เช่น สมศรี ใจกล้า"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">
+                      เบอร์โทรผู้ติดต่อฉุกเฉิน *
+                    </label>
+                    <input
+                      type="tel"
+                      value={emergencyContactPhone}
+                      onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                      placeholder="0898765432"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm font-mono focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-300 mb-1">
+                      ความเกี่ยวข้อง *
+                    </label>
+                    <select
+                      value={emergencyContactRelation}
+                      onChange={(e) => setEmergencyContactRelation(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs sm:text-sm focus:border-amber-400 focus:outline-none"
+                    >
+                      <option value="มารดา">มารดา</option>
+                      <option value="บิดา">บิดา</option>
+                      <option value="คู่สมรส">คู่สมรส</option>
+                      <option value="พี่/น้อง">พี่/น้อง</option>
+                      <option value="ญาติ">ญาติ</option>
+                      <option value="เพื่อน">เพื่อน</option>
+                      <option value="อาจารย์ที่ปรึกษา">อาจารย์ที่ปรึกษา</option>
+                      <option value="อื่นๆ">อื่นๆ</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Emergency & Medical Group */}
+            {/* Section 4: รับรู้ข่าวสารจากไหน (9) */}
             <div className="space-y-4 pt-4 border-t border-slate-800">
-              <h3 className="text-sm font-bold text-rose-400 flex items-center gap-2">
-                <HeartPulse className="w-4 h-4" /> 2. ข้อมูลการแพทย์และผู้ติดต่อฉุกเฉิน
+              <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <Share2 className="w-4 h-4" /> 9. รับรู้ข่าวสารจากไหน
+              </h3>
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  ช่องทางที่ท่านทราบข่าวกิจกรรม *
+                </label>
+                <select
+                  value={infoSource}
+                  onChange={(e) => setInfoSource(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
+                >
+                  {INFO_SOURCES.map((source) => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Section 5: สนใจซื้อเสื้อไหม เป็นตัวเลือกวงกลม yes / No (10) */}
+            <div className="space-y-4 pt-4 border-t border-slate-800">
+              <h3 className="text-sm font-bold text-amber-400 flex items-center gap-2">
+                <Shirt className="w-4 h-4" /> 10. สนใจซื้อเสื้อไหม
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Radio Option: yes */}
+                <label
+                  onClick={() => handleShirtInterestChange('yes')}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${
+                    interestedInShirt === 'yes'
+                      ? 'bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="interestedInShirtRadio"
+                    checked={interestedInShirt === 'yes'}
+                    onChange={() => handleShirtInterestChange('yes')}
+                    className="mt-1 w-4 h-4 text-amber-500 border-slate-600 focus:ring-amber-400 bg-slate-900"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base text-white">yes</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40">
+                        สั่งซื้อเสื้อ (300 บาท)
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">
+                      สนใจซื้อเสื้อที่ระลึกเรืองแสง Dry-Tech (ระบบจะเปิดขั้นตอนเลือกไซซ์และแนบสลิปชำระเงิน พร้อมรับการ์ดผี LV.2 ทันที)
+                    </p>
+                  </div>
+                </label>
+
+                {/* Radio Option: No */}
+                <label
+                  onClick={() => handleShirtInterestChange('no')}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-start gap-3.5 ${
+                    interestedInShirt === 'no'
+                      ? 'bg-purple-500/15 border-purple-500 text-white shadow-lg shadow-purple-500/10'
+                      : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="interestedInShirtRadio"
+                    checked={interestedInShirt === 'no'}
+                    onChange={() => handleShirtInterestChange('no')}
+                    className="mt-1 w-4 h-4 text-purple-500 border-slate-600 focus:ring-purple-400 bg-slate-900"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-base text-white">No</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
+                        วิ่งฟรี ไม่ซื้อเสื้อ
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1">
+                      ไม่สนใจซื้อเสื้อ (เข้าร่วมกิจกรรม Fancy Run ฟรี ได้รับ BIB เบอร์วิ่ง และการ์ดผีดิจิทัลประจำตัวตามปกติ)
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Additional details: Health & Display name */}
+            <div className="space-y-4 pt-4 border-t border-slate-800">
+              <h3 className="text-sm font-bold text-purple-400 flex items-center gap-2">
+                <Ghost className="w-4 h-4" /> ข้อมูลสุขภาพ & การแสดงผล
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">
-                    ชื่อผู้ติดต่อฉุกเฉิน *
-                  </label>
-                  <input
-                    type="text"
-                    value={emergencyContactName}
-                    onChange={(e) => setEmergencyContactName(e.target.value)}
-                    placeholder="เช่น คุณแม่สมศรี"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    เบอร์โทรผู้ติดต่อฉุกเฉิน *
-                  </label>
-                  <input
-                    type="tel"
-                    value={emergencyContactPhone}
-                    onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                    placeholder="0898765432"
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    โรคประจำตัว / ยาที่แพ้ / ข้อจำกัดด้านสุขภาพ (ถ้ามี)
+                    โรคประจำตัว / ยาที่แพ้ (ถ้ามี)
                   </label>
                   <input
                     type="text"
                     value={medicalConditions}
                     onChange={(e) => setMedicalConditions(e.target.value)}
-                    placeholder="เช่น หอบหืด, แพ้ยาเพนิซิลลิน หรือไม่มี"
+                    placeholder="เช่น หอบหืด, ไม่มี"
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 text-sm focus:border-amber-400 focus:outline-none"
                   />
                 </div>
-              </div>
-            </div>
 
-            {/* Team & Display Name */}
-            <div className="space-y-4 pt-4 border-t border-slate-800">
-              <h3 className="text-sm font-bold text-purple-400 flex items-center gap-2">
-                <Ghost className="w-4 h-4" /> 3. การแสดงผลในระบบ & แก๊งผี
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1">
-                    ชื่อทีม / แก๊งผี (ถ้ามาเป็นกลุ่ม)
+                    ชื่อทีม / แก๊งผี (ถ้ามี)
                   </label>
                   <input
                     type="text"
@@ -557,7 +1064,7 @@ export const RegisterView: React.FC<Props> = ({ initialType = 'RUN_FREE', onNavi
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-medium text-slate-300 mb-1">
                     ต้องการแสดงชื่อในรายชื่อนักวิ่งสาธารณะแบบใด
                   </label>

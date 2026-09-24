@@ -7,6 +7,7 @@ interface Props {
   className?: string;
   scaryLevel?: number;
   mode?: 'realistic' | 'talisman';
+  customImageUrl?: string;
 }
 
 // Curated high-resolution photorealistic cinematic dark horror photography for Thai ghosts
@@ -36,10 +37,10 @@ export const REALISTIC_GHOST_ASSETS: Record<
   },
   pop: {
     photoUrl: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=800&q=80',
-    atmosphereColor: '#dc2626',
-    ambientGlow: 'rgba(220, 38, 38, 0.7)',
-    elementBadge: 'ดวงตากระหายวิญญาณ',
-    realisticPromptDesc: 'ร่างหญิงสาวต้องมนต์ดำ ดวงตาลุกวาวในเงามืดบ้านไม้โบราณข้างโอ่งดินเผา',
+    atmosphereColor: '#991b1b',
+    ambientGlow: 'rgba(185, 28, 28, 0.75)',
+    elementBadge: 'ยายปอบคร่อมซากควาย',
+    realisticPromptDesc: 'หญิงชราผมหงอกยาว ลิ้นยาวลิ้มรสก้อนเนื้อสด นั่งคร่อมซากควายธนูขนาดใหญ่กลางความมืด',
   },
   tani: {
     photoUrl: 'https://images.unsplash.com/photo-1518495973542-4542c06a5843?auto=format&fit=crop&w=800&q=80',
@@ -97,12 +98,12 @@ export const REALISTIC_GHOST_ASSETS: Record<
     elementBadge: 'ดวงไฟพรายบึงน้ำ',
     realisticPromptDesc: 'ดวงประทีปสว่างวาบพุ่งออกจากรูจมูก ส่องประกายเหนือบึงน้ำหนองเหล็กยามฝนพรำ',
   },
-  phiruen: {
-    photoUrl: 'https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=800&q=80',
-    atmosphereColor: '#38bdf8',
-    ambientGlow: 'rgba(56, 189, 248, 0.65)',
-    elementBadge: 'เทวารักษ์เรือนไทย',
-    realisticPromptDesc: 'แสงเทพารักษ์นวลตารอบเรือนไทยโบราณ แผ่บารมีคุ้มครองนักวิ่งให้ปลอดภัย',
+  phi_am: {
+    photoUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    atmosphereColor: '#6366f1',
+    ambientGlow: 'rgba(99, 102, 241, 0.65)',
+    elementBadge: 'เงามืดสะกดวิญญาณ',
+    realisticPromptDesc: 'เงามืดปริศนากดทับอกในมิติทับซ้อนยามนิทรา นัยน์ตาสีม่วงครามสะกดลมหายใจ',
   },
 };
 
@@ -111,13 +112,23 @@ export const RealisticGhostPortrait: React.FC<Props> = ({
   className = 'w-48 h-64 sm:w-56 sm:h-72',
   scaryLevel = 3,
   mode = 'realistic',
+  customImageUrl,
 }) => {
   const asset = REALISTIC_GHOST_ASSETS[speciesId] || REALISTIC_GHOST_ASSETS.krasue;
 
   if (mode === 'talisman') {
     return (
       <div className={`relative flex items-center justify-center ${className}`}>
-        <GhostAvatarSvg speciesId={speciesId} className="w-full h-full drop-shadow-[0_15px_25px_rgba(0,0,0,0.9)]" />
+        {customImageUrl ? (
+          <img
+            src={customImageUrl}
+            alt={speciesId}
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-contain drop-shadow-[0_15px_25px_rgba(0,0,0,0.9)] rounded-xl"
+          />
+        ) : (
+          <GhostAvatarSvg speciesId={speciesId} className="w-full h-full drop-shadow-[0_15px_25px_rgba(0,0,0,0.9)]" />
+        )}
       </div>
     );
   }
@@ -129,16 +140,18 @@ export const RealisticGhostPortrait: React.FC<Props> = ({
         boxShadow: `0 0 35px ${asset.ambientGlow}`,
       }}
     >
-      {/* 1. Cinematic Photorealistic Background Image */}
+      {/* 1. Cinematic Photorealistic Background Image (or custom image) */}
       <img
-        src={asset.photoUrl}
+        src={customImageUrl || asset.photoUrl}
         alt={asset.elementBadge}
         referrerPolicy="no-referrer"
-        className="absolute inset-0 w-full h-full object-cover object-center filter brightness-[0.7] contrast-[1.2] transition-transform duration-700 group-hover:scale-110"
+        className={`absolute inset-0 w-full h-full object-cover object-center ${
+          customImageUrl ? 'filter brightness-[0.9] contrast-[1.1]' : 'filter brightness-[0.7] contrast-[1.2]'
+        } transition-transform duration-700 group-hover:scale-110`}
       />
 
       {/* 2. Atmospheric Volumetric Dark Mist & Vignette */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/70 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-black/60 pointer-events-none" />
       <div
         className="absolute inset-0 opacity-40 mix-blend-color-dodge pointer-events-none transition-opacity duration-500 group-hover:opacity-70"
         style={{
@@ -146,16 +159,18 @@ export const RealisticGhostPortrait: React.FC<Props> = ({
         }}
       />
 
-      {/* 3. Ghost Silhouette / Character Projection Layer */}
-      <div className="absolute inset-0 flex items-center justify-center p-2 pointer-events-none">
-        <div className="relative w-full h-full flex items-center justify-center">
-          <GhostAvatarSvg
-            speciesId={speciesId}
-            className="w-40 h-40 sm:w-48 sm:h-48 drop-shadow-[0_10px_20px_rgba(0,0,0,0.95)] opacity-95 filter saturate-[1.25] contrast-[1.1] transition-transform duration-500 group-hover:scale-105"
-            scaryLevel={scaryLevel}
-          />
+      {/* 3. Ghost Silhouette / Character Projection Layer (only if no custom image) */}
+      {!customImageUrl && (
+        <div className="absolute inset-0 flex items-center justify-center p-2 pointer-events-none">
+          <div className="relative w-full h-full flex items-center justify-center">
+            <GhostAvatarSvg
+              speciesId={speciesId}
+              className="w-40 h-40 sm:w-48 sm:h-48 drop-shadow-[0_10px_20px_rgba(0,0,0,0.95)] opacity-95 filter saturate-[1.25] contrast-[1.1] transition-transform duration-500 group-hover:scale-105"
+              scaryLevel={scaryLevel}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 4. Realistic Floating Embers & Ghost Fog Particles */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">

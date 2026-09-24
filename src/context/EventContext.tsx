@@ -21,10 +21,13 @@ import {
   CardLevel,
   GhostCard,
   GhostCardStats,
+  GhostSpecies,
   GhostSpeciesId,
   HorrorStory,
   HorrorStoryCategory,
   OfficerRole,
+  ParticipantCategory,
+  ParticipantGender,
   QuizAnswer,
   Rarity,
   RegistrationType,
@@ -32,20 +35,37 @@ import {
   ShirtOrder,
   ShirtSize,
   StoryReactions,
+  StudentYear,
 } from '../types';
 
 interface RegisterParams {
   regType: RegistrationType;
   fullName: string;
+  nameThai?: string;
+  nameEng?: string;
   nickname: string;
   age: number;
-  gender: 'male' | 'female' | 'nonbinary' | 'unspecified';
+  birthDate?: string;
+  birthDay?: string;
+  birthMonth?: string;
+  birthYear?: string;
+  gender: ParticipantGender;
+  participantCategory?: ParticipantCategory;
+  studentYear?: StudentYear;
+  studentId?: string;
+  facultyGroup?: string;
+  faculty?: string;
+  staffDepartmentGroup?: string;
+  staffDepartment?: string;
   phone: string;
   email: string;
   province: string;
   organization?: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
+  emergencyContactRelation?: string;
+  infoSource?: string;
+  interestedInShirt?: 'yes' | 'no';
   medicalConditions?: string;
   teamName?: string;
   displayNameType: 'fullName' | 'nickname' | 'teamName' | 'anonymous';
@@ -138,6 +158,11 @@ interface EventContextType {
     card?: GhostCard;
   };
   claimMedal: (regId: string) => void;
+  updateCardCustomImage: (cardId: string, imageUrl: string | null) => void;
+  // 12 Thai Ghost Collection
+  ghostSpeciesList: GhostSpecies[];
+  updateGhostSpecies: (species: GhostSpecies) => Promise<void>;
+  resetGhostSpecies: (speciesId: GhostSpeciesId) => Promise<void>;
   resetToDefaults: () => void;
 }
 
@@ -154,6 +179,7 @@ const STORAGE_KEYS = {
   LIVE_EDIT: 'fss2026_live_edit_mode',
   SITE_CONTENT: 'fss2026_site_content',
   SHIRT_IMAGE: 'fss_custom_shirt_image',
+  GHOST_SPECIES: 'fss2026_ghost_species',
 };
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -261,6 +287,29 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
+  // 12 Thai Ghost Collection state (Admin customizable, synced with Firestore & localStorage)
+  const [ghostSpeciesMap, setGhostSpeciesMap] = useState<Record<string, GhostSpecies>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.GHOST_SPECIES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Ensure all defaults are present
+        const merged: Record<string, GhostSpecies> = { ...THAI_GHOSTS };
+        Object.keys(parsed).forEach((k) => {
+          if (merged[k]) {
+            merged[k] = { ...merged[k], ...parsed[k] };
+          }
+        });
+        return merged;
+      }
+      return THAI_GHOSTS;
+    } catch {
+      return THAI_GHOSTS;
+    }
+  });
+
+  const ghostSpeciesList = Object.values(ghostSpeciesMap);
+
   const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
 
   // Sync with Firebase Firestore on mount
@@ -295,6 +344,32 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         },
         (error) => {
           console.warn('Firestore site_content listener notice:', error.message);
+        }
+      );
+
+      // 2. Listen to ghost_species collection in Firestore
+      const ghostSpeciesCol = collection(db, 'ghost_species');
+      const unsubscribeGhostSpecies = onSnapshot(
+        ghostSpeciesCol,
+        (snapshot) => {
+          if (!snapshot.empty) {
+            setGhostSpeciesMap((prev) => {
+              const updated = { ...prev };
+              snapshot.forEach((d) => {
+                const data = d.data() as GhostSpecies;
+                if (data && data.id) {
+                  updated[data.id] = { ...(prev[data.id] || THAI_GHOSTS[data.id as GhostSpeciesId]), ...data };
+                }
+              });
+              try {
+                localStorage.setItem(STORAGE_KEYS.GHOST_SPECIES, JSON.stringify(updated));
+              } catch {}
+              return updated;
+            });
+          }
+        },
+        (err) => {
+          console.warn('Firestore ghost_species listener notice:', err.message);
         }
       );
     } catch (e) {
@@ -385,6 +460,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const setCustomShirtImage = async (imgUrl: string | null) => {
+    if (!adminUser) {
+      throw new Error('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเปลี่ยนรูปเสื้อได้ กรุณาเข้าสู่ระบบแอดมิน');
+    }
     setCustomShirtImageState(imgUrl);
     try {
       if (imgUrl) {
@@ -403,6 +481,47 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updatedAt: new Date().toISOString(),
     };
     await updateSiteContent(updatedShirtSection);
+  };
+
+  const updateCardCustomImage = (cardId: string, imageUrl: string | null) => {
+    setCards((prev) =>
+      prev.map((c) => {
+        if (c.cardId === cardId) {
+          return {
+            ...c,
+            customImageUrl: imageUrl || undefined,
+          };
+        }
+        return c;
+      })
+    );
+  };
+
+  const updateGhostSpecies = async (species: GhostSpecies) => {
+    setGhostSpeciesMap((prev) => {
+      const next = { ...prev, [species.id]: species };
+      try {
+        localStorage.setItem(STORAGE_KEYS.GHOST_SPECIES, JSON.stringify(next));
+      } catch (err) {
+        console.warn('LocalStorage save ghost species error:', err);
+      }
+      return next;
+    });
+
+    try {
+      const docRef = doc(db, 'ghost_species', species.id);
+      await setDoc(docRef, species, { merge: true });
+      setIsFirebaseConnected(true);
+    } catch (err) {
+      console.warn('Firestore update ghost species notice:', err);
+    }
+  };
+
+  const resetGhostSpecies = async (speciesId: GhostSpeciesId) => {
+    const original = THAI_GHOSTS[speciesId];
+    if (original) {
+      await updateGhostSpecies(original);
+    }
   };
 
   const currentCard = cards.find((c) => c.cardId === currentCardId) || null;
@@ -474,7 +593,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       headless: 0,
       nangram: 0,
       phiphong: 0,
-      phiruen: 0,
+      phi_am: 0,
     };
 
     const accumulatedStatBoost: GhostCardStats = {
@@ -581,16 +700,32 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       regId,
       bibNumber,
       regType: params.regType,
-      fullName: params.fullName,
+      nameThai: params.nameThai || params.fullName,
+      nameEng: params.nameEng || '',
+      fullName: params.nameThai || params.fullName,
       nickname: params.nickname,
       age: params.age,
       gender: params.gender,
+      birthDate: params.birthDate,
+      birthDay: params.birthDay,
+      birthMonth: params.birthMonth,
+      birthYear: params.birthYear,
+      participantCategory: params.participantCategory || 'general',
+      studentYear: params.studentYear,
+      studentId: params.studentId,
+      facultyGroup: params.facultyGroup,
+      faculty: params.faculty,
+      staffDepartmentGroup: params.staffDepartmentGroup,
+      staffDepartment: params.staffDepartment,
       phone: params.phone,
       email: params.email,
       province: params.province,
-      organization: params.organization,
+      organization: params.organization || params.faculty || params.staffDepartment,
       emergencyContactName: params.emergencyContactName,
       emergencyContactPhone: params.emergencyContactPhone,
+      emergencyContactRelation: params.emergencyContactRelation,
+      infoSource: params.infoSource,
+      interestedInShirt: params.interestedInShirt,
       medicalConditions: params.medicalConditions,
       teamName: params.teamName,
       displayNameType: params.displayNameType,
@@ -968,6 +1103,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         reactToStory,
         checkInRunner,
         claimMedal,
+        updateCardCustomImage,
+        ghostSpeciesList,
+        updateGhostSpecies,
+        resetGhostSpecies,
         resetToDefaults,
       }}
     >

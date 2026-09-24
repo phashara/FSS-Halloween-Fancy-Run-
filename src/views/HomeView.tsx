@@ -30,7 +30,7 @@ interface Props {
 }
 
 export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType }) => {
-  const { adminUser, isLiveEditMode } = useEventContext();
+  const { adminUser, isLiveEditMode, cards, setCurrentCardId, ghostSpeciesList } = useEventContext();
 
   const handleRegisterChoice = (type: 'RUN_FREE' | 'RUN_AND_SHIRT' | 'SHIRT_ONLY') => {
     if (onSelectRegistrationType) {
@@ -301,7 +301,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
           {/* Shirt Visual Showcase */}
           <div className="p-6 rounded-3xl bg-slate-900/80 border border-amber-500/30 flex flex-col items-center text-center space-y-4">
             <div className="w-full">
-              <OfficialShirtImage allowUpload={false} />
+              <OfficialShirtImage allowUpload={true} />
             </div>
             <div>
               <h3 className="text-xl font-bold text-white">เสื้อวิ่ง FSS Ghost Run 2026</h3>
@@ -455,14 +455,19 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-          {GHOST_SPECIES_LIST.map((ghost) => (
-            <div
+          {(ghostSpeciesList || GHOST_SPECIES_LIST).map((ghost) => (
+            <button
               key={ghost.id}
-              className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 hover:border-amber-500/50 transition-all duration-300 flex flex-col items-center text-center group"
+              type="button"
+              onClick={() => {
+                onNavigate('collection');
+              }}
+              className="p-4 rounded-2xl bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 hover:border-amber-500/50 transition-all duration-300 flex flex-col items-center text-center group cursor-pointer"
             >
               <GhostAvatarSvg speciesId={ghost.id} className="w-24 h-24 sm:w-28 sm:h-28 group-hover:scale-110 transition-transform" />
-              <h4 className="text-sm sm:text-base font-bold text-white mt-2 group-hover:text-amber-300">
-                {ghost.name}
+              <h4 className="text-sm sm:text-base font-bold text-white mt-2 group-hover:text-amber-300 flex items-center gap-1">
+                <span>{ghost.name}</span>
+                <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">→</span>
               </h4>
               <p className="text-[11px] text-amber-400/90 font-medium line-clamp-1">{ghost.title}</p>
               <p className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
@@ -471,7 +476,10 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
               <div className="mt-3 flex items-center gap-1 text-[9px] text-slate-400 font-mono">
                 <span>SPD: {ghost.baseStats.speed}</span> | <span>SPK: {ghost.baseStats.spookiness}</span>
               </div>
-            </div>
+              <span className="mt-2 text-[10px] text-amber-400/80 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                สำรวจตำนาน & ดูการ์ด 3D →
+              </span>
+            </button>
           ))}
         </div>
       </section>

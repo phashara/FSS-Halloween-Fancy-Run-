@@ -64,6 +64,15 @@ export const Footer: React.FC<{ onNavigate: (view: any) => void }> = ({ onNaviga
             <li>
               <button
                 type="button"
+                onClick={() => onNavigate('collection')}
+                className="hover:text-amber-300 transition-colors"
+              >
+                • 12 ตำนานผีไทย (Thai Ghost Collection)
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
                 onClick={() => onNavigate('register')}
                 className="hover:text-amber-300 transition-colors"
               >

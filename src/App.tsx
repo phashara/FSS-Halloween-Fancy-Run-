@@ -14,6 +14,7 @@ import { HorrorStoriesView } from './views/HorrorStoriesView';
 import { DirectoryView } from './views/DirectoryView';
 import { FaqContactView } from './views/FaqContactView';
 import { AdminDashboardView } from './views/AdminDashboardView';
+import { GhostCollectionView } from './views/GhostCollectionView';
 
 const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('home');
@@ -44,6 +45,7 @@ const AppContent: React.FC = () => {
       {/* Main Content View Container */}
       <main className="flex-1 z-10 py-4 sm:py-6">
         {currentView === 'home' && <HomeView onNavigate={handleNavigate} />}
+        {currentView === 'collection' && <GhostCollectionView onNavigate={handleNavigate} />}
         {currentView === 'register' && <RegisterView onNavigate={handleNavigate} />}
         {currentView === 'shirt' && <ShirtView onNavigate={handleNavigate} />}
         {currentView === 'mycard' && <MyCardView onNavigate={handleNavigate} />}

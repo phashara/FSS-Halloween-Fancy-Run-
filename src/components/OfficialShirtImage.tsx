@@ -11,10 +11,13 @@ import {
   Link as LinkIcon,
   Eye,
   Loader2,
+  Lock,
+  ShieldCheck,
 } from 'lucide-react';
 import officialShirtAsset from '../assets/official_shirt.svg';
 import { useEventContext } from '../context/EventContext';
 import { compressImage } from '../lib/imageCompressor';
+import { AdminLoginModal } from './AdminLoginModal';
 
 interface Props {
   className?: string;
@@ -25,7 +28,8 @@ export const OfficialShirtImage: React.FC<Props> = ({
   className = '',
   allowUpload = true,
 }) => {
-  const { customShirtImage, setCustomShirtImage } = useEventContext();
+  const { customShirtImage, setCustomShirtImage, adminUser } = useEventContext();
+  const isAdmin = !!adminUser;
 
   // Mode: 'custom' (if exists) or 'original'
   const [viewMode, setViewMode] = useState<'custom' | 'original'>('custom');
@@ -37,6 +41,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -123,11 +128,21 @@ export const OfficialShirtImage: React.FC<Props> = ({
   };
 
   const handleResetImage = async () => {
+    if (!isAdmin) {
+      setErrorMessage('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถรีเซ็ตรูปเสื้อได้');
+      setIsAdminModalOpen(true);
+      return;
+    }
+
     if (confirm('คุณต้องการรีเซ็ตกลับเป็นรูปเสื้อดีไซน์ต้นฉบับใช่หรือไม่?')) {
-      await setCustomShirtImage(null);
-      setViewMode('original');
-      setImageLoadError(false);
-      setErrorMessage(null);
+      try {
+        await setCustomShirtImage(null);
+        setViewMode('original');
+        setImageLoadError(false);
+        setErrorMessage(null);
+      } catch (err: any) {
+        setErrorMessage(err?.message || 'เกิดข้อผิดพลาดในการรีเซ็ตรูปเสื้อ');
+      }
     }
   };
 
@@ -145,15 +160,20 @@ export const OfficialShirtImage: React.FC<Props> = ({
           isDragging ? 'border-amber-400 ring-4 ring-amber-500/20' : 'border-slate-800 hover:border-slate-700'
         }`}
         onDragOver={(e) => {
-          if (!allowUpload) return;
+          if (!allowUpload || !isAdmin) return;
           e.preventDefault();
           setIsDragging(true);
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={(e) => {
-          if (!allowUpload) return;
           e.preventDefault();
           setIsDragging(false);
+          if (!isAdmin) {
+            setErrorMessage('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเปลี่ยนรูปเสื้อทางการได้');
+            setIsAdminModalOpen(true);
+            return;
+          }
+          if (!allowUpload) return;
           const file = e.dataTransfer.files?.[0];
           if (file) handleProcessFile(file);
         }}
@@ -162,7 +182,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
         {isProcessing && (
           <div className="absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-amber-400">
             <Loader2 className="w-8 h-8 animate-spin" />
-            <span className="text-xs font-bold font-mono">กำลังประมวลผลและบีบอัดรูปภาพ...</span>
+            <span className="text-xs font-bold font-mono">กำลังประมวลผลและบันทึกรูปภาพเสื้อ...</span>
           </div>
         )}
 
@@ -188,6 +208,13 @@ export const OfficialShirtImage: React.FC<Props> = ({
               <Sparkles className="w-3 h-3" /> OFFICIAL 2D DESIGN
             </span>
           )}
+
+          {isAdmin && (
+            <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-[11px] font-bold text-amber-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> แอดมิน: {adminUser?.displayName || adminUser?.username || 'phasharak'}
+            </span>
+          )}
+
           <span className="px-2.5 py-1 rounded-full bg-red-950/90 border border-red-500/50 text-[11px] font-bold text-red-200 backdrop-blur-sm shadow-md">
             ฿300 บาท
           </span>
@@ -254,7 +281,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessing}
                 className="p-2 px-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white border border-amber-500/30 backdrop-blur-sm transition-all shadow-lg flex items-center gap-1.5 text-xs font-bold disabled:opacity-50"
-                title="อัปโหลดภาพเสื้อจริงจากอุปกรณ์ของคุณ"
+                title="อัปโหลดภาพเสื้อจริง"
               >
                 {uploadSuccess ? (
                   <>
@@ -264,7 +291,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 ) : (
                   <>
                     <Upload className="w-4 h-4" />
-                    <span>{customShirtImage ? 'เปลี่ยนรูปเสื้อ' : 'ใส่รูปเสื้อของคุณ'}</span>
+                    <span>{customShirtImage ? 'เปลี่ยนรูปเสื้อ' : 'อัปโหลดรูปเสื้อจริง'}</span>
                   </>
                 )}
               </button>
@@ -274,7 +301,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 type="button"
                 onClick={() => setShowUrlInput(!showUrlInput)}
                 className="p-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-amber-400 border border-slate-700 backdrop-blur-sm transition-all shadow-md text-xs"
-                title="ใส่ลิงก์รูปภาพ (Image URL)"
+                title="ใส่ลิงก์รูปภาพเสื้อ (Image URL)"
               >
                 <LinkIcon className="w-3.5 h-3.5" />
               </button>
@@ -285,7 +312,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
                   type="button"
                   onClick={handleResetImage}
                   className="p-2 rounded-xl bg-slate-900/90 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 border border-slate-700 hover:border-rose-700/50 backdrop-blur-sm transition-all shadow-md text-xs"
-                  title="รีเซ็ตเป็นภาพตั้งต้น"
+                  title="รีเซ็ตเป็นภาพตั้งต้น 2D"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                 </button>
@@ -306,7 +333,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
             type="url"
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
-            placeholder="วางลิงก์รูปภาพ เช่น https://example.com/shirt.jpg"
+            placeholder="วางลิงก์รูปภาพเสื้อ เช่น https://example.com/shirt.jpg"
             className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500"
           />
           <button
@@ -347,9 +374,11 @@ export const OfficialShirtImage: React.FC<Props> = ({
       <div className="mt-3 w-full flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400 px-1">
         <span>ผ้าระบายอากาศ Micro Dry-Tech 100% ลาย 12 ผีไทยเรืองแสง Glow in the dark</span>
         <span className="text-amber-400 font-medium">
-          {customShirtImage && viewMode === 'custom'
-            ? '✓ กำลังแสดงรูปเสื้อจริงที่อัปโหลด'
-            : 'ด้านหน้า (อกซ้ายยันต์ FSS) / ด้านหลัง (ลาย 2026)'}
+          {customShirtImage && viewMode === 'custom' ? (
+            <span className="text-emerald-400 font-bold">✓ กำลังแสดงภาพเสื้อจริง (สามารถกดปุ่มเพื่อเปลี่ยนหรืออัปโหลดใหม่ได้)</span>
+          ) : (
+            'กดปุ่ม "อัปโหลดรูปเสื้อจริง" หรือคลิกลิงก์เพื่อเปลี่ยนภาพได้ทันที'
+          )}
         </span>
       </div>
 
@@ -368,8 +397,8 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 <ImageIcon className="w-5 h-5 text-amber-400" />
                 <h3 className="text-sm sm:text-base font-bold text-white">
                   {customShirtImage && viewMode === 'custom'
-                    ? 'รูปเสื้อจริงที่อัปโหลด (Custom Uploaded Jersey)'
-                    : 'ภาพแบบเสื้อวิ่ง FSS Halloween Fancy Run 2026 (Official Jersey)'}
+                    ? 'รูปเสื้อจริงของงาน (Official Jersey Photo)'
+                    : 'ภาพแบบเสื้อวิ่ง FSS Halloween Fancy Run 2026 (Official 2D Jersey)'}
                 </h3>
               </div>
               <button
@@ -403,7 +432,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
                     className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>{viewMode === 'custom' ? 'สลับดูภาพแบบ 2D ต้นฉบับ' : 'สลับดูรูปจริงที่อัปโหลด'}</span>
+                    <span>{viewMode === 'custom' ? 'สลับดูภาพแบบ 2D ต้นฉบับ' : 'สลับดูรูปจริง'}</span>
                   </button>
                 )}
                 <button
@@ -418,6 +447,16 @@ export const OfficialShirtImage: React.FC<Props> = ({
           </div>
         </div>
       )}
+
+      {/* Admin Login Modal trigger if non-admin clicks to manage */}
+      <AdminLoginModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        onSuccess={() => {
+          setIsAdminModalOpen(false);
+          setErrorMessage(null);
+        }}
+      />
     </div>
   );
 };

@@ -16,6 +16,13 @@ import {
   AlertTriangle,
   DollarSign,
   Truck,
+  User,
+  GraduationCap,
+  Building2,
+  Phone,
+  Calendar,
+  HeartPulse,
+  Share2,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { THAI_GHOSTS } from '../data/ghosts';
@@ -33,6 +40,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
   const [filterShirt, setFilterShirt] = useState<string>('all');
   const [previewCard, setPreviewCard] = useState<GhostCard | null>(null);
   const [previewOrder, setPreviewOrder] = useState<ShirtOrder | null>(null);
+  const [previewRunner, setPreviewRunner] = useState<RunnerRegistration | null>(null);
 
   // Helper to find shirt order for a runner
   const getRunnerOrder = (runner: RunnerRegistration): ShirtOrder | undefined => {
@@ -57,13 +65,29 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
     const searchLower = searchTerm.trim().toLowerCase();
 
     if (searchLower) {
-      const matchName = runner.fullName.toLowerCase().includes(searchLower);
+      const matchName =
+        runner.fullName.toLowerCase().includes(searchLower) ||
+        (runner.nameThai && runner.nameThai.toLowerCase().includes(searchLower)) ||
+        (runner.nameEng && runner.nameEng.toLowerCase().includes(searchLower));
       const matchNickname = runner.nickname.toLowerCase().includes(searchLower);
       const matchBib = runner.bibNumber?.toLowerCase().includes(searchLower);
       const matchCardId = runner.cardId.toLowerCase().includes(searchLower);
       const matchPhoneEnd = runner.phone.endsWith(searchLower);
       const matchOrderId = order?.orderId.toLowerCase().includes(searchLower);
-      if (!matchName && !matchNickname && !matchBib && !matchCardId && !matchPhoneEnd && !matchOrderId) {
+      const matchStudentId = runner.studentId?.toLowerCase().includes(searchLower);
+      const matchFaculty = runner.faculty?.toLowerCase().includes(searchLower);
+      const matchDept = runner.staffDepartment?.toLowerCase().includes(searchLower);
+      if (
+        !matchName &&
+        !matchNickname &&
+        !matchBib &&
+        !matchCardId &&
+        !matchPhoneEnd &&
+        !matchOrderId &&
+        !matchStudentId &&
+        !matchFaculty &&
+        !matchDept
+      ) {
         return false;
       }
     }
@@ -244,14 +268,39 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                         )}
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="font-semibold text-white">
-                          {getRunnerDisplayName(runner)}
-                        </div>
-                        {runner.organization && (
-                          <span className="text-[10px] text-slate-500 block">
-                            {runner.organization}
-                          </span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPreviewRunner(runner)}
+                          className="text-left group/name hover:text-amber-400 transition-colors"
+                          title="คลิกเพื่อดูข้อมูลผู้สมัครฉบับเต็ม"
+                        >
+                          <div className="font-semibold text-white group-hover/name:text-amber-400 flex items-center gap-1.5">
+                            <span>{getRunnerDisplayName(runner)}</span>
+                            {runner.nickname && runner.displayNameType !== 'nickname' && (
+                              <span className="text-[11px] text-amber-400/80 font-normal">
+                                ({runner.nickname})
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            {runner.participantCategory && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-800 text-amber-300 border border-slate-700">
+                                {runner.participantCategory === 'student'
+                                  ? `นิสิตปี ${runner.studentYear || '-'}`
+                                  : runner.participantCategory === 'alumni'
+                                  ? 'ศิษย์เก่า'
+                                  : runner.participantCategory === 'staff'
+                                  ? 'บุคลากร'
+                                  : 'บุคคลทั่วไป'}
+                              </span>
+                            )}
+                            {runner.organization && (
+                              <span className="text-[10px] text-slate-400">
+                                {runner.organization}
+                              </span>
+                            )}
+                          </div>
+                        </button>
                       </td>
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {species ? (
@@ -509,6 +558,198 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
             </button>
             <div className="flex justify-center pt-2">
               <GhostCardView card={previewCard} showModeToggle={false} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Runner Profile Detail Modal */}
+      {previewRunner && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm overflow-y-auto"
+          onClick={() => setPreviewRunner(null)}
+        >
+          <div
+            className="relative w-full max-w-lg bg-slate-900 border border-amber-500/40 rounded-3xl p-6 shadow-2xl space-y-5 my-8 text-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">
+                    ข้อมูลผู้สมัคร #{previewRunner.bibNumber || previewRunner.cardId}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Card ID: {previewRunner.cardId}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewRunner(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl bg-slate-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Profile Content */}
+            <div className="space-y-4 text-xs">
+              {/* 1 - 5 Personal Information */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                <span className="text-amber-400 font-bold block text-[11px]">
+                  ข้อมูลส่วนบุคคล (1 - 5)
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-slate-300">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">1. ชื่อภาษาไทย:</span>
+                    <span className="font-bold text-white">{previewRunner.nameThai || previewRunner.fullName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">2. ชื่อภาษาอังกฤษ:</span>
+                    <span className="font-medium text-slate-200">{previewRunner.nameEng || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">3. ชื่อเล่น:</span>
+                    <span className="font-bold text-amber-300">"{previewRunner.nickname}"</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">4. เพศ:</span>
+                    <span>
+                      {previewRunner.gender === 'female'
+                        ? 'หญิง'
+                        : previewRunner.gender === 'male'
+                        ? 'ชาย'
+                        : 'ไม่ระบุเพศ'}
+                    </span>
+                  </div>
+                  <div className="col-span-2 pt-1 border-t border-slate-800/80">
+                    <span className="text-[10px] text-slate-500 block">5. วันเกิด & อายุ:</span>
+                    <span className="font-mono text-amber-300">
+                      {previewRunner.birthDate || `${previewRunner.birthDay || '-'}/${previewRunner.birthMonth || '-'}/${previewRunner.birthYear || '-'}`}
+                    </span>
+                    <span className="text-slate-400 ml-2">({previewRunner.age} ปี)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6 Category & Affiliation */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                <span className="text-amber-400 font-bold block text-[11px]">
+                  6. ประเภทผู้สมัคร & สังกัด
+                </span>
+                <div className="text-slate-300 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500">ประเภท:</span>
+                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 font-bold border border-amber-500/30">
+                      {previewRunner.participantCategory === 'student'
+                        ? 'นิสิต มหาวิทยาลัยนเรศวร'
+                        : previewRunner.participantCategory === 'alumni'
+                        ? 'ศิษย์เก่า มหาวิทยาลัยนเรศวร'
+                        : previewRunner.participantCategory === 'staff'
+                        ? 'บุคลากร มหาวิทยาลัยนเรศวร'
+                        : 'บุคคลทั่วไป'}
+                    </span>
+                  </div>
+                  {previewRunner.participantCategory === 'student' && (
+                    <>
+                      <p>
+                        <span className="text-slate-500">ชั้นปี:</span>{' '}
+                        <span className="font-bold text-white">ปี {previewRunner.studentYear}</span>
+                        <span className="text-slate-500 ml-3">รหัสนิสิต:</span>{' '}
+                        <span className="font-mono text-amber-300">{previewRunner.studentId || '-'}</span>
+                      </p>
+                      <p>
+                        <span className="text-slate-500">คณะ:</span>{' '}
+                        <span className="text-white">{previewRunner.faculty || '-'}</span>
+                      </p>
+                    </>
+                  )}
+                  {previewRunner.participantCategory === 'alumni' && (
+                    <>
+                      <p>
+                        <span className="text-slate-500">รหัสนิสิตเดิม:</span>{' '}
+                        <span className="font-mono text-amber-300">{previewRunner.studentId || '-'}</span>
+                      </p>
+                      <p>
+                        <span className="text-slate-500">คณะที่จบ:</span>{' '}
+                        <span className="text-white">{previewRunner.faculty || '-'}</span>
+                      </p>
+                    </>
+                  )}
+                  {previewRunner.participantCategory === 'staff' && (
+                    <p>
+                      <span className="text-slate-500">สังกัด/หน่วยงาน:</span>{' '}
+                      <span className="text-white font-medium">{previewRunner.staffDepartment || '-'}</span>
+                    </p>
+                  )}
+                  {previewRunner.participantCategory === 'general' && (
+                    <p>
+                      <span className="text-slate-500">หน่วยงาน/จังหวัด:</span>{' '}
+                      <span className="text-white">{previewRunner.organization || previewRunner.province || '-'}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* 7 - 8 Contact & Emergency */}
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                <span className="text-rose-400 font-bold block text-[11px]">
+                  ข้อมูลติดต่อ & กรณีฉุกเฉิน (7 - 8)
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-slate-300">
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">7. เบอร์โทรผู้สมัคร:</span>
+                    <span className="font-mono font-bold text-white">{previewRunner.phone}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 block">อีเมล:</span>
+                    <span className="text-slate-300">{previewRunner.email || '-'}</span>
+                  </div>
+                  <div className="col-span-2 pt-1 border-t border-slate-800/80">
+                    <span className="text-[10px] text-slate-500 block">8. ผู้ติดต่อฉุกเฉิน:</span>
+                    <p className="font-medium text-white">
+                      {previewRunner.emergencyContactName} ({previewRunner.emergencyContactRelation || 'ผู้ติดต่อฉุกเฉิน'})
+                    </p>
+                    <p className="font-mono text-rose-300">{previewRunner.emergencyContactPhone}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 9 - 10 Marketing & Shirt */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-slate-500 block">9. รับรู้ข่าวสารจาก:</span>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-950 text-blue-300 font-bold text-[11px] border border-blue-700">
+                    {previewRunner.infoSource || 'Facebook'}
+                  </span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-1">
+                  <span className="text-[10px] text-slate-500 block">10. สั่งซื้อเสื้อไหม:</span>
+                  <span
+                    className={`px-2 py-0.5 rounded-full font-bold text-[11px] border ${
+                      previewRunner.interestedInShirt === 'yes' || previewRunner.shirtOrderId
+                        ? 'bg-amber-950 text-amber-300 border-amber-600'
+                        : 'bg-slate-800 text-slate-300 border-slate-700'
+                    }`}
+                  >
+                    {previewRunner.interestedInShirt === 'yes' || previewRunner.shirtOrderId
+                      ? '⭕ yes (สั่งซื้อเสื้อ)'
+                      : '⭕ No (วิ่งฟรี)'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setPreviewRunner(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
+              >
+                ปิดหน้าต่าง
+              </button>
             </div>
           </div>
         </div>

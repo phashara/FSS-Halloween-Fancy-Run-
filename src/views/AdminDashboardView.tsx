@@ -25,6 +25,7 @@ import { OfficerRole, ShirtOrder, HorrorStory, RunnerRegistration } from '../typ
 import { THAI_GHOSTS } from '../data/ghosts';
 import { TextEditModal } from '../components/TextEditModal';
 import { SiteContentSection } from '../types/cms';
+import { OfficialShirtImage } from '../components/OfficialShirtImage';
 
 export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> = ({
   onNavigate,
@@ -719,6 +720,32 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
               <div className="text-slate-400 text-[11px]">
                 สิทธิ์แอดมิน: <code className="text-amber-300 bg-slate-950 px-2 py-0.5 rounded font-mono font-bold">phasharak</code> (Super Admin)
               </div>
+            </div>
+          </div>
+
+          {/* Official Shirt Management Card */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/90 border border-amber-500/30 shadow-xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-amber-400 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                    OFFICIAL_JERSEY_CMS
+                  </span>
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                    <CheckCircle className="w-3.5 h-3.5" /> สิทธิ์แอดมิน: phasharak
+                  </span>
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white font-serif mt-1">
+                  🖼️ จัดการรูปภาพเสื้อวิ่งทางการ (Official Jersey Photo)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  เฉพาะแอดมินเท่านั้นที่สามารถเปลี่ยนรูปเสื้อได้ โดยระบบจะซิงก์ภาพที่อัปโหลดไปยังหน้าสั่งซื้อเสื้อและหน้าแรกทันที
+                </p>
+              </div>
+            </div>
+
+            <div className="max-w-md mx-auto">
+              <OfficialShirtImage allowUpload={true} />
             </div>
           </div>
 

@@ -23,6 +23,7 @@ import { AdminLoginModal } from './AdminLoginModal';
 
 export type AppView =
   | 'home'
+  | 'collection'
   | 'register'
   | 'shirt'
   | 'directory'
@@ -50,7 +51,8 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
 
   const navItems: { id: AppView; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'home', label: 'หน้าหลัก', icon: <Home className="w-4 h-4" /> },
-    { id: 'register', label: 'สมัครวิ่ง', icon: <Ghost className="w-4 h-4" />, badge: 'ฟรี!' },
+    { id: 'collection', label: '12 ตำนานผีไทย', icon: <Ghost className="w-4 h-4" />, badge: '12 ผี' },
+    { id: 'register', label: 'สมัครวิ่ง', icon: <Flame className="w-4 h-4" />, badge: 'ฟรี!' },
     { id: 'shirt', label: 'สั่งซื้อเสื้อ', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'directory', label: 'ตรวจสอบรายชื่อ', icon: <Search className="w-4 h-4" /> },
     { id: 'mycard', label: 'การ์ดผีของฉัน', icon: <CreditCard className="w-4 h-4" /> },
