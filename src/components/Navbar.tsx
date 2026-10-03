@@ -112,7 +112,7 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
               className="flex items-center gap-3 cursor-pointer group select-none"
             >
               <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 text-white shadow-md group-hover:scale-105 transition-transform flex items-center justify-center shrink-0">
-                <Flame className="w-5 h-5 text-amber-300" />
+                <Ghost className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <div>
                 <div className="flex items-center gap-1.5">

@@ -10,8 +10,9 @@ import {
   Loader2,
   Lock,
   ShieldCheck,
+  Award,
 } from 'lucide-react';
-import officialShirtAsset from '../assets/official_shirt.svg';
+import officialMedalAsset from '../assets/official_medal.svg';
 import { useEventContext } from '../context/EventContext';
 import { compressImage } from '../lib/imageCompressor';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -21,11 +22,11 @@ interface Props {
   allowUpload?: boolean;
 }
 
-export const OfficialShirtImage: React.FC<Props> = ({
+export const OfficialMedalImage: React.FC<Props> = ({
   className = '',
   allowUpload = true,
 }) => {
-  const { customShirtImage, setCustomShirtImage, adminUser } = useEventContext();
+  const { customMedalImage, setCustomMedalImage, adminUser } = useEventContext();
   const isAdmin = !!adminUser;
 
   // Mode: 'custom' (if exists) or 'original'
@@ -42,17 +43,17 @@ export const OfficialShirtImage: React.FC<Props> = ({
 
   // Sync viewMode if custom image changes
   useEffect(() => {
-    if (customShirtImage) {
+    if (customMedalImage) {
       setViewMode('custom');
       setImageLoadError(false);
     }
-  }, [customShirtImage]);
+  }, [customMedalImage]);
 
   // Determine which image source to display
   const activeImageSrc =
-    viewMode === 'custom' && customShirtImage && !imageLoadError
-      ? customShirtImage
-      : officialShirtAsset;
+    viewMode === 'custom' && customMedalImage && !imageLoadError
+      ? customMedalImage
+      : officialMedalAsset;
 
   const handleProcessFile = async (file: File) => {
     if (!isAdmin) {
@@ -75,17 +76,17 @@ export const OfficialShirtImage: React.FC<Props> = ({
         throw new Error('ขนาดไฟล์ใหญ่เกิน 25MB กรุณาเลือกภาพที่มีขนาดเล็กลง');
       }
 
-      // Compress and optimize down to max 1200x1200px ~120KB
+      // Compress and optimize down to max 1200x1200px
       const compressedDataUrl = await compressImage(file, 1200, 1200, 0.88);
 
       // Save to EventContext (which syncs to localStorage and Firestore)
-      await setCustomShirtImage(compressedDataUrl);
+      await setCustomMedalImage(compressedDataUrl);
 
       setViewMode('custom');
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 4000);
     } catch (err: any) {
-      console.error('Shirt upload processing failed:', err);
+      console.error('Medal upload processing failed:', err);
       setErrorMessage(err?.message || 'เกิดข้อผิดพลาดในการประมวลผลรูปภาพ กรุณาลองใหม่อีกครั้ง');
     } finally {
       setIsProcessing(false);
@@ -96,9 +97,9 @@ export const OfficialShirtImage: React.FC<Props> = ({
   };
 
   const handleImageError = () => {
-    console.warn('Custom shirt image failed to render, falling back to official asset');
+    console.warn('Custom medal image failed to render, falling back to official asset');
     setImageLoadError(true);
-    setErrorMessage('ไม่สามารถแสดงผลรูปภาพที่อัปโหลดได้ ระบบได้แสดงภาพแบบเสื้อแทนแล้ว');
+    setErrorMessage('ไม่สามารถแสดงผลรูปภาพที่อัปโหลดได้ ระบบได้แสดงภาพแบบเหรียญต้นฉบับแทนแล้ว');
   };
 
   return (
@@ -106,7 +107,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
       {/* Real Image Container Frame */}
       <div
         className={`relative w-full rounded-3xl overflow-hidden bg-slate-950 border transition-all shadow-2xl group ${
-          isDragging ? 'border-red-500 ring-4 ring-red-500/20' : 'border-slate-800 hover:border-slate-700'
+          isDragging ? 'border-amber-400 ring-4 ring-amber-500/20' : 'border-slate-800 hover:border-slate-700'
         }`}
         onDragOver={(e) => {
           if (!allowUpload || !isAdmin) return;
@@ -127,43 +128,43 @@ export const OfficialShirtImage: React.FC<Props> = ({
       >
         {/* Loading Overlay */}
         {isProcessing && (
-          <div className="absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-red-400">
+          <div className="absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center gap-3 text-amber-400">
             <Loader2 className="w-8 h-8 animate-spin" />
-            <span className="text-xs font-bold font-mono">กำลังประมวลผลและบันทึกรูปภาพเสื้อ...</span>
+            <span className="text-xs font-bold font-mono">กำลังประมวลผลและบันทึกรูปภาพเหรียญ...</span>
           </div>
         )}
 
         {/* Display Image */}
-        <div className="w-full flex items-center justify-center p-2 min-h-[300px] sm:min-h-[380px] bg-gradient-to-b from-slate-900/50 to-slate-950">
+        <div className="w-full flex items-center justify-center p-4 min-h-[320px] sm:min-h-[400px] bg-gradient-to-b from-slate-900/60 to-slate-950">
           <img
             src={activeImageSrc}
-            alt="FSS Halloween Fancy Run 2026 Official Jersey"
+            alt="FSS Halloween Fancy Run 2026 Official Finisher Medal"
             referrerPolicy="no-referrer"
             onError={handleImageError}
-            className="w-full h-auto max-h-[480px] object-contain mx-auto transition-transform duration-300 group-hover:scale-[1.01]"
+            className="w-full h-auto max-h-[440px] object-contain mx-auto transition-transform duration-300 group-hover:scale-[1.02]"
           />
         </div>
 
         {/* Top Badges */}
         <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2 z-10">
-          {customShirtImage && viewMode === 'custom' && !imageLoadError ? (
+          {customMedalImage && viewMode === 'custom' && !imageLoadError ? (
             <span className="px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-[11px] font-bold text-emerald-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
-              <Sparkles className="w-3 h-3 text-emerald-400" /> รูปเสื้อจริงของงาน
+              <Sparkles className="w-3 h-3 text-emerald-400" /> รูปเหรียญจริงของงาน
             </span>
           ) : (
-            <span className="px-3 py-1 rounded-full bg-slate-950/85 border border-red-500/40 text-[11px] font-mono font-bold text-red-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
-              <Sparkles className="w-3 h-3" /> OFFICIAL DESIGN
+            <span className="px-3 py-1 rounded-full bg-slate-950/85 border border-amber-500/40 text-[11px] font-mono font-bold text-amber-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
+              <Award className="w-3.5 h-3.5 text-amber-400" /> FINISHER MEDAL
             </span>
           )}
 
           {isAdmin && (
-            <span className="px-2.5 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-[11px] font-bold text-red-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
-              <ShieldCheck className="w-3.5 h-3.5 text-red-400" /> แอดมิน: {adminUser?.displayName || adminUser?.username || 'phasharak'}
+            <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-[11px] font-bold text-amber-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> แอดมิน: {adminUser?.displayName || adminUser?.username || 'phasharak'}
             </span>
           )}
 
-          <span className="px-2.5 py-1 rounded-full bg-red-950/90 border border-red-500/50 text-[11px] font-bold text-red-200 backdrop-blur-sm shadow-md">
-            ฿300 บาท
+          <span className="px-2.5 py-1 rounded-full bg-amber-950/90 border border-amber-500/50 text-[11px] font-bold text-amber-200 backdrop-blur-sm shadow-md">
+            เหรียญรางวัลสำหรับผู้พิชิตเส้นชัย 350 คนแรก
           </span>
         </div>
 
@@ -176,7 +177,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
             className="p-2 px-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700 backdrop-blur-sm transition-all shadow-md flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
             title="ดูภาพขนาดใหญ่"
           >
-            <ZoomIn className="w-3.5 h-3.5 text-red-400" />
+            <ZoomIn className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden sm:inline">ขยายดูภาพ</span>
           </button>
 
@@ -197,13 +198,13 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessing}
-                className="p-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white border border-red-500/40 backdrop-blur-sm transition-all shadow-lg flex items-center gap-1.5 text-xs font-bold disabled:opacity-50 cursor-pointer"
-                title="เปลี่ยนรูปภาพใหม่ (สำหรับแอดมิน)"
+                className="p-2 px-3 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 border border-amber-400/40 backdrop-blur-sm transition-all shadow-lg flex items-center gap-1.5 text-xs font-black disabled:opacity-50 cursor-pointer"
+                title="เปลี่ยนรูปภาพเหรียญใหม่ (สำหรับแอดมิน)"
               >
                 {uploadSuccess ? (
                   <>
-                    <Check className="w-4 h-4 text-emerald-300" />
-                    <span>บันทึกรูปเสื้อแล้ว!</span>
+                    <Check className="w-4 h-4 text-emerald-950" />
+                    <span>บันทึกรูปเหรียญแล้ว!</span>
                   </>
                 ) : (
                   <>
@@ -236,10 +237,10 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessing}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 text-xs font-black rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Upload className="w-3.5 h-3.5" />
-                <span>{uploadSuccess ? 'บันทึกเรียบร้อย!' : 'เปลี่ยนรูปภาพใหม่ (Admin)'}</span>
+                <span>{uploadSuccess ? 'บันทึกเรียบร้อย!' : 'เปลี่ยนรูปเหรียญใหม่ (Admin)'}</span>
               </button>
             ) : (
               <button
@@ -249,7 +250,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 title="เข้าสู่ระบบแอดมินเพื่อแก้ไขรูป"
               >
                 <Lock className="w-3.5 h-3.5 text-slate-500" />
-                <span>เปลี่ยนรูปภาพใหม่ (แอดมินแก้ไขได้เท่านั้น)</span>
+                <span>เปลี่ยนรูปเหรียญใหม่ (แอดมินแก้ไขได้เท่านั้น)</span>
               </button>
             )}
           </div>
@@ -261,7 +262,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
               className="p-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
               title="ขยายดูภาพเต็ม"
             >
-              <ZoomIn className="w-3.5 h-3.5" />
+              <ZoomIn className="w-3.5 h-3.5 text-amber-600" />
               <span>ขยายดูภาพ</span>
             </button>
           </div>
@@ -297,11 +298,11 @@ export const OfficialShirtImage: React.FC<Props> = ({
           >
             <div className="w-full flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
               <div className="flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-red-400" />
+                <ImageIcon className="w-5 h-5 text-amber-400" />
                 <h3 className="text-sm sm:text-base font-bold text-white">
-                  {customShirtImage && viewMode === 'custom'
-                    ? 'รูปเสื้อจริงของงาน (Official Jersey Photo)'
-                    : 'ภาพแบบเสื้อวิ่ง FSS Halloween Fancy Run 2026 (Official Jersey)'}
+                  {customMedalImage && viewMode === 'custom'
+                    ? 'รูปเหรียญจริงของงาน (Official Finisher Medal Photo)'
+                    : 'ภาพแบบเหรียญรางวัล FSS Halloween Fancy Run 2026 (Official Medal)'}
                 </h3>
               </div>
               <button
@@ -316,7 +317,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
             <div className="w-full max-h-[75vh] overflow-auto flex items-center justify-center rounded-2xl bg-slate-950 p-2">
               <img
                 src={activeImageSrc}
-                alt="FSS Official Jersey Full View"
+                alt="FSS Official Finisher Medal Full View"
                 referrerPolicy="no-referrer"
                 onError={handleImageError}
                 className="max-w-full max-h-[70vh] object-contain rounded-xl"
@@ -325,13 +326,13 @@ export const OfficialShirtImage: React.FC<Props> = ({
 
             <div className="w-full mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
               <span>
-                คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร • ราคา 300 บาท
+                เหรียญรางวัลแห่งเกียรติยศสำหรับผู้พิชิตเส้นชัย 350 คนแรก • คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsZoomed(false)}
-                  className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                 >
                   ปิดหน้าต่าง
                 </button>

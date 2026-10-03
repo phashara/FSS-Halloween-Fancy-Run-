@@ -12,7 +12,7 @@ export const Footer: React.FC<{ onNavigate: (view: any) => void }> = ({ onNaviga
           <div className="space-y-3">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-600 to-rose-700 text-white shadow-sm flex items-center justify-center shrink-0">
-                <Flame className="w-4 h-4 text-amber-300" />
+                <Ghost className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <span className="text-lg font-black text-slate-900">
                 <EditableText

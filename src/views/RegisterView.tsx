@@ -468,15 +468,15 @@ export const RegisterView: React.FC<Props> = ({
                 <span className="px-2.5 py-0.5 rounded-md bg-[#FEF2F2] text-[#DC2626] font-bold text-xs">
                   วิ่ง + เสื้อที่ระลึก
                 </span>
-                <h3 className="text-lg font-bold text-slate-900">2. วิ่ง + สั่งเสื้อที่ระลึก</h3>
+                <h3 className="text-lg font-bold text-slate-900">2. วิ่งพร้อมสั่งเสื้อ</h3>
                 <p className="text-2xl font-black text-[#DC2626] font-mono">฿ 300</p>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  รับเสื้อวิ่ง Glow-in-the-dark พร้อมอัปเกรดการ์ดผีเป็น LV.2 ทันทีที่ยืนยันการชำระเงิน
+                  วิ่ง 5.0 KM พร้อมรับเสื้อ LIMITED EDITION
                 </p>
                 <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#DC2626] shrink-0" />
-                    <span>เสื้อวิ่ง Dry-Tech เรืองแสง 1 ตัว</span>
+                    <span>เสื้อที่ระลึก LIMITED EDITION</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#DC2626] shrink-0" />
@@ -516,7 +516,7 @@ export const RegisterView: React.FC<Props> = ({
                 <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
-                    <span>เสื้อวิ่ง Glow-in-the-dark 1 ตัว</span>
+                    <span>เสื้อที่ระลึก LIMITED EDITION 1 ตัว</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />

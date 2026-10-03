@@ -28,6 +28,7 @@ import { EditableText } from '../components/EditableText';
 import { NaresuanRouteMap } from '../components/NaresuanRouteMap';
 import { OfficialScheduleCard } from '../components/OfficialScheduleCard';
 import { OfficialShirtImage } from '../components/OfficialShirtImage';
+import { OfficialMedalImage } from '../components/OfficialMedalImage';
 import { CosmicCountdownHighlight } from '../components/CosmicCountdownHighlight';
 import { useEventContext } from '../context/EventContext';
 
@@ -224,7 +225,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md">
-            เลือกแพ็กเกจที่เหมาะกับคุณ ไม่ว่าจะมาร่วมวิ่งฟรี หรือรับเสื้อที่ระลึกสุดเอ็กซ์คลูซีฟ
+            เลือกแพ็กเกจที่เหมาะกับคุณ ไม่ว่าจะมาร่วมวิ่งฟรี หรือสั่งซื้อเสื้อที่ระลึกสุดเอ็กซ์คลูซีฟ
           </p>
         </div>
 
@@ -294,9 +295,9 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
                 <span className="text-xs text-amber-600 font-bold">อัปเกรดการ์ดเป็น LV.2 ⚡</span>
               </div>
               <div>
-                <h3 className="text-xl font-bold text-slate-900">2. วิ่งพร้อมสั่งเสื้อ Glow</h3>
+                <h3 className="text-xl font-bold text-slate-900">2. วิ่งพร้อมสั่งเสื้อ</h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  วิ่ง 5.0 KM พร้อมรับเสื้อ FSS Ghost Run เรืองแสงในที่มืด และการ์ด LV.2
+                  วิ่ง 5.0 KM พร้อมรับเสื้อ LIMITED EDITION
                 </p>
               </div>
               <div className="pt-2 border-t border-slate-100">
@@ -309,7 +310,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-red-600 shrink-0" />
-                  <span><b>เสื้อที่ระลึกเรืองแสง Glow in the dark</b> (ไซซ์ XS-3XL)</span>
+                  <span><b>เสื้อที่ระลึก LIMITED EDITION</b></span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-red-600 shrink-0" />
@@ -327,7 +328,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
                 onClick={() => handleRegisterChoice('RUN_AND_SHIRT')}
                 className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm transition-all shadow-md shadow-red-600/25 flex items-center justify-center gap-2"
               >
-                <span>เลือกแพ็กเกจวิ่ง + เสื้อ (300฿)</span>
+                <span>เลือกแพ็กเกจวิ่งพร้อมสั่งเสื้อ (300฿)</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -345,7 +346,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
               <div>
                 <h3 className="text-xl font-bold text-slate-900">3. ซื้อเสื้ออย่างเดียว</h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  สำหรับผู้ที่ต้องการสะสมเสื้อวิ่งและสุ่มการ์ดผี (รับหน้างานหรือจัดส่งถึงบ้าน)
+                  สำหรับผู้ที่ต้องการสะสมเสื้อวิ่งและสุ่มการ์ดผี
                 </p>
               </div>
               <div className="pt-2 border-t border-slate-100">
@@ -354,7 +355,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
               <ul className="space-y-2 text-xs text-slate-600">
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
-                  <span>เสื้อที่ระลึกผ้า Dry-Tech Micro Polyester 100%</span>
+                  <span><b>เสื้อที่ระลึก LIMITED EDITION</b> (Dry-Tech 100%)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
@@ -392,9 +393,6 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
             <div className="w-full max-w-md">
               <OfficialShirtImage allowUpload={true} />
             </div>
-            <div className="text-xs text-slate-500">
-              * ภาพถ่ายเสื้อจริง ลายเรืองแสงในที่มืด Glow-in-the-dark
-            </div>
           </div>
 
           {/* Details & Specs */}
@@ -413,23 +411,8 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
             </div>
 
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              ผลิตจากเนื้อผ้าเกรดพรีเมียม <b>Dry-Tech Micro Polyester 100%</b> นุ่ม เบา ระบายเหงื่อยอดเยี่ยม ลวดลาย 12 ผีไทยดีไซน์พิเศษเรืองแสงในความมืด เมื่อสั่งซื้อเสื้อจะได้รับการปลดล็อกการ์ดเป็น <b>LV.2 Unleashed Power</b> ทันที
+              ผลิตจากเนื้อผ้าเกรดพรีเมียม <b>Dry-Tech Micro Polyester 100%</b> นุ่ม เบา ระบายเหงื่อยอดเยี่ยม เมื่อสั่งซื้อเสื้อจะได้รับการปลดล็อกการ์ดเป็น <b>LV.2 Unleashed Power</b> ทันที
             </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <p className="text-slate-500 font-medium">เนื้อผ้า</p>
-                <p className="font-bold text-slate-900 mt-0.5">Dry-Tech 100%</p>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <p className="text-slate-500 font-medium">สกรีน</p>
-                <p className="font-bold text-slate-900 mt-0.5">เรืองแสง Glow</p>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <p className="text-slate-500 font-medium">ไซซ์</p>
-                <p className="font-bold text-slate-900 mt-0.5">XS ถึง 3XL</p>
-              </div>
-            </div>
 
             <div className="pt-2 flex flex-wrap gap-3">
               <button
@@ -445,7 +428,115 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
                 onClick={() => handleRegisterChoice('RUN_AND_SHIRT')}
                 className="px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm transition-colors"
               >
-                <span>สมัครวิ่ง + เสื้อ</span>
+                <span>วิ่งพร้อมสั่งเสื้อ</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. Finisher Medal Showcase Section */}
+      <section className="fastwork-card p-6 sm:p-10 bg-white border-slate-200">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+          {/* Medal Image Container */}
+          <div className="flex flex-col items-center text-center space-y-3">
+            <div className="w-full max-w-md">
+              <OfficialMedalImage allowUpload={true} />
+            </div>
+            <p className="text-xs text-slate-500">
+              * ภาพจำลองเหรียญที่ระลึกอะคริลิกพรีเมียม (ด้านหน้า: ผีนางรำชฎา / ด้านหลัง: OCTOBER 31, 2026)
+            </p>
+          </div>
+
+          {/* Details, Concept & Specs */}
+          <div className="space-y-6">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 text-xs font-bold flex items-center gap-1.5 w-fit">
+                  <Award className="w-3.5 h-3.5 text-amber-600" />
+                  OFFICIAL FINISHER MEDAL 2026
+                </span>
+                <span className="px-2.5 py-1 rounded-md bg-red-50 text-red-700 text-xs font-bold">
+                  วัสดุอะคริลิกพรีเมียม (Acrylic)
+                </span>
+              </div>
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900">
+                เหรียญที่ระลึก FSS Halloween Fancy Run 2026
+              </h3>
+              <p className="text-sm sm:text-base font-bold text-red-600 mt-1">
+                เหรียญรางวัลแห่งเกียรติยศสำหรับผู้พิชิตเส้นชัย 350 คนแรก
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">
+                (ณ ลานกิจกรรม คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร วันที่ 31 ตุลาคม 2026)
+              </p>
+            </div>
+
+            {/* Design Concept Box */}
+            <div className="space-y-3 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-950 p-4 sm:p-5 text-slate-200 border border-slate-800 shadow-md">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                คอนเซปต์การออกแบบเหรียญ (Design Concept)
+              </h4>
+
+              {/* Front Concept */}
+              <div className="space-y-1 text-xs">
+                <div className="font-bold text-red-400 flex items-center gap-1">
+                  <span>✦ ด้านหน้า (Front):</span>
+                  <span className="text-white">ระบำผีนางรำหลอนวิญญาณ (The Spooky Thai Dancer)</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed pl-3 border-l-2 border-red-500/50">
+                  โดดเด่นด้วยภาพ <b>ผีนางรำไทยโบราณ</b> สวมชฎาทองคำ ห่มสไบแดงเข้มปักดิ้นทอง ร่ายรำท่ามกลางเปลวเพลิงสีเลือดและลวดลายกระหนกไทย ดวงตาสีขาวโพลนไร้แววหลั่งรินด้วยสายเลือด สะท้อนตำนานนาฏศิลป์ไทยผสานความสยองขวัญในคืนฮาโลวีน พร้อมโลโก้ข้อความ <b>FSS HALLOWEEN FANCY RUN 2026</b>
+                </p>
+              </div>
+
+              {/* Back Concept */}
+              <div className="space-y-1 text-xs pt-1">
+                <div className="font-bold text-amber-400 flex items-center gap-1">
+                  <span>✦ ด้านหลัง (Back):</span>
+                  <span className="text-white">รัตติกาล 31 ตุลาคม &amp; ปริศนาใต้หน้ากาก (Mystery Behind the Mask)</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed pl-3 border-l-2 border-amber-500/50">
+                  สลักตัวอักษรสีขาวทองสไตล์หยดเลือด <b>OCTOBER 31, 2026</b> คืนวันวิ่งฮาโลวีน กลางเหรียญเป็นภาพเงาลึกลับกำลังปลดหน้ากากละครรำเปื้อนเลือดและรอยเย็บ เผยตัวตนที่แท้จริง ขนาบข้างด้วยหัวกะโหลกคู่เรืองแสงวิญญาณ ล้อมรอบด้วยลายกระหนกไทย และสลักเกียรติยศ <b>FACULTY OF SOCIAL SCIENCE</b> (คณะสังคมศาสตร์)
+                </p>
+              </div>
+            </div>
+
+            {/* Material & Specs */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <p className="text-slate-500 font-medium">วัสดุเหรียญ</p>
+                <p className="font-bold text-slate-900 mt-0.5">อะคริลิกพรีเมียม (Acrylic)</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">ผิวเงาใส น้ำหนักเบา ไม่เป็นสนิม</p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <p className="text-slate-500 font-medium">ระบบพิมพ์ลาย</p>
+                <p className="font-bold text-slate-900 mt-0.5">UV Direct Print 2 ด้าน</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">สีสดคมชัด ทนเหงื่อ ไม่ลอก</p>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 col-span-2 sm:col-span-1">
+                <p className="text-slate-500 font-medium">สายคล้องคอ</p>
+                <p className="font-bold text-slate-900 mt-0.5">Sublimation 2 หน้า</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">ลายกระหนกเพลิงแดง-ทอง</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="pt-2 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => handleRegisterChoice('RUN_FREE')}
+                className="px-6 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-bold text-sm shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Award className="w-4 h-4" />
+                <span>สมัครวิ่งเพื่อพิชิตเหรียญรางวัล</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('collection')}
+                className="px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <Ghost className="w-4 h-4 text-slate-600" />
+                <span>ดูคลังการ์ดผี 12 ชนิด</span>
               </button>
             </div>
           </div>

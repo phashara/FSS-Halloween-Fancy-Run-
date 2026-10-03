@@ -98,9 +98,11 @@ interface EventContextType {
   loginAdmin: (user: string, pass: string) => boolean;
   logoutAdmin: () => void;
 
-  // Official Shirt Image
+  // Official Shirt & Medal Images
   customShirtImage: string | null;
   setCustomShirtImage: (imgUrl: string | null) => Promise<void>;
+  customMedalImage: string | null;
+  setCustomMedalImage: (imgUrl: string | null) => Promise<void>;
 
   // Live CMS Text Editing
   isLiveEditMode: boolean;
@@ -158,6 +160,7 @@ const STORAGE_KEYS = {
   LIVE_EDIT: 'fss2026_live_edit_mode',
   SITE_CONTENT: 'fss2026_site_content',
   SHIRT_IMAGE: 'fss_custom_shirt_image',
+  MEDAL_IMAGE: 'fss_custom_medal_image',
   GHOST_SPECIES: 'fss2026_ghost_species',
 };
 
@@ -240,6 +243,14 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [customShirtImage, setCustomShirtImageState] = useState<string | null>(() => {
     try {
       return localStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [customMedalImage, setCustomMedalImageState] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.MEDAL_IMAGE) || null;
     } catch {
       return null;
     }
@@ -455,6 +466,19 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     } catch (err) {
       console.warn('LocalStorage save shirt image notice:', err);
+    }
+  };
+
+  const setCustomMedalImage = async (imgUrl: string | null) => {
+    setCustomMedalImageState(imgUrl);
+    try {
+      if (imgUrl) {
+        localStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, imgUrl);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
+      }
+    } catch (err) {
+      console.warn('LocalStorage save medal image notice:', err);
     }
   };
 
@@ -1012,6 +1036,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         resetSiteContentSection,
         customShirtImage,
         setCustomShirtImage,
+        customMedalImage,
+        setCustomMedalImage,
         isFirebaseConnected,
         registerParticipant,
         orderShirt,
