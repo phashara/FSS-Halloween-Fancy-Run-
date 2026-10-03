@@ -17,6 +17,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { ShirtOrder, ShirtSize } from '../types';
+import { OFFICIAL_SHIRT_SIZES } from '../data/shirtSizes';
 
 interface Props {
   orders: ShirtOrder[];
@@ -59,32 +60,24 @@ export const ShirtDashboard: React.FC<Props> = ({
   const shippingShirts = shippingOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
 
   // Size breakdown
-  const ALL_SIZES: { size: ShirtSize; chest: string }[] = [
-    { size: 'XS', chest: '34"' },
-    { size: 'S', chest: '36"' },
-    { size: 'M', chest: '38"' },
-    { size: 'L', chest: '40"' },
-    { size: 'XL', chest: '42"' },
-    { size: '2XL', chest: '44"' },
-    { size: '3XL', chest: '46"' },
-  ];
+  const ALL_SIZES: { size: ShirtSize; chest: string }[] = OFFICIAL_SHIRT_SIZES.map((item) => ({
+    size: item.size,
+    chest: item.chestLabel,
+  }));
 
-  const sizeCounts: Record<ShirtSize, { count: number; revenue: number; ordersCount: number }> = {
-    XS: { count: 0, revenue: 0, ordersCount: 0 },
-    S: { count: 0, revenue: 0, ordersCount: 0 },
-    M: { count: 0, revenue: 0, ordersCount: 0 },
-    L: { count: 0, revenue: 0, ordersCount: 0 },
-    XL: { count: 0, revenue: 0, ordersCount: 0 },
-    '2XL': { count: 0, revenue: 0, ordersCount: 0 },
-    '3XL': { count: 0, revenue: 0, ordersCount: 0 },
-  };
+  const sizeCounts: Record<string, { count: number; revenue: number; ordersCount: number }> = {};
+  ALL_SIZES.forEach(({ size }) => {
+    sizeCounts[size] = { count: 0, revenue: 0, ordersCount: 0 };
+  });
 
   orders.forEach((ord) => {
-    if (sizeCounts[ord.size]) {
-      sizeCounts[ord.size].count += ord.quantity || 1;
-      sizeCounts[ord.size].revenue += ord.totalAmount || 0;
-      sizeCounts[ord.size].ordersCount += 1;
+    const s = ord.size as string;
+    if (!sizeCounts[s]) {
+      sizeCounts[s] = { count: 0, revenue: 0, ordersCount: 0 };
     }
+    sizeCounts[s].count += ord.quantity || 1;
+    sizeCounts[s].revenue += ord.totalAmount || 0;
+    sizeCounts[s].ordersCount += 1;
   });
 
   // Find most popular size

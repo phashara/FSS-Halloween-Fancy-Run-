@@ -209,7 +209,7 @@ export const RealisticGhostPortrait: React.FC<Props> = ({
       {/* 6. Realistic Authenticity Seal / Badge in corner */}
       <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-md bg-black/70 backdrop-blur-md border border-amber-500/40 text-[9px] font-mono text-amber-300 shadow-md">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-        <span>REALISTIC 3D</span>
+        <span>REALISTIC HD</span>
       </div>
 
       <div className="absolute bottom-2 inset-x-2 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md border border-slate-700/80 text-center">

@@ -128,12 +128,6 @@ export const OfficialShirtImage: React.FC<Props> = ({
   };
 
   const handleResetImage = async () => {
-    if (!isAdmin) {
-      setErrorMessage('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถรีเซ็ตรูปเสื้อได้');
-      setIsAdminModalOpen(true);
-      return;
-    }
-
     if (confirm('คุณต้องการรีเซ็ตกลับเป็นรูปเสื้อดีไซน์ต้นฉบับใช่หรือไม่?')) {
       try {
         await setCustomShirtImage(null);
@@ -160,7 +154,7 @@ export const OfficialShirtImage: React.FC<Props> = ({
           isDragging ? 'border-amber-400 ring-4 ring-amber-500/20' : 'border-slate-800 hover:border-slate-700'
         }`}
         onDragOver={(e) => {
-          if (!allowUpload || !isAdmin) return;
+          if (!allowUpload) return;
           e.preventDefault();
           setIsDragging(true);
         }}
@@ -168,11 +162,6 @@ export const OfficialShirtImage: React.FC<Props> = ({
         onDrop={(e) => {
           e.preventDefault();
           setIsDragging(false);
-          if (!isAdmin) {
-            setErrorMessage('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเปลี่ยนรูปเสื้อทางการได้');
-            setIsAdminModalOpen(true);
-            return;
-          }
           if (!allowUpload) return;
           const file = e.dataTransfer.files?.[0];
           if (file) handleProcessFile(file);
@@ -219,34 +208,6 @@ export const OfficialShirtImage: React.FC<Props> = ({
             ฿300 บาท
           </span>
         </div>
-
-        {/* View Switcher Pill (if custom image exists) */}
-        {customShirtImage && !imageLoadError && (
-          <div className="absolute top-3 right-3 z-10 flex items-center rounded-xl bg-slate-950/90 border border-slate-800 p-1 backdrop-blur-sm shadow-lg text-[10px]">
-            <button
-              type="button"
-              onClick={() => setViewMode('custom')}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                viewMode === 'custom'
-                  ? 'bg-amber-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              รูปที่อัปโหลด
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('original')}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                viewMode === 'original'
-                  ? 'bg-amber-500 text-slate-950 shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              รูปต้นฉบับ
-            </button>
-          </div>
-        )}
 
         {/* Bottom Action Controls Overlay */}
         <div className="absolute bottom-3 right-3 z-10 flex flex-wrap items-center gap-2">
@@ -321,6 +282,56 @@ export const OfficialShirtImage: React.FC<Props> = ({
           )}
         </div>
       </div>
+
+      {/* Fastwork Style Action Toolbar */}
+      {allowUpload && (
+        <div className="mt-3 w-full flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{customShirtImage ? 'เปลี่ยนรูปเสื้อใหม่' : 'อัปโหลดรูปเสื้อจริง'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowUrlInput(!showUrlInput)}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5"
+            >
+              <LinkIcon className="w-3.5 h-3.5" />
+              <span>ใส่ลิงก์รูป (URL)</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsZoomed(true)}
+              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1"
+              title="ขยายดูภาพเต็ม"
+            >
+              <ZoomIn className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">ขยายภาพ</span>
+            </button>
+
+            {customShirtImage && (
+              <button
+                type="button"
+                onClick={handleResetImage}
+                className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold flex items-center gap-1"
+                title="รีเซ็ตเป็นรูปต้นฉบับ"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">รีเซ็ตรูป</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* URL Input Bar (Collapsible) */}
       {showUrlInput && allowUpload && (
@@ -425,16 +436,6 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร • ราคา 300 บาท (รับที่การจัดงานเท่านั้น)
               </span>
               <div className="flex items-center gap-2">
-                {customShirtImage && (
-                  <button
-                    type="button"
-                    onClick={() => setViewMode(viewMode === 'custom' ? 'original' : 'custom')}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>{viewMode === 'custom' ? 'สลับดูภาพแบบ 2D ต้นฉบับ' : 'สลับดูรูปจริง'}</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setIsZoomed(false)}

@@ -15,8 +15,9 @@ export interface SiteContentSection {
 
 export interface AdminUser {
   username: string;
-  displayName: string;
+  displayName?: string;
   role: 'SUPER_ADMIN';
   isLoggedIn: boolean;
   loginAt?: string;
+  loginTimestamp?: string;
 }

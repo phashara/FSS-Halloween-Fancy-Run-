@@ -9,9 +9,7 @@ interface Props {
   card: GhostCard | null;
   onClose: () => void;
   onGoToOrderShirt?: () => void;
-  onGoToShareStory?: () => void;
   onGoToMyCard?: () => void;
-  onGoToStorySanctuary?: () => void;
 }
 
 export const CardPackRevealModal: React.FC<Props> = ({
@@ -19,9 +17,7 @@ export const CardPackRevealModal: React.FC<Props> = ({
   card,
   onClose,
   onGoToOrderShirt = onClose,
-  onGoToShareStory = onClose,
   onGoToMyCard = onClose,
-  onGoToStorySanctuary = onClose,
 }) => {
   // Reveal animation stages:
   // 0: Face down & mist
@@ -138,55 +134,24 @@ export const CardPackRevealModal: React.FC<Props> = ({
           )}
         </div>
 
-        {/* Mission / Upsell prompt (Section 11) */}
+        {/* Mission / Upsell prompt */}
         {stage === 3 && (
           <div className="space-y-4 pt-2">
-            {/* Horror Story Prompt Card */}
-            <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-500/40 text-left">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">👻</span>
-                <div className="flex-1">
-                  <h4 className="text-sm sm:text-base font-bold text-purple-200">
-                    มีประสบการณ์สยองอยากเล่าหรือไม่?
-                  </h4>
-                  <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
-                    แบ่งปันเรื่องหลอน เรื่องขำ หรือเหตุการณ์ที่ยังหาคำตอบไม่ได้ เมื่อผ่านการอนุมัติจะได้รับตรา <b>STORYTELLER</b> และอัปเกรดการ์ดเป็น <b>LV.2</b> หรือ <b>LV.3</b> ทันที!
-                  </p>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <button
-                      type="button"
-                      onClick={onGoToShareStory}
-                      className="px-3.5 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-xs font-bold transition-colors"
-                    >
-                      เล่าเรื่องตอนนี้เลย!
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onGoToStorySanctuary}
-                      className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors"
-                    >
-                      อ่านเรื่องของคนอื่น
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             {/* Quick Navigation Buttons */}
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
               <button
                 type="button"
                 onClick={onGoToOrderShirt}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-md transition-all"
+                className="flex items-center justify-center gap-1.5 py-3 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-md transition-all text-center"
               >
-                <Shirt className="w-4 h-4" /> สั่งเสื้อเพื่ออัป Level
+                <Shirt className="w-4 h-4 shrink-0" /> สั่งเสื้อเพื่ออัป Level 2
               </button>
               <button
                 type="button"
                 onClick={onGoToMyCard}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl border border-slate-700 transition-colors"
+                className="flex items-center justify-center gap-1.5 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl border border-slate-700 transition-colors text-center"
               >
-                ดูการ์ดของฉัน <ArrowRight className="w-4 h-4 text-amber-400" />
+                ดูการ์ดของฉัน <ArrowRight className="w-4 h-4 text-amber-400 shrink-0" />
               </button>
             </div>
           </div>

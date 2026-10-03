@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <!-- Radial Glow and Blood Shadows -->
+    <radialGradient id="fssCrimsonGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#b91c1c" stop-opacity="0.9" />
+      <stop offset="60%" stop-color="#7f1d1d" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#09090b" stop-opacity="0.95" />
+    </radialGradient>
+    <linearGradient id="fssRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444" />
+      <stop offset="30%" stop-color="#dc2626" />
+      <stop offset="70%" stop-color="#991b1b" />
+      <stop offset="100%" stop-color="#ef4444" />
+    </linearGradient>
+    <linearGradient id="goldChada" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="30%" stop-color="#eab308" />
+      <stop offset="70%" stop-color="#ca8a04" />
+      <stop offset="100%" stop-color="#854d0e" />
+    </linearGradient>
+    <filter id="fssGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#ef4444" flood-opacity="0.75" />
+    </filter>
+    <filter id="textGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.9" />
+    </filter>
+  </defs>
+
+  <!-- Outer Black Base Circle -->
+  <circle cx="250" cy="250" r="242" fill="#09090b" />
+
+  <!-- Outer Crimson Border Ring -->
+  <circle cx="250" cy="250" r="236" fill="none" stroke="url(#fssRingGrad)" stroke-width="12" />
+  <circle cx="250" cy="250" r="222" fill="none" stroke="#fecaca" stroke-width="2.5" opacity="0.6" />
+  
+  <!-- Inner Dark Blood Chamber -->
+  <circle cx="250" cy="250" r="218" fill="url(#fssCrimsonGlow)" />
+
+  <!-- Swirling Crimson Aura / Blood Tendrils -->
+  <g opacity="0.85" filter="url(#fssGlow)">
+    <path d="M 60,250 C 40,150 110,80 190,70 C 140,110 130,170 170,220 C 120,200 80,220 60,250 Z" fill="#dc2626" />
+    <path d="M 440,250 C 460,150 390,80 310,70 C 360,110 370,170 330,220 C 380,200 420,220 440,250 Z" fill="#dc2626" />
+    <path d="M 80,320 C 40,360 80,440 160,430 C 130,390 140,350 170,330 C 120,330 90,320 80,320 Z" fill="#991b1b" />
+    <path d="M 420,320 C 460,360 420,440 340,430 C 370,390 360,350 330,330 C 380,330 410,320 420,320 Z" fill="#991b1b" />
+  </g>
+
+  <!-- Blood Drops Splatters in background -->
+  <circle cx="110" cy="140" r="6" fill="#ef4444" />
+  <circle cx="95" cy="165" r="4" fill="#dc2626" />
+  <circle cx="390" cy="140" r="6" fill="#ef4444" />
+  <circle cx="405" cy="165" r="4" fill="#dc2626" />
+  <circle cx="160" cy="90" r="5" fill="#ef4444" />
+  <circle cx="340" cy="90" r="5" fill="#ef4444" />
+
+  <!-- Thai Traditional Ghost Dancer Character -->
+  <g transform="translate(0, -10)">
+    <!-- Red Silk Sbai Shawl & Bodice -->
+    <path d="M 175,290 C 160,330 140,380 120,420 C 200,440 300,440 380,420 C 360,380 340,330 325,290 C 280,330 220,330 175,290 Z" fill="#991b1b" />
+    <path d="M 190,280 C 180,320 200,370 250,385 C 300,370 320,320 310,280 Z" fill="#b91c1c" stroke="#f59e0b" stroke-width="2" />
+
+    <!-- Left Arm & Traditional Classical Dance Gesture (Jeeb / Wing) -->
+    <path d="M 180,260 C 140,240 100,210 90,160 C 95,140 120,130 135,160 C 145,180 165,220 195,245 Z" fill="#f8fafc" stroke="#991b1b" stroke-width="2" />
+    <!-- Blood dripping from fingers -->
+    <path d="M 92,150 Q 85,115 80,85 C 83,85 86,95 90,115 Q 98,125 105,140 Z" fill="#f8fafc" />
+    <path d="M 80,85 Q 78,65 77,55 Q 81,65 83,85 Z" fill="#ef4444" />
+    <path d="M 77,55 Q 75,40 73,30" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" />
+    <!-- Gold Bracelets -->
+    <rect x="110" y="160" width="18" height="12" rx="3" fill="url(#goldChada)" transform="rotate(-30 110 160)" />
+
+    <!-- Right Arm & Classical Gesture -->
+    <path d="M 320,260 C 360,240 400,210 410,160 C 405,140 380,130 365,160 C 355,180 335,220 305,245 Z" fill="#f8fafc" stroke="#991b1b" stroke-width="2" />
+    <!-- Blood dripping right fingers -->
+    <path d="M 408,150 Q 415,115 420,85 C 417,85 414,95 410,115 Q 402,125 395,140 Z" fill="#f8fafc" />
+    <path d="M 420,85 Q 422,65 423,55 Q 419,65 417,85 Z" fill="#ef4444" />
+    <path d="M 423,55 Q 425,40 427,30" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" />
+    <!-- Gold Bracelets Right -->
+    <rect x="375" y="150" width="18" height="12" rx="3" fill="url(#goldChada)" transform="rotate(30 375 150)" />
+
+    <!-- Neck & Shoulders -->
+    <path d="M 220,230 L 220,270 L 280,270 L 280,230 Z" fill="#f8fafc" />
+    <!-- Royal Gold Necklace / Sangwan with Red Jewels -->
+    <path d="M 210,255 C 235,285 265,285 290,255 L 280,275 C 260,295 240,295 220,275 Z" fill="url(#goldChada)" stroke="#78350f" stroke-width="1" />
+    <circle cx="250" cy="285" r="5" fill="#ef4444" stroke="#fef08a" stroke-width="1.5" />
+
+    <!-- Ghost Face (Pale white, blood streaks) -->
+    <path d="M 215,180 C 210,225 235,255 250,255 C 265,255 290,225 285,180 C 285,140 215,140 215,180 Z" fill="#f8fafc" />
+    <!-- Black Hair framing face -->
+    <path d="M 210,180 C 215,150 230,135 250,135 C 270,135 285,150 290,180 C 285,160 270,145 250,145 C 230,145 215,160 210,180 Z" fill="#0f172a" />
+
+    <!-- Ghostly White Glowing Eyes -->
+    <ellipse cx="236" cy="180" rx="7" ry="4" fill="#ffffff" filter="url(#fssGlow)" />
+    <ellipse cx="264" cy="180" rx="7" ry="4" fill="#ffffff" filter="url(#fssGlow)" />
+    <!-- Bloody Eye Tears streaming down -->
+    <path d="M 236,183 L 235,225 Q 235,235 233,245" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" fill="none" />
+    <path d="M 264,183 L 265,225 Q 265,235 267,245" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round" fill="none" />
+
+    <!-- Crimson Lips & Blood Dripping from Chin -->
+    <path d="M 242,215 Q 250,210 258,215 Q 250,223 242,215 Z" fill="#991b1b" />
+    <path d="M 250,220 L 250,240 Q 250,250 248,260" stroke="#dc2626" stroke-width="3" stroke-linecap="round" fill="none" />
+
+    <!-- Golden Royal Crown (Chada) -->
+    <g transform="translate(0, 0)">
+      <!-- Tier 1 Base -->
+      <path d="M 205,150 C 205,140 295,140 295,150 C 290,162 210,162 205,150 Z" fill="url(#goldChada)" stroke="#78350f" stroke-width="1.5" />
+      <circle cx="250" cy="153" r="3" fill="#ef4444" />
+      <circle cx="230" cy="153" r="2.5" fill="#ef4444" />
+      <circle cx="270" cy="153" r="2.5" fill="#ef4444" />
+
+      <!-- Ear Ornaments (Karn-Chok) -->
+      <path d="M 205,155 C 190,170 195,195 202,205 C 208,195 205,175 208,160 Z" fill="url(#goldChada)" />
+      <path d="M 295,155 C 310,170 305,195 298,205 C 292,195 295,175 292,160 Z" fill="url(#goldChada)" />
+
+      <!-- Tier 2 Mid -->
+      <path d="M 220,140 L 230,105 L 270,105 L 280,140 Z" fill="url(#goldChada)" stroke="#78350f" stroke-width="1.5" />
+      <polygon points="250,110 245,130 255,130" fill="#ef4444" />
+
+      <!-- Tier 3 Spire High Peak -->
+      <path d="M 235,105 L 245,65 L 255,65 L 265,105 Z" fill="url(#goldChada)" />
+      <path d="M 246,65 L 250,22 L 254,65 Z" fill="url(#goldChada)" filter="url(#fssGlow)" />
+      <circle cx="250" cy="18" r="4.5" fill="#fef08a" />
+    </g>
+  </g>
+
+  <!-- Typography Banner Area -->
+  <!-- "FSS" Distressed Gothic Heavy Text -->
+  <g filter="url(#textGlow)">
+    <text x="250" y="325" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Arial Black', sans-serif" font-weight="900" font-size="62" letter-spacing="4" text-anchor="middle">
+      FSS
+    </text>
+    <!-- Blood slash across FSS -->
+    <path d="M 160,310 Q 250,295 340,320" stroke="#dc2626" stroke-width="4" stroke-linecap="round" fill="none" />
+  </g>
+
+  <!-- "HALLOWEEN" Dripping Crimson Horror Text -->
+  <g filter="url(#textGlow)">
+    <text x="250" y="390" fill="#dc2626" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Impact', sans-serif" font-weight="900" font-size="54" letter-spacing="3" text-anchor="middle">
+      HALLOWEEN
+    </text>
+    <!-- Dripping blood icicles from Halloween letters -->
+    <path d="M 125,390 L 123,435 L 128,390" fill="#dc2626" />
+    <path d="M 165,392 L 163,420 L 167,392" fill="#dc2626" />
+    <path d="M 215,395 L 214,440 L 218,395" fill="#dc2626" />
+    <path d="M 285,395 L 286,430 L 290,395" fill="#dc2626" />
+    <path d="M 335,392 L 337,425 L 340,392" fill="#dc2626" />
+    <path d="M 375,390 L 377,445 L 380,390" fill="#dc2626" />
+  </g>
+
+  <!-- "✦ FANCY RUN ✦" -->
+  <g filter="url(#textGlow)">
+    <line x1="140" y1="422" x2="175" y2="422" stroke="#fecaca" stroke-width="1.5" />
+    <polygon points="185,422 189,418 193,422 189,426" fill="#ef4444" />
+    <text x="250" y="427" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif" font-weight="800" font-size="22" letter-spacing="3" text-anchor="middle">
+      FANCY RUN
+    </text>
+    <polygon points="307,422 311,418 315,422 311,426" fill="#ef4444" />
+    <line x1="325" y1="422" x2="360" y2="422" stroke="#fecaca" stroke-width="1.5" />
+  </g>
+
+  <!-- "✦ 2026 ✦" -->
+  <g filter="url(#textGlow)">
+    <line x1="170" y1="452" x2="205" y2="452" stroke="#ef4444" stroke-width="2" />
+    <polygon points="215,452 219,448 223,452 219,456" fill="#ef4444" />
+    <text x="250" y="458" fill="#ef4444" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" font-weight="900" font-size="24" letter-spacing="2" text-anchor="middle">
+      2026
+    </text>
+    <polygon points="277,452 281,448 285,452 281,456" fill="#ef4444" />
+    <line x1="295" y1="452" x2="330" y2="452" stroke="#ef4444" stroke-width="2" />
+  </g>
+</svg>

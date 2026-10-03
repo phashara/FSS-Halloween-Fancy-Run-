@@ -47,7 +47,7 @@ export interface GhostCard {
   rarity: Rarity;
   level: CardLevel;
   stats: GhostCardStats;
-  badges: Array<'SHIRT_OWNER' | 'STORYTELLER' | 'COMPLETE_COLLECTION'>;
+  badges: Array<'SHIRT_OWNER' | 'CHECKED_IN' | 'FINISHER' | 'COMPLETE_COLLECTION' | 'STORYTELLER'>;
   qrPayload: string;
   createdAt: string;
   unlockedAtLv2?: string;
@@ -124,7 +124,20 @@ export interface RunnerRegistration {
   officerNotes?: string;
 }
 
-export type ShirtSize = 'XS' | 'S' | 'M' | 'L' | 'XL' | '2XL' | '3XL';
+export type ShirtSize =
+  | 'SSS'
+  | 'SS'
+  | 'S'
+  | 'M'
+  | 'L'
+  | 'XL'
+  | '2XL'
+  | '3XL'
+  | '4XL'
+  | '5XL'
+  | '6XL'
+  | '7XL'
+  | 'XS';
 
 export type ShirtOrderStatus =
   | 'unpaid'
@@ -158,52 +171,6 @@ export interface ShirtOrder {
   claimedAt?: string;
 }
 
-export type HorrorStoryCategory =
-  | 'running_encounter' // วิ่งอยู่ดีๆ ก็เจอ
-  | 'dark_alley' // หลอนในซอยเปลี่ยว
-  | 'sleep_paralysis' // ผีอำ/สัมผัสพิเศษ
-  | 'workplace_school' // ที่ทำงาน/มหาวิทยาลัย
-  | 'funny_ghost' // ตลกปนหลอน
-  | 'real' // เรื่องจริง
-  | 'fiction' // เรื่องแต่ง
-  | 'funny' // เรื่องขำ
-  | 'urban_legend' // ได้ยินต่อกันมา
-  | 'unexplained'; // ยังหาคำตอบไม่ได้
-
-export type StoryStatus =
-  | 'draft'
-  | 'pending'
-  | 'approved'
-  | 'revision_requested'
-  | 'rejected'
-  | 'hidden';
-
-export interface StoryReactions {
-  spooky: number; // 👻 หลอนจริง
-  funny: number; // 😂 ผีไม่พัก
-  flashlight: number; // 🔦 ขอไฟฉาย
-  runAway: number; // 🏃 วิ่งก่อนแล้ว
-  cannotSleep: number; // 💀 อ่านตอนกลางคืนไม่ได้
-}
-
-export interface HorrorStory {
-  id: string;
-  cardId: string;
-  authorNickname: string;
-  isAnonymous: boolean;
-  title: string;
-  content: string;
-  category: HorrorStoryCategory;
-  spookinessRating: number; // 1 to 5
-  location: string;
-  status: StoryStatus;
-  reactions: StoryReactions;
-  submittedAt: string;
-  reviewedAt?: string;
-  reviewedBy?: string;
-  featuredOnHome?: boolean;
-}
-
 export interface QuizAnswer {
   questionId: number;
   selectedOptionIndex: number;
@@ -223,10 +190,4 @@ export interface QuizQuestion {
 export type OfficerRole =
   | 'SUPER_ADMIN' // ผู้ดูแลหลัก
   | 'OFFICER_REGISTRATION' // จุดลงทะเบียน & สแกนเช็กอิน
-  | 'OFFICER_FINANCE' // จุดการเงิน & ตรวจสอบสลิป
-  | 'OFFICER_HORROR' // ฝ่ายคัดกรองเรื่องสยองขวัญ
-  | 'REGISTRAR'
-  | 'FINANCE'
-  | 'SHIRT_OFFICER'
-  | 'STORY_OFFICER'
-  | 'GATE_CHECKIN';
+  | 'OFFICER_FINANCE'; // จุดการเงิน & ตรวจสอบสลิป

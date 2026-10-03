@@ -15,13 +15,22 @@ import {
   Link as LinkIcon,
   RefreshCw,
   Image as ImageIcon,
+  ChevronRight,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { GhostCardView } from '../components/GhostCardView';
 import { THAI_GHOSTS } from '../data/ghosts';
 
 export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) => {
-  const { currentCard, currentRunner, cards, runners, setCurrentCardId, updateCardCustomImage, ghostSpeciesList } = useEventContext();
+  const {
+    currentCard,
+    currentRunner,
+    cards,
+    runners,
+    setCurrentCardId,
+    updateCardCustomImage,
+    ghostSpeciesList,
+  } = useEventContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchError, setSearchError] = useState('');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -64,14 +73,17 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-10">
+    <div className="max-w-5xl mx-auto space-y-8">
       {/* Header & Card Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white font-serif flex items-center gap-2">
-            <CreditCard className="w-7 h-7 text-amber-400" /> การ์ดผีประจำตัวของฉัน
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FEF2F2] text-[#DC2626] text-xs font-bold uppercase tracking-wider mb-2">
+            <CreditCard className="w-3.5 h-3.5" /> DIGITAL GHOST PASS
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            การ์ดผีประจำตัวของฉัน
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
             การ์ด 1 ใบ หมายเลขเดิม QR Code เดียว ใช้เช็กอินและสะสมพลังตลอดงาน
           </p>
         </div>
@@ -82,12 +94,12 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ค้นหา Card ID หรือเบอร์โทร"
-            className="px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-100 text-xs focus:border-amber-400 focus:outline-none w-full sm:w-56"
+            placeholder="ค้นหา Card ID หรือเบอร์โทร..."
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs focus:outline-none focus:ring-2 focus:ring-[#DC2626] w-full sm:w-60 shadow-sm"
           />
           <button
             type="submit"
-            className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1 shadow-md transition-colors shrink-0"
+            className="px-4 py-2 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold rounded-xl text-xs flex items-center gap-1 shadow-sm transition-colors shrink-0"
           >
             <Search className="w-3.5 h-3.5" /> ค้นหา
           </button>
@@ -95,8 +107,8 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
       </div>
 
       {/* Quick Select Runner Card Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
-        <span className="text-[11px] text-slate-400 font-bold shrink-0">เลือกดูการ์ดตัวอย่าง:</span>
+      <div className="flex items-center gap-2 overflow-x-auto pb-2">
+        <span className="text-xs text-slate-500 font-bold shrink-0">การ์ดตัวอย่าง:</span>
         {cards.map((c) => {
           const sp = ghostSpeciesList.find((g) => g.id === c.speciesId) || THAI_GHOSTS[c.speciesId];
           const isSelected = currentCard?.cardId === c.cardId;
@@ -105,22 +117,22 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
               key={c.cardId}
               type="button"
               onClick={() => setCurrentCardId(c.cardId)}
-              className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 border ${
                 isSelected
-                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md scale-105'
-                  : 'bg-slate-900/80 text-slate-300 border-slate-700 hover:border-slate-500'
+                  ? 'bg-[#DC2626] text-white border-[#DC2626] shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
             >
               <span>{sp?.name || c.speciesId}</span>
-              <span className="text-[10px] opacity-75 font-mono">({c.cardId})</span>
+              <span className="text-[11px] font-mono opacity-80">({c.cardId})</span>
             </button>
           );
         })}
       </div>
 
       {searchError && (
-        <div className="p-3.5 rounded-xl bg-rose-950 border border-rose-500 text-rose-200 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{searchError}</span>
         </div>
       )}
@@ -131,52 +143,52 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
           {/* Card Column */}
           <div className="lg:col-span-6 flex flex-col items-center">
             {ghostHeadline && (
-              <div className="w-full max-w-[340px] sm:max-w-[400px] mb-3 text-center sm:text-left bg-slate-900/70 p-3 rounded-2xl border border-slate-800">
-                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest block mb-0.5">
+              <div className="w-full max-w-[340px] sm:max-w-[400px] mb-3 text-center sm:text-left bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <span className="text-[10px] font-bold text-[#DC2626] uppercase tracking-widest block mb-0.5">
                   👻 THAI GHOST IDENTITY
                 </span>
-                <h2 className="text-xl sm:text-2xl font-black text-amber-400 font-serif">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                   {ghostHeadline}
                 </h2>
-                <p className="text-[11px] text-slate-300">
-                  {species?.title} • การ์ดเสมือนจริง 3D พร้อมตราสัญลักษณ์
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {species?.title} &middot; การ์ดประจำตัวพร้อมตราสัญลักษณ์
                 </p>
               </div>
             )}
             <GhostCardView card={currentCard} showModeToggle={true} />
 
-            {/* Quick Prominent Photo Uploader Box */}
-            <div className="w-full max-w-[340px] sm:max-w-[400px] mt-4 p-4 rounded-2xl bg-gradient-to-br from-[#1a0e28] via-slate-900 to-[#220d18] border border-amber-500/50 shadow-2xl space-y-3">
+            {/* Quick Photo Uploader Box */}
+            <div className="w-full max-w-[340px] sm:max-w-[400px] mt-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">📸</span>
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
                       <span>เปลี่ยนรูปบนการ์ดใบนี้</span>
-                      <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded">
+                      <span className="text-[10px] px-1.5 py-0.5 bg-[#FEF2F2] text-[#DC2626] rounded font-mono">
                         {currentCard.cardId}
                       </span>
                     </h4>
-                    <p className="text-[10px] text-slate-300">
+                    <p className="text-[11px] text-slate-500">
                       ใส่รูปของคุณหรือรูปผีแทนภาพวาด {species?.name}
                     </p>
                   </div>
                 </div>
                 {currentCard.customImageUrl && (
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-950 border border-emerald-500/60 text-[10px] font-bold text-emerald-300 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-bold text-[#00B67A] shrink-0">
                     ใส่รูปแล้ว ✓
                   </span>
                 )}
               </div>
 
               {uploadMsg && (
-                <div className="text-[11px] p-2 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-200 text-center animate-fadeIn font-medium">
+                <div className="text-xs p-2 rounded-xl bg-red-50 border border-red-200 text-red-900 text-center font-medium">
                   {uploadMsg}
                 </div>
               )}
 
               <div className="flex items-center gap-2">
-                <label className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-orange-600 via-amber-600 to-yellow-600 hover:from-orange-500 hover:to-yellow-500 text-slate-950 font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-orange-950/40 transition-all active:scale-95 disabled:opacity-50">
+                <label className="flex-1 py-2 px-3 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all active:scale-95 disabled:opacity-50">
                   <input
                     type="file"
                     accept="image/*"
@@ -201,17 +213,8 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
                     }}
                   />
                   <Upload className="w-3.5 h-3.5" />
-                  <span>{isUploadingPhoto ? 'กำลังประมวลผล...' : 'เลือกรูปจากเครื่อง/มือถือ'}</span>
+                  <span>{isUploadingPhoto ? 'กำลังประมวลผล...' : 'เลือกรูปจากเครื่อง'}</span>
                 </label>
-
-                <button
-                  type="button"
-                  onClick={() => setUrlInputOpen(!urlInputOpen)}
-                  title="ใส่ลิงก์รูปภาพ (URL)"
-                  className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-amber-400 border border-slate-700 transition-colors text-xs font-bold"
-                >
-                  <LinkIcon className="w-4 h-4" />
-                </button>
 
                 {currentCard.customImageUrl && (
                   <button
@@ -224,227 +227,163 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
                       }
                     }}
                     title="รีเซ็ตเป็นภาพวาดดั้งเดิม"
-                    className="p-2.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 text-rose-300 text-xs transition-colors"
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 border border-slate-200 text-rose-600 text-xs transition-colors"
                   >
                     <RefreshCw className="w-4 h-4" />
                   </button>
                 )}
               </div>
-
-              {urlInputOpen && (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!customUrl.trim()) return;
-                    setIsUploadingPhoto(true);
-                    setUploadMsg('กำลังตรวจสอบลิงก์รูปภาพ...');
-                    const img = new Image();
-                    img.onload = () => {
-                      updateCardCustomImage(currentCard.cardId, customUrl.trim());
-                      setUrlInputOpen(false);
-                      setCustomUrl('');
-                      setIsUploadingPhoto(false);
-                      setUploadMsg('เปลี่ยนรูปจากลิงก์เรียบร้อยแล้ว!');
-                      setTimeout(() => setUploadMsg(null), 3500);
-                    };
-                    img.onerror = () => {
-                      setIsUploadingPhoto(false);
-                      setUploadMsg('ไม่สามารถโหลดภาพจาก URL นี้ได้ กรุณาตรวจดูลิงก์');
-                    };
-                    img.src = customUrl.trim();
-                  }}
-                  className="flex items-center gap-1.5 pt-1 animate-fadeIn"
-                >
-                  <input
-                    type="url"
-                    value={customUrl}
-                    onChange={(e) => setCustomUrl(e.target.value)}
-                    placeholder="วางลิงก์รูปภาพ เช่น https://.../photo.jpg"
-                    className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-400"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isUploadingPhoto || !customUrl.trim()}
-                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition-colors disabled:opacity-50"
-                  >
-                    ใช้รูปนี้
-                  </button>
-                </form>
-              )}
             </div>
           </div>
 
-          {/* Details & Mission Evolution Column */}
-          <div className="lg:col-span-6 space-y-6">
-            {/* Level Progress Widget */}
-            <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest block">
-                    EVOLUTION PROGRESS
-                  </span>
-                  <h3 className="text-lg font-bold text-white">
-                    สถานะการพัฒนา: LV.{currentCard.level} / 3
-                  </h3>
-                </div>
-                <div className="px-3 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-bold rounded-full">
-                  {currentCard.level === 3 ? '100% ULTIMATE' : currentCard.level === 2 ? '65% UNLEASHED' : '33% AWAKENED'}
-                </div>
-              </div>
+          {/* Level Evolution & Info Column */}
+          <div className="lg:col-span-6 space-y-4">
+            {/* Level Timeline */}
+            <div className="fastwork-card p-6 bg-white space-y-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#DC2626]" /> สถานะวิวัฒนาการการ์ด (Card Evolution)
+              </h3>
 
-              {/* Progress bar */}
-              <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+              <div className="space-y-3">
+                {/* Level 1 */}
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="w-7 h-7 rounded-full bg-slate-200 text-slate-800 font-bold text-xs flex items-center justify-center">
+                      1
+                    </span>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">LV.1 วิญญาณตื่น (Awakened)</h4>
+                      <p className="text-[11px] text-slate-500">ได้รับทันทีเมื่อสมัครวิ่งฟรี</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-[#00B67A]">✓ ปลดล็อกแล้ว</span>
+                </div>
+
+                {/* Level 2 */}
                 <div
-                  className="bg-gradient-to-r from-amber-500 via-rose-500 to-purple-500 h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: currentCard.level === 3 ? '100%' : currentCard.level === 2 ? '66%' : '33%',
-                  }}
-                />
-              </div>
-
-              {/* Evolution Checklist */}
-              <div className="space-y-3 pt-2 text-xs">
-                {/* Task 1: Registration */}
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                  <div className="flex items-center gap-2.5">
-                    <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+                  className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+                    currentCard.level >= 2
+                      ? 'bg-[#FEF2F2] border-red-200'
+                      : 'bg-white border-slate-200 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center ${
+                        currentCard.level >= 2
+                          ? 'bg-[#DC2626] text-white'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      2
+                    </span>
                     <div>
-                      <span className="font-semibold text-slate-200 block">
-                        1. สมัครเข้าร่วมงาน (Awakened)
-                      </span>
-                      <span className="text-[10px] text-slate-400">ปลดล็อกการ์ดผี LV.1</span>
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                        LV.2 ปลดผนึกพลัง (Unleashed)
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        สั่งซื้อเสื้อที่ระลึก + ตรา SHIRT OWNER (+6 SPD)
+                      </p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-400 font-mono">สำเร็จ ✓</span>
-                </div>
-
-                {/* Task 2: Shirt Owner */}
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                  <div className="flex items-center gap-2.5">
-                    {currentCard.badges.includes('SHIRT_OWNER') ? (
-                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                    ) : (
-                      <Shirt className="w-4 h-4 text-orange-400 shrink-0" />
-                    )}
-                    <div>
-                      <span className="font-semibold text-slate-200 block">
-                        2. สั่งซื้อเสื้อที่ระลึก (Shirt Owner)
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {currentCard.badges.includes('SHIRT_OWNER')
-                          ? 'ปลดล็อกตรา SHIRT OWNER แล้ว (+ความเร็ว & พลังแฝง)'
-                          : 'สั่งซื้อเสื้อเพื่ออัปเกรดเป็น LV.2 หรือ LV.3'}
-                      </span>
-                    </div>
-                  </div>
-                  {currentCard.badges.includes('SHIRT_OWNER') ? (
-                    <span className="text-[10px] font-bold text-emerald-400 font-mono">สำเร็จ ✓</span>
+                  {currentCard.level >= 2 ? (
+                    <span className="text-xs font-bold text-[#DC2626]">✓ ปลดล็อกแล้ว</span>
                   ) : (
                     <button
                       type="button"
                       onClick={() => onNavigate('shirt')}
-                      className="px-2.5 py-1 rounded bg-orange-600 hover:bg-orange-500 text-white text-[10px] font-bold transition-colors"
+                      className="px-3 py-1 bg-[#DC2626] text-white rounded-lg text-xs font-bold hover:bg-[#B91C1C]"
                     >
-                      สั่งซื้อเสื้อ
+                      สั่งเสื้อเพื่ออัปเกรด
                     </button>
                   )}
                 </div>
 
-                {/* Task 3: Storyteller */}
-                <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800">
-                  <div className="flex items-center gap-2.5">
-                    {currentCard.badges.includes('STORYTELLER') ? (
-                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                    ) : (
-                      <Flame className="w-4 h-4 text-purple-400 shrink-0" />
-                    )}
+                {/* Level 3 */}
+                <div
+                  className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+                    currentCard.level >= 3
+                      ? 'bg-amber-50 border-amber-200'
+                      : 'bg-white border-slate-200 opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`w-7 h-7 rounded-full font-bold text-xs flex items-center justify-center ${
+                        currentCard.level >= 3
+                          ? 'bg-amber-500 text-slate-950'
+                          : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      3
+                    </span>
                     <div>
-                      <span className="font-semibold text-slate-200 block">
-                        3. แชร์เรื่องสยองขวัญ (Storyteller)
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {currentCard.badges.includes('STORYTELLER')
-                          ? 'เรื่องผ่านการอนุมัติแล้ว ได้รับตรา STORYTELLER'
-                          : 'แบ่งปันประสบการณ์หลอนเพื่อปลดล็อกตรา'}
-                      </span>
+                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                        LV.3 ตำนานสยอง (ULTIMATE GHOST)
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        สั่งซื้อเสื้อ + วิ่งเข้าเส้นชัยคืนวันงาน 31 ต.ค.
+                      </p>
                     </div>
                   </div>
-                  {currentCard.badges.includes('STORYTELLER') ? (
-                    <span className="text-[10px] font-bold text-emerald-400 font-mono">สำเร็จ ✓</span>
+                  {currentCard.level >= 3 ? (
+                    <span className="text-xs font-bold text-amber-700">✓ ULTIMATE</span>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('horror')}
-                      className="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-bold transition-colors"
-                    >
-                      เล่าเรื่องสยอง
-                    </button>
+                    <span className="text-xs text-slate-400 font-medium">รอเช็กอินวันงาน</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Event Check-In Pass */}
+            {/* Runner Pass Info Card */}
             {currentRunner && (
-              <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 to-[#150f28] border border-slate-800 space-y-4">
-                <h4 className="text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" /> บัตรเช็กอินวันงาน (Event Pass)
-                </h4>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">หมายเลข BIB</span>
-                    <span className="text-base font-black text-white font-mono">
-                      {currentRunner.bibNumber || 'ไม่มี (เฉพาะซื้อเสื้อ)'}
+              <div className="fastwork-card p-6 bg-white space-y-3">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#DC2626]" /> ข้อมูลนักวิ่งประจำการ์ด
+                </h3>
+                <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  <div>
+                    <span className="text-slate-500 block">ชื่อนักวิ่ง:</span>
+                    <span className="font-bold text-slate-900">{currentRunner.fullName}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">หมายเลข BIB:</span>
+                    <span className="font-bold text-[#DC2626] font-mono">{currentRunner.bibNumber || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block">ประเภท:</span>
+                    <span className="font-semibold text-slate-800">
+                      {currentRunner.regType === 'RUN_FREE'
+                        ? 'วิ่งฟรี (Free Run)'
+                        : currentRunner.regType === 'RUN_AND_SHIRT'
+                        ? 'วิ่ง + เสื้อ'
+                        : 'ซื้อเสื้ออย่างเดียว'}
                     </span>
                   </div>
-
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">สถานะเช็กอิน</span>
-                    <span
-                      className={`text-xs font-bold block mt-1 ${
-                        currentRunner.checkedIn ? 'text-emerald-400' : 'text-amber-400'
-                      }`}
-                    >
-                      {currentRunner.checkedIn ? '✓ เช็กอินแล้ว' : 'ยังไม่เช็กอิน (สแกนหน้างาน)'}
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">การรับเสื้อ</span>
-                    <span className="text-xs font-bold text-slate-200 block mt-1">
-                      {currentRunner.shirtClaimed ? '✓ รับเสื้อแล้ว' : 'ยังไม่ได้รับ'}
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">เหรียญรางวัล Finisher</span>
-                    <span className="text-xs font-bold text-slate-200 block mt-1">
-                      {currentRunner.medalClaimed ? '✓ รับเหรียญแล้ว' : 'รับหลังเข้าเส้นชัย'}
+                  <div>
+                    <span className="text-slate-500 block">สถานะเช็กอิน:</span>
+                    <span className={`font-bold ${currentRunner.checkedIn ? 'text-[#00B67A]' : 'text-slate-500'}`}>
+                      {currentRunner.checkedIn ? '✓ เช็กอินแล้ว' : 'ยังไม่เช็กอิน'}
                     </span>
                   </div>
                 </div>
-
-                <p className="text-[11px] text-slate-400 italic text-center pt-2">
-                  *ในวันงาน 31 ต.ค. เพียงเปิดหน้าจอแสดง QR Code จากการ์ดผีของคุณให้เจ้าหน้าที่สแกน
-                </p>
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="p-12 text-center rounded-3xl bg-slate-900/60 border border-slate-800 space-y-4">
-          <span className="text-4xl">👻</span>
-          <h3 className="text-xl font-bold text-white">ยังไม่มีการ์ดผีประจำตัว</h3>
-          <p className="text-xs text-slate-400 max-w-md mx-auto">
-            ร่วมสมัครวิ่งแฟนซี หรือตอบแบบทดสอบเพื่อค้นพบว่าคุณคือผีไทยชนิดไหน พร้อมรับการ์ดและ QR Code ทันที
+        <div className="p-12 text-center fastwork-card bg-white space-y-4">
+          <CreditCard className="w-12 h-12 text-slate-400 mx-auto" />
+          <h3 className="text-lg font-bold text-slate-900">ยังไม่มีการ์ดผีที่เลือก</h3>
+          <p className="text-xs text-slate-500">
+            คุณสามารถค้นหาด้วยหมายเลข Card ID หรือสมัครวิ่งเพื่อรับการ์ดใหม่
           </p>
           <button
             type="button"
             onClick={() => onNavigate('register')}
-            className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm rounded-xl transition-all"
+            className="px-6 py-2.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-xs rounded-xl shadow-sm"
           >
-            สมัครวิ่งและรับการ์ดผี
+            สมัครวิ่งเพื่อรับการ์ดผี
           </button>
         </div>
       )}

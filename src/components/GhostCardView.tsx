@@ -50,7 +50,6 @@ export const GhostCardView: React.FC<Props> = ({
   const [cardRatio, setCardRatio] = useState<'standard' | 'story916'>(initialRatio);
   const [isStoryModalOpen, setIsStoryModalOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [tilt, setTilt] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDownloading, setIsDownloading] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -114,19 +113,6 @@ export const GhostCardView: React.FC<Props> = ({
       .then((url) => setQrDataUrl(url))
       .catch((err) => console.error(err));
   }, [card.qrPayload]);
-
-  // 3D tilt effect on mouse move
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (compact) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setTilt({ x: x * 10, y: -y * 10 });
-  };
-
-  const handleMouseLeave = () => {
-    setTilt({ x: 0, y: 0 });
-  };
 
   // Download card snapshot (supports both Standard and 9:16 Story HD)
   const handleDownload = async () => {
@@ -201,7 +187,7 @@ export const GhostCardView: React.FC<Props> = ({
 
           ctx.fillStyle = '#f59e0b';
           ctx.font = 'bold 20px Prompt, sans-serif';
-          ctx.fillText('📸 ภาพการ์ดเสมือนจริง 3D', 300, 420);
+          ctx.fillText('📸 ภาพการ์ดผีประจำตัว', 300, 420);
           ctx.fillStyle = '#94a3b8';
           ctx.font = '15px Prompt, sans-serif';
           ctx.fillText(species.lore.slice(0, 32) + '...', 300, 460);
@@ -214,7 +200,7 @@ export const GhostCardView: React.FC<Props> = ({
 
           ctx.fillStyle = '#34d399';
           ctx.font = 'bold 18px Prompt, sans-serif';
-          ctx.fillText('รางวัล 350 ท่านแรก: เหรียญที่ระลึก Finisher & คูปองอาหาร', 300, 770);
+          ctx.fillText('รางวัล 350 ท่านแรกที่วิ่งเข้าเส้นชัย: เหรียญ Finisher & คูปองอาหาร', 300, 770);
 
           ctx.fillStyle = '#64748b';
           ctx.font = '16px Prompt, sans-serif';
@@ -353,15 +339,9 @@ export const GhostCardView: React.FC<Props> = ({
         </div>
       )}
 
-      {/* 3D Physical Card */}
+      {/* Official Ghost Card */}
       <div
         ref={cardRef}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        style={{
-          transform: `perspective(1000px) rotateY(${tilt.x}deg) rotateX(${tilt.y}deg)`,
-          transition: 'transform 0.15s ease-out',
-        }}
         className={`relative w-full ${
           cardRatio === 'story916'
             ? 'aspect-[9/16] max-w-[340px] sm:max-w-[375px] flex flex-col justify-between'
@@ -779,14 +759,21 @@ export const GhostCardView: React.FC<Props> = ({
               </span>
             )}
 
-            {/* Storyteller Badge */}
-            {card.badges.includes('STORYTELLER') ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-950/80 border border-purple-500/80 rounded text-[9px] font-semibold text-purple-300 animate-pulse">
-                <Flame className="w-2.5 h-2.5" /> STORYTELLER
+            {/* Event Finisher / Check-in Badge */}
+            {card.badges.includes('CHECKED_IN') || card.badges.includes('FINISHER') ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-950/80 border border-emerald-500/80 rounded text-[9px] font-semibold text-emerald-300">
+                <CheckCircle2 className="w-2.5 h-2.5" /> FINISHER
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[9px] text-slate-500">
-                <Lock className="w-2.5 h-2.5" /> แชร์เรื่องสยองเพื่อปลดล็อก
+                <Lock className="w-2.5 h-2.5" /> เช็กอินวันงานเพื่อปลดล็อก
+              </span>
+            )}
+
+            {/* Legacy Storyteller Badge if earned */}
+            {card.badges.includes('STORYTELLER') && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-950/80 border border-purple-500/80 rounded text-[9px] font-semibold text-purple-300">
+                <Flame className="w-2.5 h-2.5" /> STORYTELLER
               </span>
             )}
 

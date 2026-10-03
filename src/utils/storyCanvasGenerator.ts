@@ -454,7 +454,7 @@ export const generateGhostStoryCanvas = async (
 
   ctx.fillStyle = '#e2e8f0';
   ctx.font = '19px Prompt, sans-serif';
-  ctx.fillText('• 350 ท่านแรกรับเหรียญ Finisher & คูปองอาหารฟรี', 400, bottomY + 102);
+  ctx.fillText('• 350 ท่านแรกที่วิ่งเข้าเส้นชัยรับเหรียญ Finisher & คูปองอาหารฟรี', 400, bottomY + 102);
 
   ctx.fillStyle = '#a5b4fc';
   ctx.font = '18px Prompt, sans-serif';

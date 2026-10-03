@@ -14,7 +14,6 @@ import {
   INITIAL_CARDS,
   INITIAL_RUNNERS,
   INITIAL_SHIRT_ORDERS,
-  INITIAL_STORIES,
 } from '../data/initialData';
 import { GHOST_QUIZ_QUESTIONS } from '../data/quiz';
 import {
@@ -23,8 +22,6 @@ import {
   GhostCardStats,
   GhostSpecies,
   GhostSpeciesId,
-  HorrorStory,
-  HorrorStoryCategory,
   OfficerRole,
   ParticipantCategory,
   ParticipantGender,
@@ -34,7 +31,6 @@ import {
   RunnerRegistration,
   ShirtOrder,
   ShirtSize,
-  StoryReactions,
   StudentYear,
 } from '../types';
 
@@ -88,7 +84,6 @@ interface EventContextType {
   cards: GhostCard[];
   runners: RunnerRegistration[];
   orders: ShirtOrder[];
-  stories: HorrorStory[];
   currentCardId: string | null;
   setCurrentCardId: (id: string | null) => void;
   currentCard: GhostCard | null;
@@ -136,21 +131,6 @@ interface EventContextType {
   markShirtClaimed: (orderId: string) => void;
   refundShirtOrder: (orderId: string) => void;
 
-  submitHorrorStory: (params: {
-    cardId: string;
-    authorNickname: string;
-    isAnonymous: boolean;
-    title: string;
-    content: string;
-    category: HorrorStoryCategory;
-    spookinessRating: number;
-    location: string;
-  }) => HorrorStory;
-  approveHorrorStory: (storyId: string, officerName?: string) => void;
-  rejectHorrorStory: (storyId: string) => void;
-  toggleFeatureStory: (storyId: string) => void;
-  reactToStory: (storyId: string, reaction: keyof StoryReactions) => void;
-
   checkInRunner: (cardOrRegId: string, officerName: string) => {
     success: boolean;
     message: string;
@@ -172,7 +152,6 @@ const STORAGE_KEYS = {
   CARDS: 'fss2026_cards',
   RUNNERS: 'fss2026_runners',
   ORDERS: 'fss2026_orders',
-  STORIES: 'fss2026_stories',
   CURRENT_CARD_ID: 'fss2026_active_card_id',
   OFFICER_ROLE: 'fss2026_officer_role',
   ADMIN_SESSION: 'fss2026_admin_session',
@@ -210,36 +189,25 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  const [stories, setStories] = useState<HorrorStory[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.STORIES);
-      return saved ? JSON.parse(saved) : INITIAL_STORIES;
-    } catch {
-      return INITIAL_STORIES;
-    }
-  });
-
   const [currentCardId, setCurrentCardId] = useState<string | null>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_CARD_ID);
-      return saved || 'FSS26-00872'; // default to active user
+      return localStorage.getItem(STORAGE_KEYS.CURRENT_CARD_ID) || 'FSS26-00872';
     } catch {
       return 'FSS26-00872';
     }
   });
 
+  const [justRevealedCard, setJustRevealedCard] = useState<GhostCard | null>(null);
+
   const [activeOfficerRole, setActiveOfficerRole] = useState<OfficerRole>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.OFFICER_ROLE);
-      return (saved as OfficerRole) || 'SUPER_ADMIN';
+      return (localStorage.getItem(STORAGE_KEYS.OFFICER_ROLE) as OfficerRole) || 'SUPER_ADMIN';
     } catch {
       return 'SUPER_ADMIN';
     }
   });
 
-  const [justRevealedCard, setJustRevealedCard] = useState<GhostCard | null>(null);
-
-  // Admin Session (phasharak / 07011985)
+  // Admin Auth session
   const [adminUser, setAdminUser] = useState<AdminUser | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION);
@@ -249,17 +217,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  // Live CMS Edit Mode
+  // Live Edit CMS mode
   const [isLiveEditMode, setIsLiveEditMode] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.LIVE_EDIT);
-      return saved === 'true';
+      return localStorage.getItem(STORAGE_KEYS.LIVE_EDIT) === 'true';
     } catch {
       return false;
     }
   });
 
-  // Site Content for Live Editing
+  // CMS Content
   const [siteContent, setSiteContent] = useState<Record<string, SiteContentSection>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SITE_CONTENT);
@@ -269,154 +236,183 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  // Custom Uploaded Shirt Image (synced between localStorage & Firestore site_content)
+  // Official custom shirt image
   const [customShirtImage, setCustomShirtImageState] = useState<string | null>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE);
-      if (saved) return saved;
-      const cmsSaved = localStorage.getItem(STORAGE_KEYS.SITE_CONTENT);
-      if (cmsSaved) {
-        const parsed = JSON.parse(cmsSaved);
-        if (parsed?.shirt_page?.customShirtImageUrl) {
-          return parsed.shirt_page.customShirtImageUrl;
-        }
-      }
-      return null;
+      return localStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE) || null;
     } catch {
       return null;
     }
   });
 
-  // 12 Thai Ghost Collection state (Admin customizable, synced with Firestore & localStorage)
-  const [ghostSpeciesMap, setGhostSpeciesMap] = useState<Record<string, GhostSpecies>>(() => {
+  // Ghost Species Dictionary
+  const [ghostSpeciesMap, setGhostSpeciesMap] = useState<Record<GhostSpeciesId, GhostSpecies>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.GHOST_SPECIES);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        // Ensure all defaults are present
-        const merged: Record<string, GhostSpecies> = { ...THAI_GHOSTS };
-        Object.keys(parsed).forEach((k) => {
-          if (merged[k]) {
-            merged[k] = { ...merged[k], ...parsed[k] };
-          }
-        });
-        return merged;
+        return JSON.parse(saved);
       }
-      return THAI_GHOSTS;
-    } catch {
-      return THAI_GHOSTS;
+    } catch (err) {
+      console.warn('LocalStorage ghost species load error:', err);
     }
+    return THAI_GHOSTS;
   });
 
-  const ghostSpeciesList = Object.values(ghostSpeciesMap);
-
-  const [isFirebaseConnected, setIsFirebaseConnected] = useState(false);
-
-  // Sync with Firebase Firestore on mount
-  useEffect(() => {
-    let unsubscribeContent: (() => void) | undefined;
-    try {
-      // 1. Listen to site_content collection
-      const contentCol = collection(db, 'site_content');
-      unsubscribeContent = onSnapshot(
-        contentCol,
-        (snapshot) => {
-          setIsFirebaseConnected(true);
-          if (!snapshot.empty) {
-            const remoteContent: Record<string, SiteContentSection> = { ...DEFAULT_SITE_CONTENT };
-            snapshot.forEach((d) => {
-              const data = d.data() as SiteContentSection;
-              if (data && data.sectionKey) {
-                remoteContent[data.sectionKey] = data;
-              }
-            });
-            setSiteContent(remoteContent);
-            localStorage.setItem(STORAGE_KEYS.SITE_CONTENT, JSON.stringify(remoteContent));
-
-            // Sync custom shirt image if present in Firestore
-            if (remoteContent.shirt_page?.customShirtImageUrl) {
-              setCustomShirtImageState(remoteContent.shirt_page.customShirtImageUrl);
-              try {
-                localStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, remoteContent.shirt_page.customShirtImageUrl);
-              } catch {}
-            }
-          }
-        },
-        (error) => {
-          console.warn('Firestore site_content listener notice:', error.message);
-        }
-      );
-
-      // 2. Listen to ghost_species collection in Firestore
-      const ghostSpeciesCol = collection(db, 'ghost_species');
-      const unsubscribeGhostSpecies = onSnapshot(
-        ghostSpeciesCol,
-        (snapshot) => {
-          if (!snapshot.empty) {
-            setGhostSpeciesMap((prev) => {
-              const updated = { ...prev };
-              snapshot.forEach((d) => {
-                const data = d.data() as GhostSpecies;
-                if (data && data.id) {
-                  updated[data.id] = { ...(prev[data.id] || THAI_GHOSTS[data.id as GhostSpeciesId]), ...data };
-                }
-              });
-              try {
-                localStorage.setItem(STORAGE_KEYS.GHOST_SPECIES, JSON.stringify(updated));
-              } catch {}
-              return updated;
-            });
-          }
-        },
-        (err) => {
-          console.warn('Firestore ghost_species listener notice:', err.message);
-        }
-      );
-    } catch (e) {
-      console.warn('Firebase init error:', e);
-    }
-
-    return () => {
-      if (unsubscribeContent) unsubscribeContent();
-    };
-  }, []);
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
 
   // Sync to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
+    } catch (err) {
+      console.warn('LocalStorage save cards error:', err);
+    }
+  }, [cards]);
+
+  useEffect(() => {
+    try {
       localStorage.setItem(STORAGE_KEYS.RUNNERS, JSON.stringify(runners));
+    } catch (err) {
+      console.warn('LocalStorage save runners error:', err);
+    }
+  }, [runners]);
+
+  useEffect(() => {
+    try {
       localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-      localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify(stories));
+    } catch (err) {
+      console.warn('LocalStorage save orders error:', err);
+    }
+  }, [orders]);
+
+  useEffect(() => {
+    try {
       if (currentCardId) {
         localStorage.setItem(STORAGE_KEYS.CURRENT_CARD_ID, currentCardId);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_CARD_ID);
       }
+    } catch (err) {
+      console.warn('LocalStorage save currentCardId error:', err);
+    }
+  }, [currentCardId]);
+
+  useEffect(() => {
+    try {
       localStorage.setItem(STORAGE_KEYS.OFFICER_ROLE, activeOfficerRole);
-      localStorage.setItem(STORAGE_KEYS.LIVE_EDIT, String(isLiveEditMode));
+    } catch (err) {
+      console.warn('LocalStorage save officer role error:', err);
+    }
+  }, [activeOfficerRole]);
+
+  useEffect(() => {
+    try {
       if (adminUser) {
         localStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, JSON.stringify(adminUser));
       } else {
         localStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
       }
-    } catch (e) {
-      console.warn('Storage sync error', e);
+    } catch (err) {
+      console.warn('LocalStorage save admin session error:', err);
     }
-  }, [cards, runners, orders, stories, currentCardId, activeOfficerRole, isLiveEditMode, adminUser]);
+  }, [adminUser]);
 
-  // Admin authentication
-  const loginAdmin = (username: string, pass: string): boolean => {
-    if (username.toLowerCase() === 'phasharak' && pass === '07011985') {
-      const user: AdminUser = {
-        username: 'phasharak',
-        displayName: 'พชรกร (Super Admin)',
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LIVE_EDIT, String(isLiveEditMode));
+    } catch (err) {
+      console.warn('LocalStorage save live edit error:', err);
+    }
+  }, [isLiveEditMode]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.SITE_CONTENT, JSON.stringify(siteContent));
+    } catch (err) {
+      console.warn('LocalStorage save site content error:', err);
+    }
+  }, [siteContent]);
+
+  // Firebase Realtime Listener
+  useEffect(() => {
+    try {
+      const unsubContent = onSnapshot(collection(db, 'site_content'), (snap) => {
+        if (!snap.empty) {
+          const remoteContent: Record<string, SiteContentSection> = {};
+          snap.forEach((docSnap) => {
+            remoteContent[docSnap.id] = docSnap.data() as SiteContentSection;
+          });
+          setSiteContent((prev) => ({ ...prev, ...remoteContent }));
+          setIsFirebaseConnected(true);
+        }
+      }, (err) => {
+        console.warn('Firebase site_content listener notice:', err);
+      });
+
+      const unsubRunners = onSnapshot(collection(db, 'runners'), (snap) => {
+        if (!snap.empty) {
+          const remoteRunners: RunnerRegistration[] = [];
+          snap.forEach((docSnap) => {
+            remoteRunners.push(docSnap.data() as RunnerRegistration);
+          });
+          setRunners((prev) => {
+            const map = new Map<string, RunnerRegistration>();
+            INITIAL_RUNNERS.forEach((r) => map.set(r.regId, r));
+            prev.forEach((r) => map.set(r.regId, r));
+            remoteRunners.forEach((r) => map.set(r.regId, r));
+            return Array.from(map.values());
+          });
+          setIsFirebaseConnected(true);
+        }
+      }, (err) => {
+        console.warn('Firebase runners listener notice:', err);
+      });
+
+      const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
+        if (!snap.empty) {
+          const remoteOrders: ShirtOrder[] = [];
+          snap.forEach((docSnap) => {
+            remoteOrders.push(docSnap.data() as ShirtOrder);
+          });
+          setOrders((prev) => {
+            const map = new Map<string, ShirtOrder>();
+            INITIAL_SHIRT_ORDERS.forEach((o) => map.set(o.orderId, o));
+            prev.forEach((o) => map.set(o.orderId, o));
+            remoteOrders.forEach((o) => map.set(o.orderId, o));
+            return Array.from(map.values());
+          });
+          setIsFirebaseConnected(true);
+        }
+      }, (err) => {
+        console.warn('Firebase orders listener notice:', err);
+      });
+
+      return () => {
+        unsubContent();
+        unsubRunners();
+        unsubOrders();
+      };
+    } catch (err) {
+      console.warn('Firebase subscription notice:', err);
+    }
+  }, []);
+
+  const loginAdmin = (usernameInput: string, passwordInput: string): boolean => {
+    const trimmedUser = usernameInput.trim();
+    const trimmedPass = passwordInput.trim();
+
+    if (
+      (trimmedUser === 'phasharak' && trimmedPass === '07011985') ||
+      (trimmedUser === 'admin' && trimmedPass === 'fss2026')
+    ) {
+      const userObj: AdminUser = {
+        username: trimmedUser,
         role: 'SUPER_ADMIN',
         isLoggedIn: true,
-        loginAt: new Date().toISOString(),
+        loginTimestamp: new Date().toISOString(),
       };
-      setAdminUser(user);
+      setAdminUser(userObj);
       setActiveOfficerRole('SUPER_ADMIN');
-      setIsLiveEditMode(true); // Automatically enable live edit mode for convenience
-      localStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, JSON.stringify(user));
       return true;
     }
     return false;
@@ -425,44 +421,31 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const logoutAdmin = () => {
     setAdminUser(null);
     setIsLiveEditMode(false);
-    localStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
   };
 
-  // CMS Content Update
   const updateSiteContent = async (section: SiteContentSection) => {
-    const updated: SiteContentSection = {
-      ...section,
-      updatedAt: new Date().toISOString(),
-      updatedBy: adminUser?.username || 'admin',
-    };
-
-    setSiteContent((prev) => {
-      const next = { ...prev, [section.sectionKey]: updated };
-      localStorage.setItem(STORAGE_KEYS.SITE_CONTENT, JSON.stringify(next));
-      return next;
-    });
+    setSiteContent((prev) => ({
+      ...prev,
+      [section.sectionKey]: section,
+    }));
 
     try {
-      // Save to Firebase Firestore
       const docRef = doc(db, 'site_content', section.sectionKey);
-      await setDoc(docRef, updated, { merge: true });
+      await setDoc(docRef, section, { merge: true });
       setIsFirebaseConnected(true);
     } catch (err) {
-      console.error('Failed to sync site content to Firestore:', err);
+      console.warn('Firestore update notice:', err);
     }
   };
 
   const resetSiteContentSection = async (sectionKey: string) => {
-    const defaultData = DEFAULT_SITE_CONTENT[sectionKey];
-    if (defaultData) {
-      await updateSiteContent(defaultData);
+    const defaultSec = DEFAULT_SITE_CONTENT[sectionKey];
+    if (defaultSec) {
+      await updateSiteContent(defaultSec);
     }
   };
 
   const setCustomShirtImage = async (imgUrl: string | null) => {
-    if (!adminUser) {
-      throw new Error('เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่สามารถเปลี่ยนรูปเสื้อได้ กรุณาเข้าสู่ระบบแอดมิน');
-    }
     setCustomShirtImageState(imgUrl);
     try {
       if (imgUrl) {
@@ -471,31 +454,19 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
       }
     } catch (err) {
-      console.warn('LocalStorage error setting custom shirt image:', err);
+      console.warn('LocalStorage save shirt image notice:', err);
     }
-
-    const currentShirtSection = siteContent.shirt_page || DEFAULT_SITE_CONTENT.shirt_page;
-    const updatedShirtSection = {
-      ...currentShirtSection,
-      customShirtImageUrl: imgUrl,
-      updatedAt: new Date().toISOString(),
-    };
-    await updateSiteContent(updatedShirtSection);
   };
 
-  const updateCardCustomImage = (cardId: string, imageUrl: string | null) => {
+  const updateCardCustomImage = async (cardId: string, imageUrl: string | null) => {
     setCards((prev) =>
-      prev.map((c) => {
-        if (c.cardId === cardId) {
-          return {
-            ...c,
-            customImageUrl: imageUrl || undefined,
-          };
-        }
-        return c;
-      })
+      prev.map((c) =>
+        c.cardId === cardId ? { ...c, customImageUrl: imageUrl || undefined } : c
+      )
     );
   };
+
+  const ghostSpeciesList: GhostSpecies[] = Object.values(ghostSpeciesMap);
 
   const updateGhostSpecies = async (species: GhostSpecies) => {
     setGhostSpeciesMap((prev) => {
@@ -528,36 +499,36 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const currentRunner = runners.find((r) => r.cardId === currentCardId) || null;
 
   // Level & Badges calculation helper
-  const recomputeCardLevel = (card: GhostCard, allOrders: ShirtOrder[], allStories: HorrorStory[]): GhostCard => {
+  const recomputeCardLevel = (card: GhostCard, allOrders: ShirtOrder[], allRunners: RunnerRegistration[]): GhostCard => {
     const hasPaidShirt = allOrders.some(
       (o) => o.cardId === card.cardId && (o.status === 'paid' || o.status === 'claimed')
     );
-    const hasApprovedStory = allStories.some(
-      (s) => s.cardId === card.cardId && s.status === 'approved'
-    );
+    const runner = allRunners.find((r) => r.cardId === card.cardId);
+    const isCheckedIn = runner?.checkedIn;
 
-    const newBadges: Array<'SHIRT_OWNER' | 'STORYTELLER' | 'COMPLETE_COLLECTION'> = [];
+    const newBadges: Array<'SHIRT_OWNER' | 'CHECKED_IN' | 'FINISHER' | 'COMPLETE_COLLECTION'> = [];
     if (hasPaidShirt) newBadges.push('SHIRT_OWNER');
-    if (hasApprovedStory) newBadges.push('STORYTELLER');
+    if (isCheckedIn) {
+      newBadges.push('CHECKED_IN');
+      newBadges.push('FINISHER');
+    }
 
     let newLevel: CardLevel = 1;
-    if (hasPaidShirt && hasApprovedStory) {
+    if (hasPaidShirt && isCheckedIn) {
       newLevel = 3;
       newBadges.push('COMPLETE_COLLECTION');
-    } else if (hasPaidShirt || hasApprovedStory) {
+    } else if (hasPaidShirt || isCheckedIn) {
       newLevel = 2;
     }
 
-    const baseSpecies = THAI_GHOSTS[card.speciesId];
-    // Base stats
+    const baseSpecies = THAI_GHOSTS[card.speciesId] || THAI_GHOSTS.krasue;
     const stats: GhostCardStats = { ...card.stats };
 
-    // Bonus based on level & badges
     if (hasPaidShirt) {
       stats.speed = Math.min(100, Math.max(stats.speed, baseSpecies.baseStats.speed + 6));
       stats.latentPower = Math.min(100, Math.max(stats.latentPower, baseSpecies.baseStats.latentPower + 6));
     }
-    if (hasApprovedStory) {
+    if (isCheckedIn) {
       stats.spookiness = Math.min(100, Math.max(stats.spookiness, baseSpecies.baseStats.spookiness + 7));
       stats.hauntingAura = Math.min(100, Math.max(stats.hauntingAura, baseSpecies.baseStats.hauntingAura + 7));
     }
@@ -619,17 +590,45 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
-    // Find top scoring species
-    let chosenSpeciesId: GhostSpeciesId = 'krasue';
-    let maxScore = -1;
-    (Object.keys(speciesScore) as GhostSpeciesId[]).forEach((sp) => {
-      if (speciesScore[sp] > maxScore) {
-        maxScore = speciesScore[sp];
-        chosenSpeciesId = sp;
-      }
-    });
+    const ALL_SPECIES: GhostSpeciesId[] = [
+      'krasue',
+      'krahang',
+      'pop',
+      'tani',
+      'maenak',
+      'kuman',
+      'pret',
+      'kongkoi',
+      'headless',
+      'nangram',
+      'phiphong',
+      'phi_am',
+    ];
 
-    // 2. Rarity lottery (Section 6: Common 55%, Rare 30%, Epic 12%, Legendary 3%)
+    let chosenSpeciesId: GhostSpeciesId = 'krasue';
+
+    if (params.quizAnswers && params.quizAnswers.length > 0) {
+      let maxScore = -1;
+      (Object.keys(speciesScore) as GhostSpeciesId[]).forEach((sp) => {
+        if (speciesScore[sp] > maxScore) {
+          maxScore = speciesScore[sp];
+          chosenSpeciesId = sp;
+        }
+      });
+    } else {
+      // True random assignment across all 12 Thai ghosts!
+      const randomIndex = Math.floor(Math.random() * ALL_SPECIES.length);
+      chosenSpeciesId = ALL_SPECIES[randomIndex];
+
+      // Randomize pleasant stat boosts (+1 to +5)
+      accumulatedStatBoost.speed = Math.floor(Math.random() * 5) + 1;
+      accumulatedStatBoost.spookiness = Math.floor(Math.random() * 5) + 1;
+      accumulatedStatBoost.latentPower = Math.floor(Math.random() * 5) + 1;
+      accumulatedStatBoost.stealth = Math.floor(Math.random() * 5) + 1;
+      accumulatedStatBoost.hauntingAura = Math.floor(Math.random() * 5) + 1;
+    }
+
+    // 2. Rarity lottery (Common 55%, Rare 30%, Epic 12%, Legendary 3%)
     const roll = Math.random() * 100;
     let rarity: Rarity = 'Common';
     if (roll < 3) rarity = 'Legendary';
@@ -643,7 +642,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const regId = `REG-${Math.floor(2000 + Math.random() * 8000)}`;
     const bibNumber = params.regType !== 'SHIRT_ONLY' ? `BIB-${Math.floor(100 + Math.random() * 900)}` : undefined;
 
-    const baseSpecies = THAI_GHOSTS[chosenSpeciesId];
+    const baseSpecies = THAI_GHOSTS[chosenSpeciesId] || THAI_GHOSTS.krasue;
     const rarityBonus = rarity === 'Legendary' ? 8 : rarity === 'Epic' ? 5 : rarity === 'Rare' ? 3 : 0;
 
     const initialStats: GhostCardStats = {
@@ -748,6 +747,18 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentCardId(cardId);
     setJustRevealedCard(newCard);
 
+    // Persist to Firestore in background
+    try {
+      setDoc(doc(db, 'runners', newRunner.regId), newRunner).catch((err) =>
+        console.warn('Firestore runner persist notice:', err)
+      );
+      setDoc(doc(db, 'cards', newCard.cardId), newCard).catch((err) =>
+        console.warn('Firestore card persist notice:', err)
+      );
+    } catch (err) {
+      console.warn('Firestore persist error:', err);
+    }
+
     return { runner: newRunner, card: newCard };
   };
 
@@ -791,10 +802,18 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setOrders((prev) => [newOrder, ...prev]);
 
-    // link to runner if exists
     setRunners((prev) =>
       prev.map((r) => (r.cardId === params.cardId ? { ...r, shirtOrderId: orderId } : r))
     );
+
+    // Persist order to Firestore in background
+    try {
+      setDoc(doc(db, 'orders', newOrder.orderId), newOrder).catch((err) =>
+        console.warn('Firestore order persist notice:', err)
+      );
+    } catch (err) {
+      console.warn('Firestore order persist error:', err);
+    }
 
     return newOrder;
   };
@@ -818,7 +837,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (targetCardId) {
       setCards((prev) =>
         prev.map((c) =>
-          c.cardId === targetCardId ? recomputeCardLevel(c, updatedOrders, stories) : c
+          c.cardId === targetCardId ? recomputeCardLevel(c, updatedOrders, runners) : c
         )
       );
     }
@@ -842,7 +861,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (targetCardId) {
       setCards((prev) =>
         prev.map((c) =>
-          c.cardId === targetCardId ? recomputeCardLevel(c, updatedOrders, stories) : c
+          c.cardId === targetCardId ? recomputeCardLevel(c, updatedOrders, runners) : c
         )
       );
     }
@@ -887,116 +906,13 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (targetCardId) {
       setCards((prev) =>
         prev.map((c) =>
-          c.cardId === targetCardId ? recomputeCardLevel(c, updatedOrders, stories) : c
+          c.cardId === targetCardId ? recomputeCardLevel(c, updatedOrders, runners) : c
         )
       );
       setRunners((prev) =>
         prev.map((r) => (r.cardId === targetCardId ? { ...r, shirtClaimed: false } : r))
       );
     }
-  };
-
-  const submitHorrorStory = (params: {
-    cardId: string;
-    authorNickname: string;
-    isAnonymous: boolean;
-    title: string;
-    content: string;
-    category: HorrorStoryCategory;
-    spookinessRating: number;
-    location: string;
-  }) => {
-    const newStory: HorrorStory = {
-      id: `STORY-${Math.floor(100 + Math.random() * 900)}`,
-      cardId: params.cardId,
-      authorNickname: params.authorNickname,
-      isAnonymous: params.isAnonymous,
-      title: params.title,
-      content: params.content,
-      category: params.category,
-      spookinessRating: params.spookinessRating,
-      location: params.location,
-      status: 'pending', // Section 12: เริ่มต้นเป็นรอตรวจสอบ
-      reactions: {
-        spooky: 0,
-        funny: 0,
-        flashlight: 0,
-        runAway: 0,
-        cannotSleep: 0,
-      },
-      submittedAt: new Date().toISOString(),
-    };
-
-    setStories((prev) => [newStory, ...prev]);
-    return newStory;
-  };
-
-  const approveHorrorStory = (storyId: string, officerName: string = 'เจ้าหน้าที่เรื่องสยอง') => {
-    let targetCardId = '';
-    const updatedStories = stories.map((s) => {
-      if (s.id === storyId) {
-        targetCardId = s.cardId;
-        return {
-          ...s,
-          status: 'approved' as const,
-          reviewedAt: new Date().toISOString(),
-          reviewedBy: officerName,
-        };
-      }
-      return s;
-    });
-    setStories(updatedStories);
-
-    if (targetCardId) {
-      setCards((prev) =>
-        prev.map((c) =>
-          c.cardId === targetCardId ? recomputeCardLevel(c, orders, updatedStories) : c
-        )
-      );
-    }
-  };
-
-  const rejectHorrorStory = (storyId: string) => {
-    let targetCardId = '';
-    const updatedStories = stories.map((s) => {
-      if (s.id === storyId) {
-        targetCardId = s.cardId;
-        return { ...s, status: 'rejected' as const };
-      }
-      return s;
-    });
-    setStories(updatedStories);
-
-    if (targetCardId) {
-      setCards((prev) =>
-        prev.map((c) =>
-          c.cardId === targetCardId ? recomputeCardLevel(c, orders, updatedStories) : c
-        )
-      );
-    }
-  };
-
-  const toggleFeatureStory = (storyId: string) => {
-    setStories((prev) =>
-      prev.map((s) => (s.id === storyId ? { ...s, featuredOnHome: !s.featuredOnHome } : s))
-    );
-  };
-
-  const reactToStory = (storyId: string, reaction: keyof StoryReactions) => {
-    setStories((prev) =>
-      prev.map((s) => {
-        if (s.id === storyId) {
-          return {
-            ...s,
-            reactions: {
-              ...s.reactions,
-              [reaction]: (s.reactions[reaction] || 0) + 1,
-            },
-          };
-        }
-        return s;
-      })
-    );
   };
 
   const checkInRunner = (cardOrRegId: string, officerName: string) => {
@@ -1038,7 +954,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       checkedInBy: officerName,
     };
 
-    setRunners((prev) => prev.map((r) => (r.regId === runner.regId ? updatedRunner : r)));
+    const updatedRunners = runners.map((r) => (r.regId === runner.regId ? updatedRunner : r));
+    setRunners(updatedRunners);
+
+    // Recompute card level if checked in
+    setCards((prev) =>
+      prev.map((c) =>
+        c.cardId === runner.cardId ? recomputeCardLevel(c, orders, updatedRunners) : c
+      )
+    );
+
     const card = cards.find((c) => c.cardId === runner.cardId);
 
     return {
@@ -1059,7 +984,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCards(INITIAL_CARDS);
     setRunners(INITIAL_RUNNERS);
     setOrders(INITIAL_SHIRT_ORDERS);
-    setStories(INITIAL_STORIES);
     setCurrentCardId('FSS26-00872');
     localStorage.clear();
   };
@@ -1070,7 +994,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         cards,
         runners,
         orders,
-        stories,
         currentCardId,
         setCurrentCardId,
         currentCard,
@@ -1096,11 +1019,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         rejectShirtPayment,
         markShirtClaimed,
         refundShirtOrder,
-        submitHorrorStory,
-        approveHorrorStory,
-        rejectHorrorStory,
-        toggleFeatureStory,
-        reactToStory,
         checkInRunner,
         claimMedal,
         updateCardCustomImage,

@@ -9,6 +9,7 @@ import {
   Sparkles,
   Send,
   CheckCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { EVENT_DETAILS } from '../data/initialData';
 import { EditableText } from '../components/EditableText';
@@ -19,6 +20,9 @@ export const FaqContactView: React.FC<{ initialTab?: 'faq' | 'contact' }> = ({
   const [activeTab, setActiveTab] = useState<'faq' | 'contact'>(initialTab);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [contactSent, setContactSent] = useState(false);
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
 
   const faqs = [
     {
@@ -27,7 +31,7 @@ export const FaqContactView: React.FC<{ initialTab?: 'faq' | 'contact' }> = ({
     },
     {
       q: 'การ์ดผีประจำตัวสามารถเปลี่ยนชนิดผีได้หรือไม่?',
-      a: 'ไม่สามารถเปลี่ยนชนิดผีได้ การ์ดผีจะยึดตามผลการวิเคราะห์จากแบบทดสอบตอนสมัคร เพื่อสะท้อนตัวตนของคุณอย่างแท้จริง แต่คุณสามารถ “อัปเกรด Level” จาก LV.1 เป็น LV.2 และ LV.3 ได้ผ่านการสั่งเสื้อและแชร์เรื่องสยองขวัญ',
+      a: 'ไม่สามารถเปลี่ยนชนิดผีได้ การ์ดผีจะยึดตามผลการวิเคราะห์จากแบบทดสอบตอนสมัคร เพื่อสะท้อนตัวตนของคุณอย่างแท้จริง แต่คุณสามารถ “อัปเกรด Level” จาก LV.1 เป็น LV.2 และ LV.3 ได้ผ่านการสั่งซื้อเสื้อที่ระลึกและเช็กอินร่วมวิ่งวันงาน',
     },
     {
       q: 'สั่งซื้อเสื้อแล้ว การ์ดผีจะอัปเกรดเลเวลเมื่อใด?',
@@ -51,18 +55,29 @@ export const FaqContactView: React.FC<{ initialTab?: 'faq' | 'contact' }> = ({
     },
   ];
 
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactName.trim() || !contactMessage.trim()) return;
+    setContactSent(true);
+    setTimeout(() => {
+      setContactName('');
+      setContactPhone('');
+      setContactMessage('');
+    }, 500);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-8">
-      {/* Tab Controls */}
+    <div className="max-w-4xl mx-auto space-y-8">
+      {/* Tab Switcher */}
       <div className="flex justify-center">
-        <div className="bg-slate-900 p-1.5 rounded-full border border-slate-800 flex items-center gap-2">
+        <div className="bg-slate-100 p-1.5 rounded-2xl flex items-center gap-1.5 border border-slate-200">
           <button
             type="button"
             onClick={() => setActiveTab('faq')}
-            className={`px-5 py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
+            className={`px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'faq'
-                ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[#DC2626] text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             คำถามที่พบบ่อย (FAQ)
@@ -70,10 +85,10 @@ export const FaqContactView: React.FC<{ initialTab?: 'faq' | 'contact' }> = ({
           <button
             type="button"
             onClick={() => setActiveTab('contact')}
-            className={`px-5 py-2 rounded-full text-xs sm:text-sm font-bold transition-all ${
+            className={`px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all ${
               activeTab === 'contact'
-                ? 'bg-purple-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-[#DC2626] text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             ติดต่อทีมงาน & แผนที่
@@ -83,16 +98,19 @@ export const FaqContactView: React.FC<{ initialTab?: 'faq' | 'contact' }> = ({
 
       {/* FAQ TAB */}
       {activeTab === 'faq' && (
-        <div className="space-y-4">
-          <div className="text-center mb-6">
-            <h2 className="text-2xl sm:text-3xl font-black text-white font-serif">
+        <div className="space-y-6">
+          <div className="text-center space-y-1">
+            <span className="text-xs font-bold text-[#DC2626] uppercase tracking-wider">
+              HELP & SUPPORT
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
               <EditableText
                 sectionKey="faq"
                 field="title"
                 fallbackText="คำถามที่พบบ่อยเกี่ยวกับงานวิ่ง"
               />
             </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+            <p className="text-xs sm:text-sm text-slate-500">
               <EditableText
                 sectionKey="faq"
                 field="subtitle"
@@ -102,158 +120,156 @@ export const FaqContactView: React.FC<{ initialTab?: 'faq' | 'contact' }> = ({
           </div>
 
           <div className="space-y-3">
-            {faqs.map((item, idx) => (
-              <div
-                key={idx}
-                className="rounded-2xl bg-slate-900/80 border border-slate-800 overflow-hidden transition-all"
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
-                  className="w-full p-4 sm:p-5 text-left flex items-center justify-between gap-4"
+            {faqs.map((faq, idx) => {
+              const isOpen = openFaqIndex === idx;
+              return (
+                <div
+                  key={idx}
+                  className="fastwork-card overflow-hidden bg-white border border-slate-200"
                 >
-                  <span className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2.5">
-                    <span className="text-amber-400 font-mono">Q{idx + 1}.</span> {item.q}
-                  </span>
-                  <ChevronDown
-                    className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${
-                      openFaqIndex === idx ? 'rotate-180 text-amber-400' : ''
-                    }`}
-                  />
-                </button>
-                {openFaqIndex === idx && (
-                  <div className="px-5 pb-5 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/60 pt-3">
-                    {item.a}
-                  </div>
-                )}
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                    className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-4 font-semibold text-slate-900 text-sm sm:text-base hover:bg-slate-50 transition-colors"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-lg bg-[#FEF2F2] text-[#DC2626] font-bold text-xs flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span>{faq.q}</span>
+                    </span>
+                    <ChevronDown
+                      className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-[#DC2626]' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-5 pb-5 pt-1 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 bg-slate-50/50">
+                      {faq.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* CONTACT TAB */}
       {activeTab === 'contact' && (
-        <div className="space-y-8">
-          <div className="text-center">
-            <h2 className="text-2xl sm:text-3xl font-black text-white font-serif">
-              <EditableText
-                sectionKey="contact"
-                field="title"
-                fallbackText="ติดต่อทีมงานจัดกิจกรรม"
-              />
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              <EditableText
-                sectionKey="contact"
-                field="subtitle"
-                fallbackText="ทีมงานยินดีให้คำแนะนำและช่วยเหลือผู้เข้าร่วมงานทุกคน"
-              />
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Contact Details */}
-            <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Phone className="w-4 h-4 text-emerald-400" /> ช่องทางสื่อสารทางการ
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Contact Details Card */}
+          <div className="fastwork-card p-6 sm:p-8 bg-white space-y-6">
+            <div>
+              <span className="text-xs font-bold text-[#DC2626] uppercase tracking-wider">
+                OFFICIAL HOTLINE
+              </span>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+                ช่องทางการติดต่อ
               </h3>
-              <div className="space-y-3 text-xs text-slate-300">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <Phone className="w-5 h-5 text-amber-400 shrink-0" />
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">สายด่วนนักวิ่ง</span>
-                    <span className="font-semibold text-white">
-                      <EditableText sectionKey="contact" field="hotline" fallbackText="02-999-FSSG (02-999-3774)" />
-                    </span>
-                  </div>
-                </div>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                สอบถามข้อมูลเพิ่มเติมเรื่องการสมัคร การรับเสื้อ หรือแจ้งปัญหาการใช้งาน
+              </p>
+            </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <MessageSquare className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">LINE Official Account</span>
-                    <span className="font-semibold text-emerald-400">
-                      <EditableText sectionKey="contact" field="line" fallbackText="@FSSGhostRun" />
-                    </span>
-                  </div>
+            <div className="space-y-4 text-xs sm:text-sm">
+              <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <MapPin className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-slate-900">สถานที่จัดงาน</h4>
+                  <p className="text-slate-600 mt-0.5">{EVENT_DETAILS.venue}</p>
                 </div>
+              </div>
 
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <Mail className="w-5 h-5 text-blue-400 shrink-0" />
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">อีเมลประสานงาน</span>
-                    <span className="font-semibold text-white">
-                      <EditableText sectionKey="contact" field="email" fallbackText="contact@fss-ghostrun2026.com" />
-                    </span>
-                  </div>
+              <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <Phone className="w-5 h-5 text-[#00B67A] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-slate-900">สายด่วนงานวิ่ง</h4>
+                  <p className="text-slate-600 mt-0.5">02-999-FSSG (02-999-3774) &middot; ทุกวัน 08:30 – 17:30 น.</p>
                 </div>
+              </div>
 
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-950 border border-slate-800">
-                  <MapPin className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">สถานที่จัดงาน</span>
-                    <span className="font-semibold text-white">{EVENT_DETAILS.venue}</span>
-                  </div>
+              <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                <Mail className="w-5 h-5 text-[#DC2626] shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-bold text-slate-900">อีเมลทางการ</h4>
+                  <p className="text-slate-600 mt-0.5">contact@fss-ghostrun.com</p>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Send quick inquiry form */}
-            <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 space-y-4">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Send className="w-4 h-4 text-purple-400" /> ส่งข้อความถึงทีมงาน
-              </h3>
-              {contactSent ? (
-                <div className="p-6 rounded-2xl bg-emerald-950 border border-emerald-500 text-center space-y-2">
-                  <CheckCircle className="w-8 h-8 text-emerald-400 mx-auto" />
-                  <p className="text-sm font-bold text-emerald-200">ส่งข้อความเรียบร้อยแล้ว</p>
-                  <p className="text-xs text-slate-300">ทีมงานจะติดต่อกลับโดยเร็วที่สุด</p>
-                </div>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setContactSent(true);
-                  }}
-                  className="space-y-3 text-xs"
+          {/* Direct Message Form */}
+          <div className="fastwork-card p-6 sm:p-8 bg-white">
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 mb-1">
+              ส่งข้อความถึงทีมงาน
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              กรอกข้อความ ทีมงานจะติดต่อกลับภายใน 24 ชั่วโมง
+            </p>
+
+            {contactSent ? (
+              <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center space-y-2">
+                <CheckCircle className="w-10 h-10 text-[#00B67A] mx-auto" />
+                <h4 className="text-base font-bold text-emerald-900">ส่งข้อความเรียบร้อยแล้ว!</h4>
+                <p className="text-xs text-emerald-700">ทีมงานได้รับข้อความของคุณแล้วและจะติดต่อกลับโดยเร็วที่สุด</p>
+                <button
+                  type="button"
+                  onClick={() => setContactSent(false)}
+                  className="mt-3 px-4 py-1.5 bg-[#DC2626] text-white text-xs font-bold rounded-lg"
                 >
-                  <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">ชื่อผู้ติดต่อ</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="ชื่อ-นามสกุล"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">เบอร์โทรศัพท์ / LINE</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="เบอร์โทรหรือ Line ID"
-                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">ข้อความที่ต้องการสอบถาม</label>
-                    <textarea
-                      rows={3}
-                      required
-                      placeholder="พิมพ์คำถามหรือข้อสงสัยของคุณ..."
-                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-slate-100"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-xl transition-all"
-                  >
-                    ส่งข้อความ
-                  </button>
-                </form>
-              )}
-            </div>
+                  ส่งข้อความใหม่
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleSendMessage} className="space-y-3.5 text-xs sm:text-sm">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">ชื่อของคุณ</label>
+                  <input
+                    type="text"
+                    required
+                    value={contactName}
+                    onChange={(e) => setContactName(e.target.value)}
+                    placeholder="เช่น คุณธนกร สุขเจริญ"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626] text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">เบอร์โทรศัพท์หรืออีเมล</label>
+                  <input
+                    type="text"
+                    required
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="08x-xxx-xxxx หรือ email@example.com"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626] text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">ข้อความ / คำถาม</label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    placeholder="พิมพ์รายละเอียดที่ต้องการสอบถาม..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626] text-slate-900"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-sm shadow-md transition-colors flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>ส่งข้อความ</span>
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}

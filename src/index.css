@@ -1,15 +1,28 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-serif: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-prompt: 'Prompt', sans-serif;
-  --font-horror: 'Creepster', 'Butcherman', cursive;
-  --font-spooky: 'Creepster', 'Butcherman', cursive;
+  --font-sans: "Prompt", "IBM Plex Sans Thai", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Prompt", "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-prompt: "Prompt", "IBM Plex Sans Thai", sans-serif;
+  --font-horror: "Prompt", "IBM Plex Sans Thai", sans-serif;
+  --font-spooky: "Prompt", "IBM Plex Sans Thai", sans-serif;
+  --color-brand-red: #DC2626;
+  --color-brand-red-hover: #B91C1C;
+  --color-brand-red-light: #FEF2F2;
+  --color-brand-red-dark: #991B1B;
+  --color-brand-green: #00B67A;
+  --color-brand-amber: #FF9900;
 }
 
 :root {
-  font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: "Prompt", "IBM Plex Sans Thai", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: 0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  color-scheme: light;
 }
 
 body,
@@ -17,43 +30,79 @@ button,
 input,
 select,
 textarea {
-  font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-/* Scary Horror typography for FSS HALLOWEEN FANCY RUN 2026 */
-/* Ultra-sharp, crisp, high-contrast, zero-blur */
-.font-horror {
-  font-family: 'Creepster', 'Butcherman', cursive, sans-serif !important;
-  letter-spacing: 0.04em;
+  font-family: "Prompt", "IBM Plex Sans Thai", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
+  line-height: 1.6;
 }
 
-/* Sharp high-contrast 3D shadow with zero blur radius */
-.horror-title-crisp {
-  font-family: 'Creepster', 'Butcherman', cursive, sans-serif !important;
-  letter-spacing: 0.04em;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
-  filter: drop-shadow(2px 3px 0px #3f0909) drop-shadow(4px 5px 0px rgba(0, 0, 0, 0.85));
+/* Clean Typography & Card Utilities with Red Accents */
+.fastwork-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.horror-title-glow {
-  font-family: 'Creepster', 'Butcherman', cursive, sans-serif !important;
-  letter-spacing: 0.04em;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: geometricPrecision;
-  filter: drop-shadow(2px 3px 0px #3f0909) drop-shadow(3px 4px 0px rgba(0, 0, 0, 0.85));
+.fastwork-card:hover {
+  border-color: #fecaca;
+  box-shadow: 0 8px 24px -4px rgba(220, 38, 38, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
 }
 
-.horror-sub-glow {
-  font-family: 'Creepster', 'Butcherman', cursive, sans-serif !important;
-  letter-spacing: 0.03em;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  filter: drop-shadow(1px 2px 0px rgba(0, 0, 0, 0.8));
+.fastwork-btn-primary {
+  background-color: #DC2626;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
+.fastwork-btn-primary:hover {
+  background-color: #B91C1C;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.28);
+}
+
+.fastwork-btn-secondary {
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  font-weight: 600;
+  border-radius: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  transition: all 0.15s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.fastwork-btn-secondary:hover {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+/* Custom Scrollbar for clean tables */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
