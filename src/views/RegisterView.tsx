@@ -24,6 +24,8 @@ import {
   Share2,
   Star,
   CheckCircle2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import {
@@ -158,6 +160,13 @@ export const RegisterView: React.FC<Props> = ({
   const [shirtQuantity, setShirtQuantity] = useState<number>(1);
   const [shirtSizes, setShirtSizes] = useState<ShirtSize[]>(['L']);
   const [slipImage, setSlipImage] = useState<string>('');
+  const [copiedPromptPay, setCopiedPromptPay] = useState(false);
+
+  const handleCopyPromptPay = (num: string = '0882547704') => {
+    navigator.clipboard?.writeText(num);
+    setCopiedPromptPay(true);
+    setTimeout(() => setCopiedPromptPay(false), 2000);
+  };
 
   const handleQuantityChange = (newQty: number) => {
     const qty = Math.max(1, Math.min(10, newQty));
@@ -338,7 +347,6 @@ export const RegisterView: React.FC<Props> = ({
       shippingAddress: undefined,
       slipImage:
         interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? slipImage : undefined,
-      quizAnswers: [],
     });
 
     setNewlyCreatedCard(card);
@@ -942,15 +950,42 @@ export const RegisterView: React.FC<Props> = ({
 
             {/* Bank Info & Slip */}
             <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                <div>
-                  <span className="text-xs text-[#DC2626] font-bold">บัญชีชำระเงิน</span>
-                  <p className="text-sm font-bold text-slate-900 mt-0.5">
-                    ธนาคารกสิกรไทย: 098-7-65432-1
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
+                <div className="space-y-1">
+                  <div className="text-xs text-[#DC2626] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                    <QrCode className="w-4 h-4" /> บัญชีชำระเงินค่าเสื้อ (พร้อมเพย์ PromptPay)
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap mt-1">
+                    <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-xs font-bold shadow-sm">
+                      พร้อมเพย์
+                    </span>
+                    <span className="text-base sm:text-lg font-black text-slate-900 font-mono tracking-wider">
+                      088-254-7704
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPromptPay('0882547704')}
+                      className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm"
+                      title="คัดลอกเบอร์พร้อมเพย์"
+                    >
+                      {copiedPromptPay ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700 font-bold">คัดลอกแล้ว!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-slate-500" />
+                          <span>คัดลอกเบอร์</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-600 font-medium pt-0.5">
+                    ชื่อบัญชี: <span className="font-bold text-slate-900">นางสาวพริมรตา ใจเฉียง</span>
                   </p>
-                  <p className="text-xs text-slate-500">ชื่อบัญชี: สโมสรนิสิตคณะสังคมศาสตร์ ม.นเรศวร</p>
                 </div>
-                <div className="text-right">
+                <div className="text-right sm:border-l sm:border-slate-200 sm:pl-6">
                   <span className="text-xs text-slate-500">ยอดชำระ:</span>
                   <p className="text-2xl font-black text-[#DC2626] font-mono">฿300</p>
                 </div>

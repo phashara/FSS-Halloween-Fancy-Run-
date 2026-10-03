@@ -15,7 +15,6 @@ import {
   INITIAL_RUNNERS,
   INITIAL_SHIRT_ORDERS,
 } from '../data/initialData';
-import { GHOST_QUIZ_QUESTIONS } from '../data/quiz';
 import {
   CardLevel,
   GhostCard,
@@ -77,7 +76,7 @@ interface RegisterParams {
   deliveryMethod?: 'pickup_event' | 'shipping';
   shippingAddress?: string;
   slipImage?: string;
-  quizAnswers: QuizAnswer[];
+  quizAnswers?: QuizAnswer[];
 }
 
 interface EventContextType {
@@ -233,7 +232,17 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [siteContent, setSiteContent] = useState<Record<string, SiteContentSection>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.SITE_CONTENT);
-      return saved ? JSON.parse(saved) : DEFAULT_SITE_CONTENT;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.shirt_page) {
+          parsed.shirt_page.accountNo = '088-254-7704';
+          parsed.shirt_page.accountName = 'นางสาวพริมรตา ใจเฉียง';
+          parsed.shirt_page.bankName = 'พร้อมเพย์ (PromptPay)';
+          parsed.shirt_page.promptPay = '088-254-7704 (พร้อมเพย์)';
+        }
+        return { ...DEFAULT_SITE_CONTENT, ...parsed };
+      }
+      return DEFAULT_SITE_CONTENT;
     } catch {
       return DEFAULT_SITE_CONTENT;
     }
@@ -599,21 +608,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       hauntingAura: 0,
     };
 
-    params.quizAnswers.forEach((ans) => {
-      const q = GHOST_QUIZ_QUESTIONS.find((item) => item.id === ans.questionId);
-      if (q && q.options[ans.selectedOptionIndex]) {
-        const opt = q.options[ans.selectedOptionIndex];
-        opt.biasSpecies.forEach((sp) => {
-          speciesScore[sp] = (speciesScore[sp] || 0) + 3;
-        });
-        if (opt.statBoost.speed) accumulatedStatBoost.speed += opt.statBoost.speed;
-        if (opt.statBoost.spookiness) accumulatedStatBoost.spookiness += opt.statBoost.spookiness;
-        if (opt.statBoost.latentPower) accumulatedStatBoost.latentPower += opt.statBoost.latentPower;
-        if (opt.statBoost.stealth) accumulatedStatBoost.stealth += opt.statBoost.stealth;
-        if (opt.statBoost.hauntingAura) accumulatedStatBoost.hauntingAura += opt.statBoost.hauntingAura;
-      }
-    });
-
     const ALL_SPECIES: GhostSpeciesId[] = [
       'krasue',
       'krahang',
@@ -629,28 +623,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       'phi_am',
     ];
 
-    let chosenSpeciesId: GhostSpeciesId = 'krasue';
+    // True random assignment across all 12 Thai ghosts!
+    const randomIndex = Math.floor(Math.random() * ALL_SPECIES.length);
+    const chosenSpeciesId: GhostSpeciesId = ALL_SPECIES[randomIndex];
 
-    if (params.quizAnswers && params.quizAnswers.length > 0) {
-      let maxScore = -1;
-      (Object.keys(speciesScore) as GhostSpeciesId[]).forEach((sp) => {
-        if (speciesScore[sp] > maxScore) {
-          maxScore = speciesScore[sp];
-          chosenSpeciesId = sp;
-        }
-      });
-    } else {
-      // True random assignment across all 12 Thai ghosts!
-      const randomIndex = Math.floor(Math.random() * ALL_SPECIES.length);
-      chosenSpeciesId = ALL_SPECIES[randomIndex];
-
-      // Randomize pleasant stat boosts (+1 to +5)
-      accumulatedStatBoost.speed = Math.floor(Math.random() * 5) + 1;
-      accumulatedStatBoost.spookiness = Math.floor(Math.random() * 5) + 1;
-      accumulatedStatBoost.latentPower = Math.floor(Math.random() * 5) + 1;
-      accumulatedStatBoost.stealth = Math.floor(Math.random() * 5) + 1;
-      accumulatedStatBoost.hauntingAura = Math.floor(Math.random() * 5) + 1;
-    }
+    // Stat boosts (+1 to +5)
+    accumulatedStatBoost.speed = Math.floor(Math.random() * 5) + 1;
+    accumulatedStatBoost.spookiness = Math.floor(Math.random() * 5) + 1;
+    accumulatedStatBoost.latentPower = Math.floor(Math.random() * 5) + 1;
+    accumulatedStatBoost.stealth = Math.floor(Math.random() * 5) + 1;
+    accumulatedStatBoost.hauntingAura = Math.floor(Math.random() * 5) + 1;
 
     // 2. Rarity lottery (Common 55%, Rare 30%, Epic 12%, Legendary 3%)
     const roll = Math.random() * 100;

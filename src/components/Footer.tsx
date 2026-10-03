@@ -26,7 +26,7 @@ export const Footer: React.FC<{ onNavigate: (view: any) => void }> = ({ onNaviga
               <EditableText
                 sectionKey="footer"
                 field="description"
-                fallbackText="โครงการวิ่งแฟนซีฮาโลวีน คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร สะสมการ์ดผีไทย 12 ชนิด พัฒนาได้ 3 Level พร้อมเสื้อที่ระลึก Glow-in-the-dark"
+                fallbackText="โครงการวิ่งแฟนซีฮาโลวีน คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร สะสมการ์ดผีไทย 12 ชนิด พร้อมเสื้อที่ระลึก Glow-in-the-dark"
               />
             </p>
             <div className="flex items-center gap-2 pt-1 text-xs">

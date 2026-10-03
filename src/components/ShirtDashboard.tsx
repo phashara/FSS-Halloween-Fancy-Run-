@@ -349,7 +349,7 @@ export const ShirtDashboard: React.FC<Props> = ({
             </span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            ผู้สั่งซื้อได้รับการอนุมัติเรียบร้อย การ์ดผีถูกอัปเกรดเป็น LV.2/LV.3 และได้รับตรา SHIRT OWNER
+            ผู้สั่งซื้อได้รับการอนุมัติเรียบร้อย การ์ดผีถูกอัปเกรดเป็น LV.2 และได้รับตรา SHIRT OWNER
           </p>
         </div>
 

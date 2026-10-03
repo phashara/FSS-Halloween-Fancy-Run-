@@ -316,10 +316,6 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
                   <CheckCircle2 className="w-4 h-4 text-red-600 shrink-0" />
                   <span>อัปเกรดการ์ดเป็น <b>LV.2 ปลดผนึกพลัง</b> + ตรา Shirt Owner</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-red-600 shrink-0" />
-                  <span>มีสิทธิ์อัปเกรดต่อเป็น <b>LV.3 Ultimate</b> เมื่อเข้าเส้นชัย</span>
-                </li>
               </ul>
             </div>
             <div className="pt-6">

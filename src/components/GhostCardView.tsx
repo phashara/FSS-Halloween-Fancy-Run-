@@ -268,9 +268,11 @@ export const GhostCardView: React.FC<Props> = ({
         : 'border-emerald-500/60',
     },
     3: {
-      title: 'LV.3 ตำนานสยอง (ULTIMATE GHOST)',
-      sub: 'Ultimate Thai Ghost',
-      accentBorder: 'border-amber-400 border-double',
+      title: 'LV.2 ปลดผนึกพลัง',
+      sub: 'Unleashed Power',
+      accentBorder: card.badges.includes('SHIRT_OWNER')
+        ? 'border-dashed border-orange-500/60'
+        : 'border-emerald-500/60',
     },
   }[card.level];
 

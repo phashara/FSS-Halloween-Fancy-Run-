@@ -55,8 +55,7 @@ const AppContent: React.FC = () => {
         {currentView === 'shirt' && <ShirtView onNavigate={handleNavigate} />}
         {currentView === 'mycard' && <MyCardView onNavigate={handleNavigate} />}
         {currentView === 'directory' && <DirectoryView onNavigate={handleNavigate} />}
-        {currentView === 'faq' && <FaqContactView initialTab="faq" />}
-        {currentView === 'contact' && <FaqContactView initialTab="contact" />}
+        {currentView === 'contact' && <FaqContactView />}
         {currentView === 'admin' && <AdminDashboardView onNavigate={handleNavigate} />}
       </main>
 

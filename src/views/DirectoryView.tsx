@@ -231,7 +231,6 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
               <option value="all">ทุกระดับการ์ด</option>
               <option value="1">LV.1 วิญญาณตื่น</option>
               <option value="2">LV.2 ปลดผนึกพลัง</option>
-              <option value="3">LV.3 ตำนานสยอง (Ultimate)</option>
             </select>
           </div>
         </div>

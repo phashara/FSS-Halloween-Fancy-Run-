@@ -5,7 +5,6 @@ import {
   Ghost,
   ShieldAlert,
   ShoppingBag,
-  HelpCircle,
   Phone,
   Home,
   CreditCard,
@@ -27,7 +26,6 @@ export type AppView =
   | 'shirt'
   | 'directory'
   | 'mycard'
-  | 'faq'
   | 'contact'
   | 'admin';
 
@@ -52,7 +50,6 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
     { id: 'shirt', label: 'สั่งซื้อเสื้อ', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'directory', label: 'ค้นหารายชื่อ', icon: <Search className="w-4 h-4" /> },
     { id: 'collection', label: '12 ตำนานผีไทย', icon: <Ghost className="w-4 h-4" /> },
-    { id: 'faq', label: 'คำถามที่พบบ่อย', icon: <HelpCircle className="w-4 h-4" /> },
     { id: 'contact', label: 'ติดต่อเรา', icon: <Phone className="w-4 h-4" /> },
     { id: 'mycard', label: 'การ์ดของฉัน', icon: <CreditCard className="w-4 h-4" /> },
   ];

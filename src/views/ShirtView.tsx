@@ -17,6 +17,8 @@ import {
   Trash2,
   ChevronRight,
   CreditCard,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { ShirtSize } from '../types';
@@ -39,6 +41,13 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
   const [slipImage, setSlipImage] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [copiedPromptPay, setCopiedPromptPay] = useState(false);
+
+  const handleCopyPromptPay = (num: string = '0882547704') => {
+    navigator.clipboard?.writeText(num);
+    setCopiedPromptPay(true);
+    setTimeout(() => setCopiedPromptPay(false), 2000);
+  };
 
   // Handle quantity change keeping sizes array in sync
   const handleQuantityChange = (newQty: number) => {
@@ -102,7 +111,7 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
     });
 
     setSuccessMsg(
-      `บันทึกคำสั่งซื้อ #${createdOrder.orderId} เรียบร้อยแล้ว! (จำนวน ${quantity} ตัว - ไซซ์: ${sizes.join(', ')}) เจ้าหน้าที่กำลังตรวจสอบสลิป เมื่ออนุมัติแล้วการ์ดจะอัปเกรดเป็น LV.2/LV.3 ทันที`
+      `บันทึกคำสั่งซื้อ #${createdOrder.orderId} เรียบร้อยแล้ว! (จำนวน ${quantity} ตัว - ไซซ์: ${sizes.join(', ')}) เจ้าหน้าที่กำลังตรวจสอบสลิป เมื่ออนุมัติแล้วการ์ดจะอัปเกรดเป็น LV.2 ปลดผนึกพลังทันที`
     );
   };
 
@@ -124,7 +133,7 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
           <EditableText
             sectionKey="shirt"
             field="description"
-            fallbackText="สั่งซื้อเสื้อราคา 300 บาท เพื่อปลดล็อกตรา SHIRT OWNER และยกระดับการ์ดผีของคุณเป็น LV.2 หรือ LV.3 (ULTIMATE GHOST) ทันทีที่ยืนยันยอดโอน!"
+            fallbackText="สั่งซื้อเสื้อราคา 300 บาท เพื่อปลดล็อกตรา SHIRT OWNER และยกระดับการ์ดผีของคุณเป็น LV.2 ปลดผนึกพลัง ทันทีที่ยืนยันยอดโอน!"
           />
         </p>
       </div>
@@ -386,14 +395,39 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
               {/* Payment & Slip Upload */}
               <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
-                  <div>
+                  <div className="space-y-1">
                     <div className="text-xs text-[#DC2626] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                      <QrCode className="w-4 h-4" /> บัญชีชำระเงิน FSS Halloween Fancy Run
+                      <QrCode className="w-4 h-4" /> บัญชีชำระเงินค่าเสื้อ (พร้อมเพย์ PromptPay)
                     </div>
-                    <p className="text-sm font-bold text-slate-900 mt-0.5">
-                      <EditableText sectionKey="shirt_page" field="bankName" fallbackText="ธนาคารกสิกรไทย" />: <EditableText sectionKey="shirt_page" field="accountNo" fallbackText="098-7-65432-1" />
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-xs font-bold shadow-sm">
+                        พร้อมเพย์
+                      </span>
+                      <span className="text-base sm:text-lg font-black text-slate-900 font-mono tracking-wider">
+                        <EditableText sectionKey="shirt_page" field="accountNo" fallbackText="088-254-7704" />
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPromptPay('0882547704')}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm"
+                        title="คัดลอกเบอร์พร้อมเพย์"
+                      >
+                        {copiedPromptPay ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-700 font-bold">คัดลอกแล้ว!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 text-slate-500" />
+                            <span>คัดลอกเบอร์</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-600 font-medium pt-0.5">
+                      ชื่อบัญชี: <span className="font-bold text-slate-900"><EditableText sectionKey="shirt_page" field="accountName" fallbackText="นางสาวพริมรตา ใจเฉียง" /></span>
                     </p>
-                    <p className="text-xs text-slate-500">ชื่อบัญชี: สโมสรนิสิตคณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร</p>
                   </div>
 
                   <div className="text-right sm:border-l sm:border-slate-200 sm:pl-6">
