@@ -172,7 +172,7 @@ export const GhostCardView: React.FC<Props> = ({
           ctx.fillStyle = '#94a3b8';
           ctx.font = '20px Prompt, sans-serif';
           ctx.fillText(`เจ้าของการ์ด: ${card.nickname}  |  Card ID: ${card.cardId}`, 300, 215);
-          ctx.fillText(`Level: ${card.level} (${card.level === 3 ? 'ULTIMATE' : card.level === 2 ? 'UNLEASHED' : 'AWAKENED'})  |  RARITY: ${card.rarity.toUpperCase()}`, 300, 245);
+          ctx.fillText(`Level: ${card.level} (${card.level === 2 ? 'UNLEASHED' : 'AWAKENED'})  |  RARITY: ${card.rarity.toUpperCase()}`, 300, 245);
 
           ctx.fillStyle = '#38bdf8';
           ctx.font = 'italic 17px Prompt, sans-serif';
@@ -267,14 +267,11 @@ export const GhostCardView: React.FC<Props> = ({
         ? 'border-dashed border-orange-500/60'
         : 'border-emerald-500/60',
     },
-    3: {
-      title: 'LV.2 ปลดผนึกพลัง',
-      sub: 'Unleashed Power',
-      accentBorder: card.badges.includes('SHIRT_OWNER')
-        ? 'border-dashed border-orange-500/60'
-        : 'border-emerald-500/60',
-    },
-  }[card.level];
+  }[card.level] || {
+    title: 'LV.1 วิญญาณตื่น',
+    sub: 'Awakened Spirit',
+    accentBorder: '',
+  };
 
   return (
     <div className="flex flex-col items-center">
@@ -382,10 +379,6 @@ export const GhostCardView: React.FC<Props> = ({
           style={{ backgroundColor: species.accentColor }}
         />
 
-        {/* Level 3 Aura Particle Effect */}
-        {card.level === 3 && (
-          <div className="absolute inset-0 bg-gradient-to-t from-amber-500/10 via-transparent to-purple-500/10 pointer-events-none animate-pulse" />
-        )}
 
         {/* Header Ribbon: Logo & Rarity */}
         <div className="relative z-10 flex items-center justify-between pb-3 border-b border-slate-800/80">
@@ -780,7 +773,7 @@ export const GhostCardView: React.FC<Props> = ({
             )}
 
             {/* Complete Collection Badge */}
-            {card.level === 3 && (
+            {card.badges.includes('COMPLETE_COLLECTION') && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-950/80 border border-amber-400 rounded text-[9px] font-bold text-amber-300 shadow-md">
                 <Sparkles className="w-2.5 h-2.5 text-amber-300" /> COMPLETE COLLECTION
               </span>

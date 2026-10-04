@@ -1,5 +1,5 @@
 export type Rarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
-export type CardLevel = 1 | 2 | 3;
+export type CardLevel = 1 | 2;
 
 export type GhostSpeciesId =
   | 'krasue'
@@ -51,7 +51,6 @@ export interface GhostCard {
   qrPayload: string;
   createdAt: string;
   unlockedAtLv2?: string;
-  unlockedAtLv3?: string;
   customQuote?: string;
   customImageUrl?: string;
 }

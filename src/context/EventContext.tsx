@@ -167,7 +167,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [cards, setCards] = useState<GhostCard[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.CARDS);
-      return saved ? JSON.parse(saved) : INITIAL_CARDS;
+      const parsedCards: GhostCard[] = saved ? JSON.parse(saved) : INITIAL_CARDS;
+      return parsedCards.map((c) => ({
+        ...c,
+        level: (c.level > 2 ? 2 : c.level) as CardLevel,
+      }));
     } catch {
       return INITIAL_CARDS;
     }
@@ -545,12 +549,12 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       newBadges.push('CHECKED_IN');
       newBadges.push('FINISHER');
     }
+    if (hasPaidShirt && isCheckedIn) {
+      newBadges.push('COMPLETE_COLLECTION');
+    }
 
     let newLevel: CardLevel = 1;
-    if (hasPaidShirt && isCheckedIn) {
-      newLevel = 3;
-      newBadges.push('COMPLETE_COLLECTION');
-    } else if (hasPaidShirt || isCheckedIn) {
+    if (hasPaidShirt || isCheckedIn) {
       newLevel = 2;
     }
 
@@ -565,13 +569,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       stats.spookiness = Math.min(100, Math.max(stats.spookiness, baseSpecies.baseStats.spookiness + 7));
       stats.hauntingAura = Math.min(100, Math.max(stats.hauntingAura, baseSpecies.baseStats.hauntingAura + 7));
     }
-    if (newLevel === 3) {
-      stats.spookiness = Math.min(100, stats.spookiness + 5);
-      stats.speed = Math.min(100, stats.speed + 5);
-      stats.latentPower = Math.min(100, stats.latentPower + 5);
-      stats.stealth = Math.min(100, stats.stealth + 5);
-      stats.hauntingAura = Math.min(100, stats.hauntingAura + 5);
-    }
 
     return {
       ...card,
@@ -579,7 +576,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       badges: newBadges,
       stats,
       unlockedAtLv2: newLevel >= 2 ? card.unlockedAtLv2 || new Date().toISOString() : undefined,
-      unlockedAtLv3: newLevel === 3 ? card.unlockedAtLv3 || new Date().toISOString() : undefined,
     };
   };
 

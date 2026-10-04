@@ -368,9 +368,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                         {card ? (
                           <span
                             className={`px-2 py-0.5 rounded text-[11px] font-bold font-mono ${
-                              card.level === 3
-                                ? 'bg-amber-100 text-amber-800'
-                                : card.level === 2
+                              card.level === 2
                                 ? 'bg-purple-100 text-purple-800'
                                 : 'bg-slate-100 text-slate-700'
                             }`}

@@ -74,7 +74,7 @@ export const INITIAL_CARDS: GhostCard[] = [
     nickname: 'แพรววาพระโขนง',
     fullName: 'พิชญ์สินี ภักดีรัก',
     rarity: 'Legendary',
-    level: 3,
+    level: 2,
     stats: {
       spookiness: 99,
       speed: 86,
@@ -86,7 +86,6 @@ export const INITIAL_CARDS: GhostCard[] = [
     qrPayload: 'FSS26-00143-RUNNER-PIT-LEGENDARY',
     createdAt: '2026-08-28T09:15:00Z',
     unlockedAtLv2: '2026-08-29T11:00:00Z',
-    unlockedAtLv3: '2026-09-05T16:45:00Z',
     customQuote: 'พี่มากขา... วิ่งช้าหนูรอ แต่ถ้าก้าวขาไม่ออกหนูยืดแขนลากไป',
   },
   {

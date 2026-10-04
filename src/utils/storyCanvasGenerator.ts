@@ -256,7 +256,7 @@ export const generateGhostStoryCanvas = async (
   ctx.textAlign = 'center';
   ctx.fillStyle = '#f8fafc';
   ctx.font = 'bold 18px Prompt, sans-serif';
-  ctx.fillText(card.level === 3 ? 'ULTIMATE' : `LEVEL ${card.level}`, boxX + boxW - 95, boxY + 48);
+  ctx.fillText(`LEVEL ${card.level}`, boxX + boxW - 95, boxY + 48);
 
   ctx.restore();
 
