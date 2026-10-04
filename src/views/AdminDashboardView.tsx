@@ -17,14 +17,12 @@ import {
   Eye,
   FileText,
   Award,
-  Edit3,
   Cloud,
+  LogOut,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { OfficerRole, ShirtOrder, RunnerRegistration } from '../types';
 import { THAI_GHOSTS } from '../data/ghosts';
-import { TextEditModal } from '../components/TextEditModal';
-import { SiteContentSection } from '../types/cms';
 import { ShirtDashboard } from '../components/ShirtDashboard';
 
 export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> = ({
@@ -44,15 +42,12 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     claimMedal,
     resetToDefaults,
     adminUser,
-    isLiveEditMode,
-    setIsLiveEditMode,
-    siteContent,
+    logoutAdmin,
   } = useEventContext();
 
   const [activeTab, setActiveTab] = useState<
-    'metrics' | 'checkin' | 'finance' | 'cms' | 'shirt_dashboard'
+    'metrics' | 'checkin' | 'finance' | 'shirt_dashboard'
   >('checkin');
-  const [editingSection, setEditingSection] = useState<SiteContentSection | null>(null);
 
   // Scanner state
   const [scanInput, setScanInput] = useState('');
@@ -130,6 +125,20 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
           >
             <RotateCcw className="w-3.5 h-3.5" /> รีเซ็ตข้อมูล
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('ต้องการออกจากระบบผู้ดูแลใช่หรือไม่?')) {
+                logoutAdmin();
+                onNavigate('home');
+              }
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 text-xs font-bold transition-colors border border-rose-200 shadow-sm"
+            title="ออกจากระบบแอดมิน"
+          >
+            <LogOut className="w-3.5 h-3.5 text-rose-600" /> ออกจากระบบ
+          </button>
         </div>
       </div>
 
@@ -186,18 +195,6 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
           }`}
         >
           <Shirt className="w-4 h-4" /> สรุปยอดสต็อกเสื้อ
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('cms')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-            activeTab === 'cms'
-              ? 'bg-[#DC2626] text-white shadow-sm'
-              : 'text-[#DC2626] hover:bg-red-50 bg-[#FEF2F2]'
-          }`}
-        >
-          <Edit3 className="w-4 h-4" /> CMS จัดการข้อความ
         </button>
       </div>
 
@@ -466,45 +463,7 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
         </div>
       )}
 
-      {/* TAB 4: CMS LIVE TEXT EDIT */}
-      {activeTab === 'cms' && (
-        <div className="fastwork-card p-6 bg-white space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">CMS จัดการข้อความเว็บไซต์</h3>
-              <p className="text-xs text-slate-500 mt-0.5">แก้ไขข้อความ หัวข้อ คำโปรย และบันทึกลง Firebase</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsLiveEditMode(!isLiveEditMode)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                isLiveEditMode
-                  ? 'bg-amber-400 text-slate-950 shadow-sm'
-                  : 'bg-[#DC2626] text-white'
-              }`}
-            >
-              {isLiveEditMode ? 'โหมดแก้ไข: ON ✏️' : 'เปิดโหมดแก้ไขหน้าเว็บ'}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-2">
-            {siteContent &&
-              Object.entries(siteContent).map(([secKey, secVal]) => (
-                <button
-                  key={secKey}
-                  type="button"
-                  onClick={() => setEditingSection(secVal)}
-                  className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition-colors"
-                >
-                  <span className="text-xs font-bold text-slate-900 block">{secVal.sectionName}</span>
-                  <span className="text-[11px] text-[#DC2626] font-mono">key: {secKey}</span>
-                </button>
-              ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: SHIRT INVENTORY & SALES DASHBOARD */}
+      {/* TAB 4: SHIRT INVENTORY & SALES DASHBOARD */}
       {activeTab === 'shirt_dashboard' && (
         <div className="space-y-6">
           <ShirtDashboard orders={orders} />
@@ -536,15 +495,6 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
             </div>
           </div>
         </div>
-      )}
-
-      {/* Text Edit Modal */}
-      {editingSection && (
-        <TextEditModal
-          section={editingSection}
-          isOpen={true}
-          onClose={() => setEditingSection(null)}
-        />
       )}
     </div>
   );

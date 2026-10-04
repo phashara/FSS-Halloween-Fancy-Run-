@@ -153,15 +153,12 @@ export const OfficialScheduleCard: React.FC = () => {
         <p className="text-slate-500 font-medium text-center mb-3">
           ติดตามข่าวสารและช่องทางประชาสัมพันธ์อย่างเป็นทางการ
         </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+        <div className="grid grid-cols-3 gap-2 text-center">
           <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 font-medium">
             FB: FSS Fancy Run
           </div>
           <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 font-medium">
             IG: @fss_fancyrun
-          </div>
-          <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 font-medium">
-            LINE: @FSSGhostRun
           </div>
           <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 font-medium">
             TikTok: @fss_fancyrun

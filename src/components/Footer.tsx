@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ghost, MapPin, Calendar, Mail, Phone, ExternalLink, ShieldCheck, Flame } from 'lucide-react';
+import { Ghost, MapPin, Calendar, ShieldCheck } from 'lucide-react';
 import { EVENT_DETAILS } from '../data/initialData';
 import { EditableText } from './EditableText';
 
@@ -7,7 +7,7 @@ export const Footer: React.FC<{ onNavigate: (view: any) => void }> = ({ onNaviga
   return (
     <footer className="bg-white border-t border-slate-200 text-slate-600 pt-12 pb-8 mt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-slate-100">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-10 border-b border-slate-100">
           {/* Col 1: About & Brand */}
           <div className="space-y-3">
             <div className="flex items-center gap-2.5">
@@ -36,6 +36,16 @@ export const Footer: React.FC<{ onNavigate: (view: any) => void }> = ({ onNaviga
               <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md font-semibold text-[11px]">
                 #ThaiGhost12
               </span>
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => onNavigate('admin')}
+                className="text-[11px] text-slate-400 hover:text-red-600 transition-colors flex items-center gap-1"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                สำหรับเจ้าหน้าที่ / ผู้ดูแลระบบ
+              </button>
             </div>
           </div>
 
@@ -112,37 +122,6 @@ export const Footer: React.FC<{ onNavigate: (view: any) => void }> = ({ onNaviga
                 </button>
               </li>
             </ul>
-          </div>
-
-          {/* Col 4: Contact & Help */}
-          <div className="space-y-3 text-xs">
-            <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-              ช่วยเหลือ & ติดต่อทีมงาน
-            </h4>
-            <div className="space-y-2 text-slate-600">
-              <p className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-emerald-600" />
-                <span>สายด่วน: 02-999-FSSG (02-999-3774)</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-red-600" />
-                <span>อีเมล: contact@fss-ghostrun.com</span>
-              </p>
-              <p className="flex items-center gap-2">
-                <ExternalLink className="w-4 h-4 text-sky-500" />
-                <span>LINE Official: @FSSGhostRun</span>
-              </p>
-            </div>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => onNavigate('admin')}
-                className="text-[11px] text-slate-400 hover:text-red-600 transition-colors flex items-center gap-1"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                สำหรับเจ้าหน้าที่ / ผู้ดูแลระบบ
-              </button>
-            </div>
           </div>
         </div>
 

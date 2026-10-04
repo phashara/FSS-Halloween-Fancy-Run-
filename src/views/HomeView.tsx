@@ -38,7 +38,7 @@ interface Props {
 }
 
 export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType }) => {
-  const { adminUser, isLiveEditMode, ghostSpeciesList, runners } = useEventContext();
+  const { adminUser, ghostSpeciesList, runners } = useEventContext();
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleRegisterChoice = (type: 'RUN_FREE' | 'RUN_AND_SHIRT' | 'SHIRT_ONLY') => {

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Phone,
-  Mail,
   MapPin,
   Send,
   CheckCircle,
@@ -61,22 +59,6 @@ export const FaqContactView: React.FC = () => {
                 <h4 className="font-bold text-slate-900">สถานที่จัดงาน</h4>
                 <p className="text-slate-600 mt-0.5">{EVENT_DETAILS.venue}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">{EVENT_DETAILS.locationDetails}</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-              <Phone className="w-5 h-5 text-[#00B67A] shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-slate-900">สายด่วนงานวิ่ง</h4>
-                <p className="text-slate-600 mt-0.5">02-999-FSSG (02-999-3774) &middot; ทุกวัน 08:30 – 17:30 น.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3.5 p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-              <Mail className="w-5 h-5 text-[#DC2626] shrink-0 mt-0.5" />
-              <div>
-                <h4 className="font-bold text-slate-900">อีเมลทางการ</h4>
-                <p className="text-slate-600 mt-0.5">contact@fss-ghostrun.com</p>
               </div>
             </div>
           </div>

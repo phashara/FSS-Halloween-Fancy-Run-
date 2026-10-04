@@ -9,12 +9,12 @@ import {
   Home,
   CreditCard,
   Search,
-  Edit3,
   Flame,
   Lock,
   ChevronRight,
   User,
   Sparkles,
+  LogOut,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -40,8 +40,7 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
   const {
     currentCard,
     adminUser,
-    isLiveEditMode,
-    setIsLiveEditMode,
+    logoutAdmin,
   } = useEventContext();
 
   const navItems: { id: AppView; label: string; icon: React.ReactNode; badge?: string; isPrimary?: boolean }[] = [
@@ -72,29 +71,30 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
                 แอดมิน: {adminUser.username}
               </span>
               <span className="hidden sm:inline text-red-100">
-                (สิทธิ์จัดการผู้สมัคร • อนุมัติสลิปโอนเงิน • แก้ไขเนื้อหา)
+                (สิทธิ์จัดการผู้สมัคร • ตรวจสอบและอนุมัติสลิปโอนเงิน • สแกนเช็กอิน)
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsLiveEditMode(!isLiveEditMode)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
-                  isLiveEditMode
-                    ? 'bg-amber-400 text-slate-900 shadow-sm'
-                    : 'bg-red-800/80 hover:bg-red-900 text-white'
-                }`}
-                title="คลิกเพื่อเปิด/ปิดโหมดแก้ไขข้อความบนหน้าเว็บ"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                {isLiveEditMode ? 'โหมดแก้ไขข้อความ: ON ✏️' : 'โหมดแก้ไขข้อความ: OFF'}
-              </button>
               <button
                 type="button"
                 onClick={() => handleNavClick('admin')}
                 className="px-3 py-1 rounded-lg bg-white hover:bg-red-50 text-red-600 font-bold text-xs transition-colors shadow-sm"
               >
                 Dashboard
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  logoutAdmin();
+                  if (currentView === 'admin') {
+                    onNavigate('home');
+                  }
+                }}
+                className="px-3 py-1 rounded-lg bg-red-800/90 hover:bg-red-950 text-white font-bold text-xs transition-colors shadow-sm flex items-center gap-1.5"
+                title="ออกจากระบบแอดมิน"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>ออกจากระบบ</span>
               </button>
             </div>
           </div>
@@ -171,14 +171,30 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
 
               {/* Admin Button */}
               {adminUser?.isLoggedIn ? (
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('admin')}
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-slate-700 hover:text-red-600 hover:bg-slate-100 transition-colors"
-                >
-                  <ShieldAlert className="w-4 h-4 text-red-600" />
-                  <span>แอดมิน</span>
-                </button>
+                <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => handleNavClick('admin')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-red-600 hover:bg-white transition-colors"
+                  >
+                    <ShieldAlert className="w-4 h-4 text-red-600" />
+                    <span>แอดมิน ({adminUser.username})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logoutAdmin();
+                      if (currentView === 'admin') {
+                        onNavigate('home');
+                      }
+                    }}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors"
+                    title="ออกจากระบบแอดมิน"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>ออกจากระบบ</span>
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
@@ -244,13 +260,28 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
 
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
               {adminUser?.isLoggedIn ? (
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('admin')}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-red-600 font-bold text-xs"
-                >
-                  <ShieldAlert className="w-4 h-4" /> แดชบอร์ดผู้ดูแล ({adminUser.username})
-                </button>
+                <div className="w-full flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleNavClick('admin')}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-100 text-red-600 font-bold text-xs"
+                  >
+                    <ShieldAlert className="w-4 h-4" /> แดชบอร์ด ({adminUser.username})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      logoutAdmin();
+                      setMobileMenuOpen(false);
+                      if (currentView === 'admin') {
+                        onNavigate('home');
+                      }
+                    }}
+                    className="px-3.5 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-xs flex items-center gap-1.5 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" /> ออกจากระบบ
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
