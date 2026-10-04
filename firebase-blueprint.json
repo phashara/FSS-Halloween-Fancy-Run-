@@ -63,7 +63,7 @@
     },
     "siteContent": {
       "title": "Site Content",
-      "description": "Editable text content managed by Admin",
+      "description": "Editable site texts and CMS content managed by Admin",
       "type": "object",
       "properties": {
         "sectionKey": { "type": "string" },
@@ -75,6 +75,18 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["sectionKey", "updatedAt"]
+    },
+    "systemAsset": {
+      "title": "System Asset",
+      "description": "Uploaded official event assets like shirt or medal photos",
+      "type": "object",
+      "properties": {
+        "assetId": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["assetId", "updatedAt"]
     }
   },
   "firestore": {
@@ -97,6 +109,10 @@
     "/site_content/{sectionKey}": {
       "schema": "siteContent",
       "description": "Editable site texts and CMS content"
+    },
+    "/system_assets/{assetId}": {
+      "schema": "systemAsset",
+      "description": "Uploaded real shirt and medal pictures"
     }
   }
 }

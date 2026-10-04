@@ -32,6 +32,16 @@ service cloud.firestore {
       allow write: if true;
     }
 
+    match /ghost_species/{speciesId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /system_assets/{assetId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     match /test/{docId} {
       allow read, write: if true;
     }

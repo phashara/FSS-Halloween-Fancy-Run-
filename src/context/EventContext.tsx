@@ -364,13 +364,63 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!snap.empty) {
           const remoteContent: Record<string, SiteContentSection> = {};
           snap.forEach((docSnap) => {
-            remoteContent[docSnap.id] = docSnap.data() as SiteContentSection;
+            const data = docSnap.data() as any;
+            if (docSnap.id === 'asset_shirt' || data.sectionKey === 'asset_shirt') {
+              if (data.imageUrl) {
+                setCustomShirtImageState(data.imageUrl);
+                localStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, data.imageUrl);
+              } else if (data.imageUrl === null) {
+                setCustomShirtImageState(null);
+                localStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
+              }
+            } else if (docSnap.id === 'asset_medal' || data.sectionKey === 'asset_medal') {
+              if (data.imageUrl) {
+                setCustomMedalImageState(data.imageUrl);
+                localStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, data.imageUrl);
+              } else if (data.imageUrl === null) {
+                setCustomMedalImageState(null);
+                localStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
+              }
+            } else {
+              remoteContent[docSnap.id] = data as SiteContentSection;
+            }
           });
           setSiteContent((prev) => ({ ...prev, ...remoteContent }));
           setIsFirebaseConnected(true);
         }
       }, (err) => {
         console.warn('Firebase site_content listener notice:', err);
+      });
+
+      const unsubAssets = onSnapshot(collection(db, 'system_assets'), (snap) => {
+        if (!snap.empty) {
+          snap.forEach((docSnap) => {
+            const data = docSnap.data() as any;
+            if (docSnap.id === 'shirt' && data.imageUrl) {
+              setCustomShirtImageState(data.imageUrl);
+              localStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, data.imageUrl);
+            } else if (docSnap.id === 'medal' && data.imageUrl) {
+              setCustomMedalImageState(data.imageUrl);
+              localStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, data.imageUrl);
+            }
+          });
+          setIsFirebaseConnected(true);
+        }
+      }, (err) => {
+        console.warn('Firebase system_assets listener notice:', err);
+      });
+
+      const unsubGhosts = onSnapshot(collection(db, 'ghost_species'), (snap) => {
+        if (!snap.empty) {
+          const remoteGhosts: Record<GhostSpeciesId, GhostSpecies> = {} as any;
+          snap.forEach((docSnap) => {
+            remoteGhosts[docSnap.id as GhostSpeciesId] = docSnap.data() as GhostSpecies;
+          });
+          setGhostSpeciesMap((prev) => ({ ...prev, ...remoteGhosts }));
+          setIsFirebaseConnected(true);
+        }
+      }, (err) => {
+        console.warn('Firebase ghost_species listener notice:', err);
       });
 
       const unsubRunners = onSnapshot(collection(db, 'runners'), (snap) => {
@@ -413,11 +463,42 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return () => {
         unsubContent();
+        unsubAssets();
+        unsubGhosts();
         unsubRunners();
         unsubOrders();
       };
     } catch (err) {
       console.warn('Firebase subscription notice:', err);
+    }
+  }, []);
+
+  // Sync existing local uploaded shirt/medal to Firestore if present locally
+  useEffect(() => {
+    try {
+      const localShirt = localStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE);
+      if (localShirt && localShirt.startsWith('data:')) {
+        setDoc(doc(db, 'site_content', 'asset_shirt'), {
+          sectionKey: 'asset_shirt',
+          category: 'system_asset',
+          imageUrl: localShirt,
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'local_sync',
+        }, { merge: true }).catch(() => {});
+      }
+
+      const localMedal = localStorage.getItem(STORAGE_KEYS.MEDAL_IMAGE);
+      if (localMedal && localMedal.startsWith('data:')) {
+        setDoc(doc(db, 'site_content', 'asset_medal'), {
+          sectionKey: 'asset_medal',
+          category: 'system_asset',
+          imageUrl: localMedal,
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'local_sync',
+        }, { merge: true }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Initial asset local sync notice:', err);
     }
   }, []);
 
@@ -480,6 +561,21 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch (err) {
       console.warn('LocalStorage save shirt image notice:', err);
     }
+
+    try {
+      const payload = {
+        sectionKey: 'asset_shirt',
+        category: 'system_asset',
+        imageUrl: imgUrl || null,
+        updatedAt: new Date().toISOString(),
+        updatedBy: adminUser?.username || 'admin',
+      };
+      await setDoc(doc(db, 'site_content', 'asset_shirt'), payload, { merge: true });
+      await setDoc(doc(db, 'system_assets', 'shirt'), payload, { merge: true });
+      setIsFirebaseConnected(true);
+    } catch (err) {
+      console.warn('Firestore shirt image save notice:', err);
+    }
   };
 
   const setCustomMedalImage = async (imgUrl: string | null) => {
@@ -492,6 +588,21 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     } catch (err) {
       console.warn('LocalStorage save medal image notice:', err);
+    }
+
+    try {
+      const payload = {
+        sectionKey: 'asset_medal',
+        category: 'system_asset',
+        imageUrl: imgUrl || null,
+        updatedAt: new Date().toISOString(),
+        updatedBy: adminUser?.username || 'admin',
+      };
+      await setDoc(doc(db, 'site_content', 'asset_medal'), payload, { merge: true });
+      await setDoc(doc(db, 'system_assets', 'medal'), payload, { merge: true });
+      setIsFirebaseConnected(true);
+    } catch (err) {
+      console.warn('Firestore medal image save notice:', err);
     }
   };
 
