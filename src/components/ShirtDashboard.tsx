@@ -225,11 +225,11 @@ export const ShirtDashboard: React.FC<Props> = ({
             </span>
           </div>
           <div className="text-3xl sm:text-4xl font-black text-white font-mono">
-            {orders.length.toLocaleString()}{' '}
+            {(orders?.length || 0).toLocaleString()}{' '}
             <span className="text-sm font-sans font-normal text-slate-400">ออเดอร์</span>
           </div>
           <div className="mt-3 pt-3 border-t border-slate-800 text-[11px] text-slate-300 flex items-center justify-between">
-            <span>เฉลี่ย {(totalShirts / (orders.length || 1)).toFixed(1)} ตัว/ออเดอร์</span>
+            <span>เฉลี่ย {(totalShirts / ((orders?.length) || 1)).toFixed(1)} ตัว/ออเดอร์</span>
             <span className="text-purple-400 font-bold">฿300 / ตัว</span>
           </div>
         </div>

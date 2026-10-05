@@ -602,7 +602,7 @@ export const GhostCardView: React.FC<Props> = ({
               speciesId={card.speciesId}
               scaryLevel={card.level}
               mode={artMode}
-              customImageUrl={card.customImageUrl}
+              customImageUrl={card.customImageUrl || species.customImageUrl}
               className="w-48 h-64 sm:w-56 sm:h-72"
             />
 

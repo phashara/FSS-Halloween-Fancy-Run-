@@ -102,6 +102,8 @@ interface EventContextType {
   setCustomShirtImage: (imgUrl: string | null) => Promise<void>;
   customMedalImage: string | null;
   setCustomMedalImage: (imgUrl: string | null) => Promise<void>;
+  customMapImage: string | null;
+  setCustomMapImage: (imgUrl: string | null) => Promise<void>;
 
   // Live CMS Text Editing
   isLiveEditMode: boolean;
@@ -160,18 +162,47 @@ const STORAGE_KEYS = {
   SITE_CONTENT: 'fss2026_site_content',
   SHIRT_IMAGE: 'fss_custom_shirt_image',
   MEDAL_IMAGE: 'fss_custom_medal_image',
+  MAP_IMAGE: 'fss_custom_map_image',
   GHOST_SPECIES: 'fss2026_ghost_species',
+};
+
+// Safe localStorage wrapper to prevent QuotaExceededError or SecurityError from crashing React
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (err) {
+      console.warn(`LocalStorage write skipped for ${key}:`, err);
+    }
+  },
+  removeItem: (key: string): void => {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  },
 };
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cards, setCards] = useState<GhostCard[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.CARDS);
-      const parsedCards: GhostCard[] = saved ? JSON.parse(saved) : INITIAL_CARDS;
-      return parsedCards.map((c) => ({
-        ...c,
-        level: (c.level > 2 ? 2 : c.level) as CardLevel,
-      }));
+      const saved = safeLocalStorage.getItem(STORAGE_KEYS.CARDS);
+      const parsedCards = saved ? JSON.parse(saved) : INITIAL_CARDS;
+      if (Array.isArray(parsedCards) && parsedCards.length > 0) {
+        return parsedCards.map((c) => ({
+          ...c,
+          level: (c && typeof c.level === 'number' && c.level > 2 ? 2 : (c?.level || 1)) as CardLevel,
+        }));
+      }
+      return INITIAL_CARDS;
     } catch {
       return INITIAL_CARDS;
     }
@@ -179,8 +210,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [runners, setRunners] = useState<RunnerRegistration[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.RUNNERS);
-      return saved ? JSON.parse(saved) : INITIAL_RUNNERS;
+      const saved = safeLocalStorage.getItem(STORAGE_KEYS.RUNNERS);
+      const parsed = saved ? JSON.parse(saved) : INITIAL_RUNNERS;
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_RUNNERS;
     } catch {
       return INITIAL_RUNNERS;
     }
@@ -188,8 +220,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [orders, setOrders] = useState<ShirtOrder[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
-      return saved ? JSON.parse(saved) : INITIAL_SHIRT_ORDERS;
+      const saved = safeLocalStorage.getItem(STORAGE_KEYS.ORDERS);
+      const parsed = saved ? JSON.parse(saved) : INITIAL_SHIRT_ORDERS;
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SHIRT_ORDERS;
     } catch {
       return INITIAL_SHIRT_ORDERS;
     }
@@ -197,7 +230,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [currentCardId, setCurrentCardId] = useState<string | null>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.CURRENT_CARD_ID) || 'FSS26-00872';
+      return safeLocalStorage.getItem(STORAGE_KEYS.CURRENT_CARD_ID) || 'FSS26-00872';
     } catch {
       return 'FSS26-00872';
     }
@@ -207,7 +240,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [activeOfficerRole, setActiveOfficerRole] = useState<OfficerRole>(() => {
     try {
-      return (localStorage.getItem(STORAGE_KEYS.OFFICER_ROLE) as OfficerRole) || 'SUPER_ADMIN';
+      return (safeLocalStorage.getItem(STORAGE_KEYS.OFFICER_ROLE) as OfficerRole) || 'SUPER_ADMIN';
     } catch {
       return 'SUPER_ADMIN';
     }
@@ -216,7 +249,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Admin Auth session
   const [adminUser, setAdminUser] = useState<AdminUser | null>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ADMIN_SESSION);
+      const saved = safeLocalStorage.getItem(STORAGE_KEYS.ADMIN_SESSION);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
@@ -226,7 +259,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Live Edit CMS mode
   const [isLiveEditMode, setIsLiveEditMode] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.LIVE_EDIT) === 'true';
+      return safeLocalStorage.getItem(STORAGE_KEYS.LIVE_EDIT) === 'true';
     } catch {
       return false;
     }
@@ -235,16 +268,18 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // CMS Content
   const [siteContent, setSiteContent] = useState<Record<string, SiteContentSection>>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SITE_CONTENT);
+      const saved = safeLocalStorage.getItem(STORAGE_KEYS.SITE_CONTENT);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.shirt_page) {
-          parsed.shirt_page.accountNo = '088-254-7704';
-          parsed.shirt_page.accountName = 'นางสาวพริมรตา ใจเฉียง';
-          parsed.shirt_page.bankName = 'พร้อมเพย์ (PromptPay)';
-          parsed.shirt_page.promptPay = '088-254-7704 (พร้อมเพย์)';
+        if (parsed && typeof parsed === 'object') {
+          if (parsed.shirt_page) {
+            parsed.shirt_page.accountNo = '088-254-7704';
+            parsed.shirt_page.accountName = 'นางสาวพริมรตา ใจเฉียง';
+            parsed.shirt_page.bankName = 'พร้อมเพย์ (PromptPay)';
+            parsed.shirt_page.promptPay = '088-254-7704 (พร้อมเพย์)';
+          }
+          return { ...DEFAULT_SITE_CONTENT, ...parsed };
         }
-        return { ...DEFAULT_SITE_CONTENT, ...parsed };
       }
       return DEFAULT_SITE_CONTENT;
     } catch {
@@ -255,7 +290,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Official custom shirt image
   const [customShirtImage, setCustomShirtImageState] = useState<string | null>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE) || null;
+      return safeLocalStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE) || null;
     } catch {
       return null;
     }
@@ -263,7 +298,15 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [customMedalImage, setCustomMedalImageState] = useState<string | null>(() => {
     try {
-      return localStorage.getItem(STORAGE_KEYS.MEDAL_IMAGE) || null;
+      return safeLocalStorage.getItem(STORAGE_KEYS.MEDAL_IMAGE) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [customMapImage, setCustomMapImageState] = useState<string | null>(() => {
+    try {
+      return safeLocalStorage.getItem(STORAGE_KEYS.MAP_IMAGE) || null;
     } catch {
       return null;
     }
@@ -272,9 +315,12 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Ghost Species Dictionary
   const [ghostSpeciesMap, setGhostSpeciesMap] = useState<Record<GhostSpeciesId, GhostSpecies>>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.GHOST_SPECIES);
+      const saved = safeLocalStorage.getItem(STORAGE_KEYS.GHOST_SPECIES);
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+          return { ...THAI_GHOSTS, ...parsed };
+        }
       }
     } catch (err) {
       console.warn('LocalStorage ghost species load error:', err);
@@ -284,77 +330,45 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
 
-  // Sync to localStorage
+  // Sync to localStorage safely
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
-    } catch (err) {
-      console.warn('LocalStorage save cards error:', err);
-    }
+    safeLocalStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
   }, [cards]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.RUNNERS, JSON.stringify(runners));
-    } catch (err) {
-      console.warn('LocalStorage save runners error:', err);
-    }
+    safeLocalStorage.setItem(STORAGE_KEYS.RUNNERS, JSON.stringify(runners));
   }, [runners]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-    } catch (err) {
-      console.warn('LocalStorage save orders error:', err);
-    }
+    safeLocalStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
   }, [orders]);
 
   useEffect(() => {
-    try {
-      if (currentCardId) {
-        localStorage.setItem(STORAGE_KEYS.CURRENT_CARD_ID, currentCardId);
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.CURRENT_CARD_ID);
-      }
-    } catch (err) {
-      console.warn('LocalStorage save currentCardId error:', err);
+    if (currentCardId) {
+      safeLocalStorage.setItem(STORAGE_KEYS.CURRENT_CARD_ID, currentCardId);
+    } else {
+      safeLocalStorage.removeItem(STORAGE_KEYS.CURRENT_CARD_ID);
     }
   }, [currentCardId]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.OFFICER_ROLE, activeOfficerRole);
-    } catch (err) {
-      console.warn('LocalStorage save officer role error:', err);
-    }
+    safeLocalStorage.setItem(STORAGE_KEYS.OFFICER_ROLE, activeOfficerRole);
   }, [activeOfficerRole]);
 
   useEffect(() => {
-    try {
-      if (adminUser) {
-        localStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, JSON.stringify(adminUser));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
-      }
-    } catch (err) {
-      console.warn('LocalStorage save admin session error:', err);
+    if (adminUser) {
+      safeLocalStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, JSON.stringify(adminUser));
+    } else {
+      safeLocalStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
     }
   }, [adminUser]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.LIVE_EDIT, String(isLiveEditMode));
-    } catch (err) {
-      console.warn('LocalStorage save live edit error:', err);
-    }
+    safeLocalStorage.setItem(STORAGE_KEYS.LIVE_EDIT, String(isLiveEditMode));
   }, [isLiveEditMode]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SITE_CONTENT, JSON.stringify(siteContent));
-    } catch (err) {
-      console.warn('LocalStorage save site content error:', err);
-    }
+    safeLocalStorage.setItem(STORAGE_KEYS.SITE_CONTENT, JSON.stringify(siteContent));
   }, [siteContent]);
 
   // Firebase Realtime Listener
@@ -368,24 +382,32 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (docSnap.id === 'asset_shirt' || data.sectionKey === 'asset_shirt') {
               if (data.imageUrl) {
                 setCustomShirtImageState(data.imageUrl);
-                localStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, data.imageUrl);
+                safeLocalStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, data.imageUrl);
               } else if (data.imageUrl === null) {
                 setCustomShirtImageState(null);
-                localStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
+                safeLocalStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
               }
             } else if (docSnap.id === 'asset_medal' || data.sectionKey === 'asset_medal') {
               if (data.imageUrl) {
                 setCustomMedalImageState(data.imageUrl);
-                localStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, data.imageUrl);
+                safeLocalStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, data.imageUrl);
               } else if (data.imageUrl === null) {
                 setCustomMedalImageState(null);
-                localStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
+                safeLocalStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
+              }
+            } else if (docSnap.id === 'asset_map' || data.sectionKey === 'asset_map') {
+              if (data.imageUrl) {
+                setCustomMapImageState(data.imageUrl);
+                safeLocalStorage.setItem(STORAGE_KEYS.MAP_IMAGE, data.imageUrl);
+              } else if (data.imageUrl === null) {
+                setCustomMapImageState(null);
+                safeLocalStorage.removeItem(STORAGE_KEYS.MAP_IMAGE);
               }
             } else {
               remoteContent[docSnap.id] = data as SiteContentSection;
             }
           });
-          setSiteContent((prev) => ({ ...prev, ...remoteContent }));
+          setSiteContent((prev) => ({ ...DEFAULT_SITE_CONTENT, ...prev, ...remoteContent }));
           setIsFirebaseConnected(true);
         }
       }, (err) => {
@@ -398,10 +420,13 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const data = docSnap.data() as any;
             if (docSnap.id === 'shirt' && data.imageUrl) {
               setCustomShirtImageState(data.imageUrl);
-              localStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, data.imageUrl);
+              safeLocalStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, data.imageUrl);
             } else if (docSnap.id === 'medal' && data.imageUrl) {
               setCustomMedalImageState(data.imageUrl);
-              localStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, data.imageUrl);
+              safeLocalStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, data.imageUrl);
+            } else if (docSnap.id === 'map' && data.imageUrl) {
+              setCustomMapImageState(data.imageUrl);
+              safeLocalStorage.setItem(STORAGE_KEYS.MAP_IMAGE, data.imageUrl);
             }
           });
           setIsFirebaseConnected(true);
@@ -416,7 +441,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           snap.forEach((docSnap) => {
             remoteGhosts[docSnap.id as GhostSpeciesId] = docSnap.data() as GhostSpecies;
           });
-          setGhostSpeciesMap((prev) => ({ ...prev, ...remoteGhosts }));
+          setGhostSpeciesMap((prev) => ({ ...THAI_GHOSTS, ...prev, ...remoteGhosts }));
           setIsFirebaseConnected(true);
         }
       }, (err) => {
@@ -432,7 +457,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setRunners((prev) => {
             const map = new Map<string, RunnerRegistration>();
             INITIAL_RUNNERS.forEach((r) => map.set(r.regId, r));
-            prev.forEach((r) => map.set(r.regId, r));
+            (prev || []).forEach((r) => map.set(r.regId, r));
             remoteRunners.forEach((r) => map.set(r.regId, r));
             return Array.from(map.values());
           });
@@ -451,7 +476,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setOrders((prev) => {
             const map = new Map<string, ShirtOrder>();
             INITIAL_SHIRT_ORDERS.forEach((o) => map.set(o.orderId, o));
-            prev.forEach((o) => map.set(o.orderId, o));
+            (prev || []).forEach((o) => map.set(o.orderId, o));
             remoteOrders.forEach((o) => map.set(o.orderId, o));
             return Array.from(map.values());
           });
@@ -470,35 +495,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
     } catch (err) {
       console.warn('Firebase subscription notice:', err);
-    }
-  }, []);
-
-  // Sync existing local uploaded shirt/medal to Firestore if present locally
-  useEffect(() => {
-    try {
-      const localShirt = localStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE);
-      if (localShirt && localShirt.startsWith('data:')) {
-        setDoc(doc(db, 'site_content', 'asset_shirt'), {
-          sectionKey: 'asset_shirt',
-          category: 'system_asset',
-          imageUrl: localShirt,
-          updatedAt: new Date().toISOString(),
-          updatedBy: 'local_sync',
-        }, { merge: true }).catch(() => {});
-      }
-
-      const localMedal = localStorage.getItem(STORAGE_KEYS.MEDAL_IMAGE);
-      if (localMedal && localMedal.startsWith('data:')) {
-        setDoc(doc(db, 'site_content', 'asset_medal'), {
-          sectionKey: 'asset_medal',
-          category: 'system_asset',
-          imageUrl: localMedal,
-          updatedAt: new Date().toISOString(),
-          updatedBy: 'local_sync',
-        }, { merge: true }).catch(() => {});
-      }
-    } catch (err) {
-      console.warn('Initial asset local sync notice:', err);
     }
   }, []);
 
@@ -552,14 +548,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setCustomShirtImage = async (imgUrl: string | null) => {
     setCustomShirtImageState(imgUrl);
-    try {
-      if (imgUrl) {
-        localStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, imgUrl);
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
-      }
-    } catch (err) {
-      console.warn('LocalStorage save shirt image notice:', err);
+    if (imgUrl) {
+      safeLocalStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, imgUrl);
+    } else {
+      safeLocalStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
     }
 
     try {
@@ -580,14 +572,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setCustomMedalImage = async (imgUrl: string | null) => {
     setCustomMedalImageState(imgUrl);
-    try {
-      if (imgUrl) {
-        localStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, imgUrl);
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
-      }
-    } catch (err) {
-      console.warn('LocalStorage save medal image notice:', err);
+    if (imgUrl) {
+      safeLocalStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, imgUrl);
+    } else {
+      safeLocalStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
     }
 
     try {
@@ -603,6 +591,30 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setIsFirebaseConnected(true);
     } catch (err) {
       console.warn('Firestore medal image save notice:', err);
+    }
+  };
+
+  const setCustomMapImage = async (imgUrl: string | null) => {
+    setCustomMapImageState(imgUrl);
+    if (imgUrl) {
+      safeLocalStorage.setItem(STORAGE_KEYS.MAP_IMAGE, imgUrl);
+    } else {
+      safeLocalStorage.removeItem(STORAGE_KEYS.MAP_IMAGE);
+    }
+
+    try {
+      const payload = {
+        sectionKey: 'asset_map',
+        category: 'system_asset',
+        imageUrl: imgUrl || null,
+        updatedAt: new Date().toISOString(),
+        updatedBy: adminUser?.username || 'admin',
+      };
+      await setDoc(doc(db, 'site_content', 'asset_map'), payload, { merge: true });
+      await setDoc(doc(db, 'system_assets', 'map'), payload, { merge: true });
+      setIsFirebaseConnected(true);
+    } catch (err) {
+      console.warn('Firestore map image save notice:', err);
     }
   };
 
@@ -1127,6 +1139,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCustomShirtImage,
         customMedalImage,
         setCustomMedalImage,
+        customMapImage,
+        setCustomMapImage,
         isFirebaseConnected,
         registerParticipant,
         orderShirt,

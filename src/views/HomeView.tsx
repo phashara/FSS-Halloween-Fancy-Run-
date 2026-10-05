@@ -25,7 +25,7 @@ import { EVENT_DETAILS } from '../data/initialData';
 import { GHOST_SPECIES_LIST } from '../data/ghosts';
 import { GhostAvatarSvg } from '../components/GhostAvatarSvg';
 import { EditableText } from '../components/EditableText';
-import { NaresuanRouteMap } from '../components/NaresuanRouteMap';
+import { OfficialRouteMapImage } from '../components/OfficialRouteMapImage';
 import { OfficialScheduleCard } from '../components/OfficialScheduleCard';
 import { OfficialShirtImage } from '../components/OfficialShirtImage';
 import { OfficialMedalImage } from '../components/OfficialMedalImage';
@@ -177,7 +177,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
           <div>
             <p className="text-xs text-slate-500 font-medium">ผู้สมัครแล้ว</p>
             <p className="text-sm font-bold text-slate-900">
-              {runners.length.toLocaleString()} คน
+              {(runners?.length || 0).toLocaleString()} คน
             </p>
           </div>
         </div>
@@ -463,7 +463,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
                 เหรียญรางวัลแห่งเกียรติยศสำหรับผู้พิชิตเส้นชัย 350 คนแรก
               </p>
               <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                (ณ ลานกิจกรรม คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร วันที่ 31 ตุลาคม 2026)
+                (ณ คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร วันที่ 31 ตุลาคม 2026)
               </p>
             </div>
 
@@ -553,9 +553,9 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
           </p>
         </div>
 
-        {/* Naresuan Map */}
+        {/* Official Route Map (Real Image with Admin Upload & Zoom) */}
         <div className="fastwork-card overflow-hidden p-4 sm:p-6 bg-white">
-          <NaresuanRouteMap />
+          <OfficialRouteMapImage />
         </div>
 
         {/* Official Schedule Card */}
@@ -586,23 +586,42 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-          {(ghostSpeciesList || GHOST_SPECIES_LIST).map((ghost) => (
+          {(ghostSpeciesList || GHOST_SPECIES_LIST).slice(0, 12).map((ghost, idx) => (
             <div
               key={ghost.id}
               onClick={() => onNavigate('collection')}
-              className="fastwork-card p-4 sm:p-5 flex flex-col justify-between cursor-pointer group bg-white"
+              className="fastwork-card p-4 sm:p-5 flex flex-col justify-between cursor-pointer group bg-white border border-slate-200 hover:border-red-300 hover:shadow-md transition-all rounded-3xl"
             >
               <div className="flex flex-col items-center text-center space-y-2">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-slate-50 group-hover:bg-red-50 flex items-center justify-center transition-colors p-2">
-                  <GhostAvatarSvg
-                    speciesId={ghost.id}
-                    className="w-full h-full group-hover:scale-105 transition-transform"
-                  />
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-slate-950 group-hover:bg-red-950/20 flex items-center justify-center transition-colors p-1.5 overflow-hidden relative border border-slate-200 group-hover:border-red-300">
+                  {ghost.customImageUrl ? (
+                    <img
+                      src={ghost.customImageUrl}
+                      alt={ghost.name}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform"
+                    />
+                  ) : (
+                    <GhostAvatarSvg
+                      speciesId={ghost.id}
+                      className="w-full h-full group-hover:scale-105 transition-transform"
+                    />
+                  )}
+                  {ghost.customImageUrl && (
+                    <span className="absolute bottom-1 right-1 px-1.5 py-0.2 rounded-full bg-emerald-600/90 text-[9px] text-white font-bold">
+                      รูปจริง
+                    </span>
+                  )}
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">
-                    ธาตุ {ghost.element}
-                  </span>
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="w-5 h-5 rounded-md bg-red-600 text-white font-mono font-bold text-[10px] flex items-center justify-center">
+                      #{idx + 1}
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 uppercase tracking-wider">
+                      ธาตุ {ghost.element}
+                    </span>
+                  </div>
                   <h4 className="text-sm sm:text-base font-bold text-slate-900 mt-1.5 group-hover:text-red-600 transition-colors">
                     {ghost.name}
                   </h4>
@@ -611,7 +630,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <span className="font-mono text-slate-600 text-[11px]">SPD: <b>{ghost.baseStats.speed}</b></span>
+                <span className="font-mono text-slate-600 text-[11px]">SPD: <b className="text-red-600">{ghost.baseStats.speed}</b></span>
                 <span className="text-red-600 font-semibold text-[11px] group-hover:translate-x-1 transition-transform flex items-center gap-0.5">
                   ดูการ์ด ➔
                 </span>

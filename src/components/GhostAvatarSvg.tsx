@@ -808,6 +808,27 @@ export const GhostAvatarSvg: React.FC<Props> = ({ speciesId, className = 'w-32 h
       );
 
     default:
-      return null;
+      return (
+        <svg viewBox="0 0 220 260" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="univGlow" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stopColor="#dc2626" stopOpacity="0.8" />
+              <stop offset="60%" stopColor="#450a0a" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#050811" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="110" cy="110" r="90" fill="url(#univGlow)" />
+          {/* Ghost Cloak Silhouette */}
+          <path d="M50 210 Q40 120 70 60 Q110 20 150 60 Q180 120 170 210 Q140 190 110 210 Q80 190 50 210 Z" fill="#090d16" stroke="#ef4444" strokeWidth="2" opacity="0.9" />
+          {/* Eyes */}
+          <ellipse cx="90" cy="85" rx="8" ry="12" fill="#ef4444" className="animate-pulse" />
+          <ellipse cx="130" cy="85" rx="8" ry="12" fill="#ef4444" className="animate-pulse" />
+          <circle cx="90" cy="85" r="3" fill="#ffffff" />
+          <circle cx="130" cy="85" r="3" fill="#ffffff" />
+          {/* Amulet Talisman on forehead */}
+          <rect x="100" y="45" width="20" height="25" rx="2" fill="#eab308" stroke="#ca8a04" strokeWidth="1" />
+          <text x="110" y="62" fontSize="12" fill="#78350f" textAnchor="middle" fontWeight="bold">ยันต์</text>
+        </svg>
+      );
   }
 };

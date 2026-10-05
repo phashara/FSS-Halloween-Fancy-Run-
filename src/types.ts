@@ -2,18 +2,26 @@ export type Rarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
 export type CardLevel = 1 | 2;
 
 export type GhostSpeciesId =
-  | 'krasue'
-  | 'krahang'
-  | 'pop'
+  | 'pret'           // 1. ผีเปรต
+  | 'krasue'         // 2. ผีกระสือ
+  | 'krahang'        // 3. ผีกระหัง
+  | 'pop'            // 4. ผีปอบ
+  | 'kongkoi'        // 5. ผีกองกอง
+  | 'pitakhon'       // 6. ผีตาโขน
+  | 'pusom'          // 7. ปู่โสมเฝ้าทรัพย์
+  | 'mabong'         // 8. ผีม้าบ้อง
+  | 'taithongklom'   // 9. ผีตายท้องกลม
+  | 'sueasaming'     // 10. เสือสมิง
+  | 'phraumma'       // 11. พระอุ้มหมาชีอุ้มแมว
+  | 'sihuhata'       // 12. แมงสี่หูห้าตา
   | 'tani'
   | 'maenak'
   | 'kuman'
-  | 'pret'
-  | 'kongkoi'
   | 'headless'
   | 'nangram'
   | 'phiphong'
-  | 'phi_am';
+  | 'phi_am'
+  | string;
 
 export interface GhostCardStats {
   spookiness: number; // ความหลอน

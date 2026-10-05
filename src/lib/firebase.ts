@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import { initializeFirestore, getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = !getApps().length
@@ -13,11 +13,17 @@ const app = !getApps().length
     })
   : getApp();
 
-// Use the dedicated database ID provided in config
-export const db = getFirestore(
-  app,
-  firebaseConfig.firestoreDatabaseId || '(default)'
-);
+// Use dedicated database ID with experimentalForceLongPolling to prevent WebSocket 10s timeout warnings in Web preview/iframe
+export const db = (() => {
+  const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
+  try {
+    return initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+    }, dbId);
+  } catch {
+    return getFirestore(app, dbId);
+  }
+})();
 
 // Connection verification test
 export async function testFirestoreConnection() {

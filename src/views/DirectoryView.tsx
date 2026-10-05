@@ -153,7 +153,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-700 font-mono shadow-sm">
-            ผู้สมัครทั้งหมด: <b className="text-[#DC2626] font-bold">{runners.length}</b> คน
+            ผู้สมัครทั้งหมด: <b className="text-[#DC2626] font-bold">{runners?.length || 0}</b> คน
           </div>
           <div className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-mono flex items-center gap-1.5 shadow-sm">
             <Shirt className="w-3.5 h-3.5 text-amber-600" />

@@ -388,7 +388,7 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
                 {/* Delivery Note */}
                 <div className="sm:col-span-2 p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 flex items-center gap-2">
                   <MapPin className="w-4 h-4 text-[#DC2626] shrink-0" />
-                  <span>วิธีรับเสื้อ: รับที่ลานกิจกรรม คณะสังคมศาสตร์ ม.นเรศวร ในวันงาน (31 ต.ค. 2569) เวลา 17:00 – 18:00 น. (ฟรีค่าส่ง 0 บาท)</span>
+                  <span>วิธีรับเสื้อ: รับที่คณะสังคมศาสตร์ ม.นเรศวร ในวันงาน (31 ต.ค. 2569) เวลา 17:00 – 18:00 น. (ฟรีค่าส่ง 0 บาท)</span>
                 </div>
               </div>
 

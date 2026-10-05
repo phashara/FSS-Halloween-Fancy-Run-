@@ -3,6 +3,7 @@ import { EventProvider, useEventContext } from './context/EventContext';
 import { Navbar, AppView } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { CardPackRevealModal } from './components/CardPackRevealModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Views
 import { HomeView } from './views/HomeView';
@@ -77,8 +78,10 @@ const AppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <EventProvider>
-      <AppContent />
-    </EventProvider>
+    <ErrorBoundary>
+      <EventProvider>
+        <AppContent />
+      </EventProvider>
+    </ErrorBoundary>
   );
 }

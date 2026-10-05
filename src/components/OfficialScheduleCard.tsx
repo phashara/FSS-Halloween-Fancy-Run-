@@ -78,7 +78,7 @@ export const OfficialScheduleCard: React.FC = () => {
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200">
             <MapPin className="w-3.5 h-3.5 text-rose-500" />
-            <span>ลานกิจกรรม คณะสังคมศาสตร์ ม.นเรศวร</span>
+            <span>คณะสังคมศาสตร์ มหาวิทยาลัยนเรศวร</span>
           </div>
         </div>
       </div>

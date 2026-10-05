@@ -64,14 +64,16 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
   const [viewingSlip, setViewingSlip] = useState<string | null>(null);
 
   // Statistics calculation
-  const totalRunners = runners.length;
-  const checkedInCount = runners.filter((r) => r.checkedIn).length;
+  const safeRunners = Array.isArray(runners) ? runners : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const totalRunners = safeRunners.length;
+  const checkedInCount = safeRunners.filter((r) => r.checkedIn).length;
   const checkInRate = totalRunners > 0 ? Math.round((checkedInCount / totalRunners) * 100) : 0;
 
-  const totalOrders = orders.length;
-  const paidOrders = orders.filter((o) => o.status === 'paid' || o.status === 'claimed');
-  const pendingOrders = orders.filter((o) => o.status === 'pending_verification');
-  const totalRevenue = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const totalOrders = safeOrders.length;
+  const paidOrders = safeOrders.filter((o) => o.status === 'paid' || o.status === 'claimed');
+  const pendingOrders = safeOrders.filter((o) => o.status === 'pending_verification');
+  const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
   // Handle QR Checkin scan
   const handlePerformCheckin = (e: React.FormEvent) => {

@@ -532,7 +532,7 @@ export const RegisterView: React.FC<Props> = ({
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
-                    <span>รับเสื้อหน้างานลานกิจกรรมสังคมศาสตร์</span>
+                    <span>รับเสื้อหน้างาน ณ คณะสังคมศาสตร์</span>
                   </li>
                 </ul>
               </div>
