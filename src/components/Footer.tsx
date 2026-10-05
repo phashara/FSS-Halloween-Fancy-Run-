@@ -112,15 +112,6 @@ export const Footer: React.FC<{ onNavigate: (view: any) => void }> = ({ onNaviga
                   ตรวจสอบรายชื่อนักวิ่งและสถานะ
                 </button>
               </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('mycard')}
-                  className="text-slate-600 hover:text-red-600 transition-colors"
-                >
-                  การ์ดผีของฉัน & QR Code เช็กอิน
-                </button>
-              </li>
             </ul>
           </div>
         </div>

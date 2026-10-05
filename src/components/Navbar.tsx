@@ -49,8 +49,6 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
     { id: 'shirt', label: 'สั่งซื้อเสื้อ', icon: <ShoppingBag className="w-4 h-4" /> },
     { id: 'directory', label: 'ค้นหารายชื่อ', icon: <Search className="w-4 h-4" /> },
     { id: 'collection', label: '12 ตำนานผีไทย', icon: <Ghost className="w-4 h-4" /> },
-    { id: 'contact', label: 'ติดต่อเรา', icon: <Phone className="w-4 h-4" /> },
-    { id: 'mycard', label: 'การ์ดของฉัน', icon: <CreditCard className="w-4 h-4" /> },
   ];
 
   const handleNavClick = (view: AppView) => {
@@ -157,18 +155,6 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
 
             {/* Right Action Buttons */}
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* My Card Badge */}
-              {currentCard && (
-                <button
-                  type="button"
-                  onClick={() => handleNavClick('mycard')}
-                  className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 text-slate-800 text-xs font-semibold border border-slate-200 transition-colors"
-                >
-                  <CreditCard className="w-4 h-4 text-red-600" />
-                  <span>การ์ด: <b className="text-red-600">{currentCard.cardId}</b></span>
-                </button>
-              )}
-
               {/* Admin Button */}
               {adminUser?.isLoggedIn ? (
                 <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
