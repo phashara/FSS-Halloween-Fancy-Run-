@@ -277,10 +277,6 @@ export const RegisterView: React.FC<Props> = ({
       return;
     }
 
-    if (isMinor && (!guardianName.trim() || !guardianPhone.trim())) {
-      setErrorMsg('ผู้สมัครอายุต่ำกว่า 18 ปี ต้องระบุชื่อและเบอร์โทรผู้ปกครอง');
-      return;
-    }
     if (!agreedTerms || !agreedPhotoRelease || !agreedDataPolicy) {
       setErrorMsg('กรุณากดยินยอมข้อตกลงและเงื่อนไขเพื่อดำเนินการต่อ');
       return;
@@ -377,9 +373,7 @@ export const RegisterView: React.FC<Props> = ({
           medicalConditions,
           teamName,
           displayNameType,
-          isMinor,
-          guardianName,
-          guardianPhone,
+          isMinor: false,
           agreedTerms,
           agreedPhotoRelease,
           agreedDataPolicy,
@@ -1144,7 +1138,7 @@ export const RegisterView: React.FC<Props> = ({
                       KBANK กสิกรไทย
                     </span>
                     <span className="text-base sm:text-lg font-black text-slate-900 font-mono tracking-wider">
-                      217-8-41785-4
+                      <EditableText sectionKey="shirt_page" field="accountNo" fallbackText="217-8-41785-4" />
                     </span>
                     <button
                       type="button"
@@ -1166,7 +1160,7 @@ export const RegisterView: React.FC<Props> = ({
                     </button>
                   </div>
                   <p className="text-xs text-slate-600 font-medium pt-0.5">
-                    ชื่อบัญชี: <span className="font-bold text-slate-900">น.ส.พริมรตา ใจเฉียง</span>
+                    ชื่อบัญชี: <span className="font-bold text-slate-900"><EditableText sectionKey="shirt_page" field="accountName" fallbackText="น.ส.พริมรตา ใจเฉียง" /></span>
                   </p>
                 </div>
                 <div className="text-right sm:border-l sm:border-slate-200 sm:pl-6">

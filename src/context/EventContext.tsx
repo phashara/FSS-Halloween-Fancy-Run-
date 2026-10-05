@@ -433,13 +433,23 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [siteContent, setSiteContent] = useState<Record<string, SiteContentSection>>(() => {
     try {
       const saved = safeLocalStorage.getItem(STORAGE_KEYS.SITE_CONTENT);
+      let loaded = DEFAULT_SITE_CONTENT;
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          return { ...DEFAULT_SITE_CONTENT, ...parsed };
+          loaded = { ...DEFAULT_SITE_CONTENT, ...parsed };
         }
       }
-      return DEFAULT_SITE_CONTENT;
+      if (loaded.shirt_page) {
+        loaded.shirt_page = {
+          ...loaded.shirt_page,
+          bankName: 'ธนาคารกสิกรไทย (KBANK)',
+          accountNo: '217-8-41785-4',
+          accountName: 'น.ส.พริมรตา ใจเฉียง',
+          promptPay: '217-8-41785-4 (ธ.กสิกรไทย)',
+        };
+      }
+      return loaded;
     } catch {
       return DEFAULT_SITE_CONTENT;
     }
@@ -580,6 +590,30 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     safeLocalStorage.setItem(STORAGE_KEYS.SITE_CONTENT, JSON.stringify(siteContent));
   }, [siteContent]);
 
+  // Enforce correct bank details for shirt_page
+  useEffect(() => {
+    setSiteContent((prev) => {
+      const current = prev.shirt_page;
+      if (
+        !current ||
+        current.accountNo !== '217-8-41785-4' ||
+        current.accountName !== 'น.ส.พริมรตา ใจเฉียง'
+      ) {
+        return {
+          ...prev,
+          shirt_page: {
+            ...(prev.shirt_page || DEFAULT_SITE_CONTENT.shirt_page),
+            bankName: 'ธนาคารกสิกรไทย (KBANK)',
+            accountNo: '217-8-41785-4',
+            accountName: 'น.ส.พริมรตา ใจเฉียง',
+            promptPay: '217-8-41785-4 (ธ.กสิกรไทย)',
+          },
+        };
+      }
+      return prev;
+    });
+  }, []);
+
   // Handle Quota backoff helper
   const handleQuotaBreaker = useCallback((error: unknown) => {
     if (isQuotaExhaustedError(error)) {
@@ -708,6 +742,15 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               }
               count++;
             });
+            if (remoteContent['shirt_page']) {
+              remoteContent['shirt_page'] = {
+                ...remoteContent['shirt_page'],
+                bankName: 'ธนาคารกสิกรไทย (KBANK)',
+                accountNo: '217-8-41785-4',
+                accountName: 'น.ส.พริมรตา ใจเฉียง',
+                promptPay: '217-8-41785-4 (ธ.กสิกรไทย)',
+              };
+            }
             setSiteContent((prev) => ({ ...DEFAULT_SITE_CONTENT, ...prev, ...remoteContent }));
           }
 
