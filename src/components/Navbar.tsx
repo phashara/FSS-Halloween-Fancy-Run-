@@ -5,16 +5,14 @@ import {
   Ghost,
   ShieldAlert,
   ShoppingBag,
-  Phone,
   Home,
-  CreditCard,
   Search,
   Flame,
   Lock,
   ChevronRight,
-  User,
-  Sparkles,
   LogOut,
+  RefreshCw,
+  Check,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { AdminLoginModal } from './AdminLoginModal';
@@ -37,11 +35,19 @@ interface Props {
 export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
   const {
-    currentCard,
     adminUser,
     logoutAdmin,
+    isSyncing,
+    syncFromCloud,
   } = useEventContext();
+
+  const handleSyncClick = async () => {
+    const res = await syncFromCloud();
+    setSyncToast(res.message);
+    setTimeout(() => setSyncToast(null), 3000);
+  };
 
   const navItems: { id: AppView; label: string; icon: React.ReactNode; badge?: string; isPrimary?: boolean }[] = [
     { id: 'home', label: 'หน้าแรก', icon: <Home className="w-4 h-4" /> },
@@ -154,7 +160,19 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
             </nav>
 
             {/* Right Action Buttons */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2.5">
+              {/* Cloud Direct Sync Button */}
+              <button
+                type="button"
+                onClick={handleSyncClick}
+                disabled={isSyncing}
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-red-600 bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 transition-all cursor-pointer shadow-2xs"
+                title="ดึงข้อมูลและรูปภาพล่าสุดจาก Cloud ทันที"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-red-600' : 'text-slate-500'}`} />
+                <span className="hidden xl:inline">{isSyncing ? 'กำลังซิงค์...' : 'ซิงค์ Cloud'}</span>
+              </button>
+
               {/* Admin Button */}
               {adminUser?.isLoggedIn ? (
                 <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
@@ -197,7 +215,7 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
               <button
                 type="button"
                 onClick={() => handleNavClick('register')}
-                className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm shadow-sm hover:shadow-md transition-all active:scale-95"
+                className="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm shadow-sm hover:shadow-md transition-all active:scale-95 cursor-pointer"
               >
                 <span>สมัครวิ่งทันที</span>
                 <ChevronRight className="w-4 h-4" />
@@ -207,7 +225,7 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors"
+                className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -215,6 +233,14 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
             </div>
           </div>
         </div>
+
+        {/* Sync Toast */}
+        {syncToast && (
+          <div className="bg-emerald-600 text-white py-2 px-4 text-xs font-bold flex items-center justify-center gap-2 shadow-md animate-in fade-in slide-in-from-top-2">
+            <Check className="w-4 h-4 text-emerald-200" />
+            <span>{syncToast}</span>
+          </div>
+        )}
 
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
@@ -244,7 +270,17 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
               ))}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleSyncClick}
+                disabled={isSyncing}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin text-red-600' : 'text-slate-500'}`} />
+                <span>{isSyncing ? 'กำลังซิงค์ข้อมูล Cloud...' : '🔄 ซิงค์ข้อมูลและรูปภาพล่าสุดจาก Cloud'}</span>
+              </button>
+
               {adminUser?.isLoggedIn ? (
                 <div className="w-full flex items-center gap-2">
                   <button

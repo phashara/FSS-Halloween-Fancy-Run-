@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { GhostCard } from '../types';
 import { GhostCardView } from './GhostCardView';
-import { Sparkles, Shirt, ArrowRight, X } from 'lucide-react';
+import { Sparkles, CheckCircle2, X } from 'lucide-react';
 
 interface Props {
   isOpen?: boolean;
@@ -16,8 +16,6 @@ export const CardPackRevealModal: React.FC<Props> = ({
   isOpen = true,
   card,
   onClose,
-  onGoToOrderShirt = onClose,
-  onGoToMyCard = onClose,
 }) => {
   useEffect(() => {
     if (!card || !isOpen) return;
@@ -52,16 +50,21 @@ export const CardPackRevealModal: React.FC<Props> = ({
         </button>
 
         {/* Header */}
-        <div className="mb-4 text-center">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-2">
+        <div className="mb-4 text-center space-y-2">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-semibold uppercase tracking-wider">
             <Sparkles className="w-3.5 h-3.5" /> ลงทะเบียนสำเร็จเรียบร้อย
           </div>
+          
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             🎃 การ์ดผีประจำตัวของคุณ
           </h2>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            บันทึกข้อมูลการสมัครและการ์ดนักวิ่งดิจิทัลเรียบร้อยแล้ว
-          </p>
+
+          <div className="pt-1">
+            <p className="text-base sm:text-lg md:text-xl font-black text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 py-2.5 px-4 rounded-2xl shadow-inner inline-flex items-center gap-2 justify-center">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span>บันทึกข้อมูลการสมัครและการ์ดนักวิ่งดิจิทัลเรียบร้อยแล้ว</span>
+            </p>
+          </div>
         </div>
 
         {/* 2D Clean Card Presentation */}
@@ -69,24 +72,15 @@ export const CardPackRevealModal: React.FC<Props> = ({
           <GhostCardView card={card} compact={false} />
         </div>
 
-        {/* Quick Actions */}
-        <div className="space-y-3 pt-4 border-t border-slate-800/80 mt-4">
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
-            <button
-              type="button"
-              onClick={onGoToOrderShirt}
-              className="flex items-center justify-center gap-1.5 py-3 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl shadow-md transition-all text-center cursor-pointer"
-            >
-              <Shirt className="w-4 h-4 shrink-0" /> สั่งซื้อเสื้อที่ระลึก
-            </button>
-            <button
-              type="button"
-              onClick={onGoToMyCard}
-              className="flex items-center justify-center gap-1.5 py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl border border-slate-700 transition-colors text-center cursor-pointer"
-            >
-              ดูการ์ดของฉัน <ArrowRight className="w-4 h-4 text-amber-400 shrink-0" />
-            </button>
-          </div>
+        {/* Finish Close Button */}
+        <div className="pt-4 border-t border-slate-800/80 mt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-3.5 px-5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-black text-sm rounded-xl shadow-lg transition-all cursor-pointer transform active:scale-95"
+          >
+            เสร็จสิ้น / ปิดหน้าต่าง
+          </button>
         </div>
       </div>
     </div>

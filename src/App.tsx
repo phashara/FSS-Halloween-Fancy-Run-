@@ -69,7 +69,7 @@ const AppContent: React.FC = () => {
         card={justRevealedCard}
         onClose={() => {
           setJustRevealedCard(null);
-          handleNavigate('mycard');
+          handleNavigate('directory');
         }}
       />
     </div>

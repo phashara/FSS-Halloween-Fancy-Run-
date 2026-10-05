@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import {
-  Download,
   Sparkles,
   Award,
   CheckCircle2,
@@ -10,7 +9,7 @@ import {
 import { THAI_GHOSTS } from '../data/ghosts';
 import { GhostCard } from '../types';
 import { useEventContext } from '../context/EventContext';
-import { RealisticGhostPortrait, REALISTIC_GHOST_ASSETS } from './RealisticGhostPortrait';
+import { RealisticGhostPortrait } from './RealisticGhostPortrait';
 
 interface Props {
   card: GhostCard;
@@ -24,8 +23,6 @@ export const GhostCardView: React.FC<Props> = ({
   compact = false,
 }) => {
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [isDownloading, setIsDownloading] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
   const { ghostSpeciesList } = useEventContext();
 
   const species =
@@ -86,186 +83,10 @@ export const GhostCardView: React.FC<Props> = ({
     glow: 'shadow-2xl shadow-amber-950/70',
   };
 
-  // High-Resolution 2D Card Download Generator
-  const handleDownload = async () => {
-    setIsDownloading(true);
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 920;
-      const ctx = canvas.getContext('2d');
-
-      if (ctx) {
-        // 1. Background
-        const grad = ctx.createLinearGradient(0, 0, 0, 920);
-        grad.addColorStop(0, '#1a1226');
-        grad.addColorStop(0.5, '#100c1e');
-        grad.addColorStop(1, '#080511');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 640, 920);
-
-        // 2. Outer Border & Glow
-        ctx.strokeStyle =
-          card.rarity === 'Legendary'
-            ? '#f59e0b'
-            : card.rarity === 'Epic'
-            ? '#a855f7'
-            : card.rarity === 'Rare'
-            ? '#3b82f6'
-            : '#64748b';
-        ctx.lineWidth = 8;
-        ctx.strokeRect(16, 16, 608, 888);
-
-        // 3. Header Text
-        ctx.fillStyle = '#f59e0b';
-        ctx.font = 'bold 22px "Sarabun", sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('🎃 FSS HALLOWEEN RUN 2026', 40, 60);
-
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '14px "Sarabun", sans-serif';
-        ctx.fillText('THAI GHOST COLLECTION', 40, 84);
-
-        // Rarity Badge on Canvas
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 18px "Sarabun", sans-serif';
-        ctx.fillText(`[ ${card.rarity.toUpperCase()} ]`, 600, 65);
-
-        // 4. Ghost Headline & Title
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 36px "Sarabun", sans-serif';
-        ctx.fillText(ghostHeadline, 320, 160);
-
-        ctx.fillStyle = '#f97316';
-        ctx.font = 'bold 20px "Sarabun", sans-serif';
-        ctx.fillText(species.title || '', 320, 195);
-
-        ctx.fillStyle = '#cbd5e1';
-        ctx.font = 'italic 16px "Sarabun", sans-serif';
-        ctx.fillText(`“${species.tagline || ''}”`, 320, 230);
-
-        // 5. Ghost Artwork Box & Image
-        ctx.fillStyle = '#0f091a';
-        ctx.fillRect(60, 260, 520, 380);
-        ctx.strokeStyle = '#332352';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(60, 260, 520, 380);
-
-        const activeImgUrl =
-          card.customImageUrl ||
-          species.customImageUrl ||
-          REALISTIC_GHOST_ASSETS[card.speciesId]?.photoUrl;
-
-        if (activeImgUrl) {
-          try {
-            const ghostImg = new Image();
-            ghostImg.crossOrigin = 'anonymous';
-            ghostImg.src = activeImgUrl;
-            await new Promise((resolve) => {
-              ghostImg.onload = resolve;
-              ghostImg.onerror = resolve;
-            });
-
-            if (ghostImg.complete && ghostImg.naturalWidth > 0) {
-              ctx.save();
-              ctx.beginPath();
-              ctx.rect(60, 260, 520, 380);
-              ctx.clip();
-
-              const imgRatio = ghostImg.naturalWidth / ghostImg.naturalHeight;
-              const targetRatio = 520 / 380;
-              let sW = ghostImg.naturalWidth;
-              let sH = ghostImg.naturalHeight;
-              let sX = 0;
-              let sY = 0;
-
-              if (imgRatio > targetRatio) {
-                sH = ghostImg.naturalHeight;
-                sW = ghostImg.naturalHeight * targetRatio;
-                sX = (ghostImg.naturalWidth - sW) / 2;
-                sY = 0;
-              } else {
-                sW = ghostImg.naturalWidth;
-                sH = ghostImg.naturalWidth / targetRatio;
-                sX = 0;
-                sY = (ghostImg.naturalHeight - sH) / 2;
-              }
-
-              ctx.drawImage(ghostImg, sX, sY, sW, sH, 60, 260, 520, 380);
-              ctx.restore();
-            }
-          } catch (imgErr) {
-            console.warn('Canvas ghost image draw error:', imgErr);
-          }
-        }
-
-        // 6. Owner & Info Box
-        ctx.fillStyle = '#18122c';
-        ctx.fillRect(60, 660, 520, 120);
-        ctx.strokeStyle = '#432f6b';
-        ctx.strokeRect(60, 660, 520, 120);
-
-        ctx.textAlign = 'left';
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '16px "Sarabun", sans-serif';
-        ctx.fillText('เจ้าของการ์ด:', 85, 705);
-        ctx.fillText('รหัสการ์ด (Card ID):', 85, 745);
-
-        ctx.fillStyle = '#f8fafc';
-        ctx.font = 'bold 22px "Sarabun", sans-serif';
-        ctx.fillText(card.nickname || 'ผู้สมัคร', 200, 705);
-
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 22px monospace';
-        ctx.fillText(card.cardId, 250, 745);
-
-        // 7. QR Code
-        if (qrDataUrl) {
-          const qrImg = new Image();
-          qrImg.src = qrDataUrl;
-          await new Promise((res) => {
-            qrImg.onload = res;
-            qrImg.onerror = res;
-          });
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(455, 675, 90, 90);
-          ctx.drawImage(qrImg, 460, 680, 80, 80);
-        }
-
-        // 8. Event Date Callout
-        ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 20px "Sarabun", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('🏁 แล้วพบกัน 31 ตุลาคม 2569', 320, 825);
-
-        // 9. Footer
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '13px "Sarabun", sans-serif';
-        ctx.fillText('#FSSGhostRun2026 • มหาวิทยาลัยนเรศวร', 320, 870);
-
-        // Save & Download
-        const a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
-        a.download = `FSS-Ghost-Card-${card.cardId}-${species.name}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-    } catch (e) {
-      console.error('Download error:', e);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   return (
     <div className="flex flex-col items-center w-full">
       {/* 2D Flat Official Ghost Card */}
       <div
-        ref={cardRef}
         className={`relative w-full ${
           compact ? 'max-w-xs' : 'max-w-sm sm:max-w-md'
         } rounded-3xl overflow-hidden bg-gradient-to-b from-[#191129] via-[#100a1c] to-[#090512] border-2 ${
@@ -347,21 +168,6 @@ export const GhostCardView: React.FC<Props> = ({
           </p>
         </div>
       </div>
-
-      {/* Action Buttons */}
-      {!compact && (
-        <div className="mt-4 w-full max-w-sm sm:max-w-md">
-          <button
-            type="button"
-            onClick={handleDownload}
-            disabled={isDownloading}
-            className="w-full flex items-center justify-center gap-2 py-3 px-5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-black text-sm rounded-xl shadow-lg transition-all cursor-pointer transform active:scale-95"
-          >
-            <Download className="w-4 h-4 text-slate-950" />
-            <span>{isDownloading ? 'กำลังสร้างภาพความละเอียดสูง...' : 'ดาวน์โหลดการ์ดลงเครื่อง'}</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 };
