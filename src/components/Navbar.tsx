@@ -75,7 +75,7 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
                 แอดมิน: {adminUser.username}
               </span>
               <span className="hidden sm:inline text-red-100">
-                (สิทธิ์จัดการผู้สมัคร • ตรวจสอบและอนุมัติสลิปโอนเงิน • สแกนเช็กอิน)
+                (สิทธิ์จัดการผู้สมัคร • ตรวจสอบและอนุมัติสลิปโอนเงิน • สรุปสต็อกเสื้อ)
               </span>
             </div>
             <div className="flex items-center gap-2">

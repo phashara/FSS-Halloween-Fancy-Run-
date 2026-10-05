@@ -21,7 +21,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
-import { ShirtSize } from '../types';
+import { ShirtOrder, ShirtSize } from '../types';
 import { OFFICIAL_SHIRT_SIZES } from '../data/shirtSizes';
 import { EditableText } from '../components/EditableText';
 import { OfficialShirtImage } from '../components/OfficialShirtImage';
@@ -42,8 +42,9 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [copiedPromptPay, setCopiedPromptPay] = useState(false);
+  const [submittedOrder, setSubmittedOrder] = useState<ShirtOrder | null>(null);
 
-  const handleCopyPromptPay = (num: string = '0882547704') => {
+  const handleCopyPromptPay = (num: string = '2178417854') => {
     navigator.clipboard?.writeText(num);
     setCopiedPromptPay(true);
     setTimeout(() => setCopiedPromptPay(false), 2000);
@@ -70,11 +71,6 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
     });
   };
 
-  // Find user's existing orders
-  const myOrders = orders.filter(
-    (o) => o.cardId === cardId || (currentCard && o.cardId === currentCard.cardId)
-  );
-
   const handleOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -88,10 +84,6 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
       setErrorMsg('กรุณากรอกเบอร์โทรศัพท์');
       return;
     }
-    if (!cardId.trim()) {
-      setErrorMsg('กรุณากรอก Card ID หรือกดปุ่ม "ยังไม่มีการ์ดผี" เพื่อสมัครวิ่งก่อน');
-      return;
-    }
     // Strict requirement: slip must be uploaded
     if (!slipImage) {
       setErrorMsg('⚠️ กรุณาแนบสลิปหลักฐานการโอนเงินก่อนกดยืนยันการสั่งซื้อเสื้อ');
@@ -99,10 +91,10 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
     }
 
     const createdOrder = orderShirt({
-      cardId,
-      customerName,
-      phone,
-      email,
+      cardId: cardId || 'DIRECT_ORDER',
+      customerName: customerName.trim(),
+      phone: phone.trim(),
+      email: email.trim(),
       size: sizes[0] || 'L',
       sizes,
       quantity,
@@ -110,9 +102,18 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
       slipImage,
     });
 
+    setSubmittedOrder(createdOrder);
     setSuccessMsg(
-      `บันทึกคำสั่งซื้อ #${createdOrder.orderId} เรียบร้อยแล้ว! (จำนวน ${quantity} ตัว - ไซซ์: ${sizes.join(', ')}) เจ้าหน้าที่กำลังตรวจสอบสลิป เมื่ออนุมัติแล้วการ์ดจะอัปเกรดเป็น LV.2 ปลดผนึกพลังทันที`
+      `บันทึกคำสั่งซื้อ #${createdOrder.orderId} เรียบร้อยแล้ว! เจ้าหน้าที่กำลังตรวจสอบสลิปและจะยืนยันคำสั่งซื้อของคุณทันที`
     );
+
+    // Reset form fields
+    setCustomerName('');
+    setPhone('');
+    setEmail('');
+    setSlipImage('');
+    setQuantity(1);
+    setSizes(['L']);
   };
 
   return (
@@ -210,9 +211,9 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
                 <Sparkles className="w-5 h-5 text-[#DC2626] shrink-0 mt-0.5" />
                 <div className="text-xs text-slate-700">
                   <span className="font-bold text-[#DC2626] block mb-0.5">
-                    กลไก Level-Up การ์ดผีอัตโนมัติ
+                    สั่งซื้อเสื้อที่ระลึกอย่างเป็นทางการ
                   </span>
-                  หมายเลข Card ID เดียวกับตอนที่คุณสมัคร เมื่อทีมงานตรวจสอบยอดโอน ระบบจะติดตรา <b>SHIRT OWNER</b> เพิ่มพลังความเร็ว +6 และปลดล็อกการ์ดเป็น <b>LV.2</b> ทันที!
+                  เมื่อทีมงานตรวจสอบยอดโอนแล้ว ระบบจะยืนยันคำสั่งซื้อเสื้อที่ระลึกของคุณและจัดเตรียมสินค้าให้อย่างเป็นทางการทันที!
                 </div>
               </div>
             </div>
@@ -240,30 +241,7 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
 
             <form onSubmit={handleOrderSubmit} className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
-                {/* Card ID */}
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">
-                    หมายเลขการ์ดผีของคุณ (Card ID) *
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={cardId}
-                      onChange={(e) => setCardId(e.target.value.toUpperCase())}
-                      placeholder="เช่น FSS26-00872"
-                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 font-mono text-sm uppercase focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onNavigate('register')}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold whitespace-nowrap"
-                    >
-                      ยังไม่มีการ์ด?
-                    </button>
-                  </div>
-                </div>
-
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block font-bold text-slate-700 mb-1">
                     ชื่อ-นามสกุลผู้สั่งซื้อ *
                   </label>
@@ -288,7 +266,7 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">อีเมล</label>
+                  <label className="block font-bold text-slate-700 mb-1">อีเมล (ถ้ามี)</label>
                   <input
                     type="email"
                     value={email}
@@ -397,20 +375,20 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
                   <div className="space-y-1">
                     <div className="text-xs text-[#DC2626] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                      <QrCode className="w-4 h-4" /> บัญชีชำระเงินค่าเสื้อ (พร้อมเพย์ PromptPay)
+                      <CreditCard className="w-4 h-4" /> บัญชีชำระเงินค่าเสื้อ (ธนาคารกสิกรไทย)
                     </div>
                     <div className="flex items-center gap-2 flex-wrap mt-1">
-                      <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-xs font-bold shadow-sm">
-                        พร้อมเพย์
+                      <span className="px-2.5 py-0.5 rounded-md bg-[#137E43] text-white text-xs font-bold shadow-sm flex items-center gap-1">
+                        KBANK กสิกรไทย
                       </span>
                       <span className="text-base sm:text-lg font-black text-slate-900 font-mono tracking-wider">
-                        <EditableText sectionKey="shirt_page" field="accountNo" fallbackText="088-254-7704" />
+                        <EditableText sectionKey="shirt_page" field="accountNo" fallbackText="217-8-41785-4" />
                       </span>
                       <button
                         type="button"
-                        onClick={() => handleCopyPromptPay('0882547704')}
-                        className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm"
-                        title="คัดลอกเบอร์พร้อมเพย์"
+                        onClick={() => handleCopyPromptPay('2178417854')}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer"
+                        title="คัดลอกเลขที่บัญชี"
                       >
                         {copiedPromptPay ? (
                           <>
@@ -420,13 +398,13 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
                         ) : (
                           <>
                             <Copy className="w-3.5 h-3.5 text-slate-500" />
-                            <span>คัดลอกเบอร์</span>
+                            <span>คัดลอกเลขบัญชี</span>
                           </>
                         )}
                       </button>
                     </div>
                     <p className="text-xs text-slate-600 font-medium pt-0.5">
-                      ชื่อบัญชี: <span className="font-bold text-slate-900"><EditableText sectionKey="shirt_page" field="accountName" fallbackText="นางสาวพริมรตา ใจเฉียง" /></span>
+                      ชื่อบัญชี: <span className="font-bold text-slate-900"><EditableText sectionKey="shirt_page" field="accountName" fallbackText="น.ส.พริมรตา ใจเฉียง" /></span>
                     </p>
                   </div>
 
@@ -528,53 +506,96 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
             </form>
           </div>
 
-          {/* User's Existing Orders list */}
-          {myOrders.length > 0 && (
-            <div className="fastwork-card p-6 bg-white space-y-3">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-[#DC2626]" /> คำสั่งซื้อของคุณ ({myOrders.length} รายการ)
-              </h4>
-              <div className="space-y-2">
-                {myOrders.map((ord) => (
-                  <div
-                    key={ord.orderId}
-                    className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs"
-                  >
-                    <div>
-                      <span className="font-mono font-bold text-[#DC2626] mr-2">{ord.orderId}</span>
-                      <span className="text-slate-800 font-medium">
-                        ไซซ์ {ord.sizes && ord.sizes.length > 0 ? ord.sizes.join(', ') : ord.size} ({ord.quantity} ตัว) &middot; ฿{ord.totalAmount?.toLocaleString()}
-                      </span>
-                      <span className="text-slate-500 block mt-0.5 text-[11px]">
-                        Card ID: {ord.cardId} &middot; รับที่หน้างาน คณะสังคมศาสตร์ ม.นเรศวร
-                      </span>
-                    </div>
-                    <div>
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          ord.status === 'paid'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : ord.status === 'claimed'
-                            ? 'bg-red-100 text-red-800'
-                            : ord.status === 'pending_verification'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        {ord.status === 'paid'
-                          ? '✓ ชำระแล้ว (การ์ดอัปเกรดแล้ว)'
-                          : ord.status === 'claimed'
-                          ? '✓ รับเสื้อแล้ว'
-                          : ord.status === 'pending_verification'
-                          ? 'รอตรวจสอบสลิป'
-                          : 'รอชำระเงิน'}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+      {/* Thank You / Order Success Modal */}
+      {submittedOrder && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+          onClick={() => setSubmittedOrder(null)}
+        >
+          <div
+            className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 text-slate-900 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header / Celebration */}
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-inner animate-bounce">
+                🎉
+              </div>
+              <h3 className="text-xl sm:text-2xl font-black text-slate-900">
+                ขอขอบคุณสำหรับการสั่งซื้อเสื้อที่ระลึก!
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500">
+                ระบบได้บันทึกคำสั่งซื้อของคุณเข้าสู่ระบบเรียบร้อยแล้ว
+              </p>
+            </div>
+
+            {/* Receipt Summary Card */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3 text-xs sm:text-sm">
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-200">
+                <span className="text-slate-500 font-medium">หมายเลขคำสั่งซื้อ (Order ID)</span>
+                <span className="font-mono font-black text-[#DC2626] text-base">
+                  #{submittedOrder.orderId}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">ผู้สั่งซื้อ:</span>
+                <span className="font-bold text-slate-800">{submittedOrder.customerName}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">เบอร์โทรศัพท์:</span>
+                <span className="font-medium text-slate-800">{submittedOrder.phone}</span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500">จำนวน & ไซซ์:</span>
+                <span className="font-bold text-slate-900">
+                  {submittedOrder.quantity} ตัว (ไซซ์: {submittedOrder.sizes?.join(', ') || submittedOrder.size})
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                <span className="text-slate-700 font-bold">ยอดเงินรวมทั้งสิ้น:</span>
+                <span className="font-black text-[#DC2626] text-lg font-mono">
+                  ฿{(submittedOrder.totalAmount || 0).toLocaleString()}
+                </span>
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" /> รอเจ้าหน้าที่ตรวจสอบสลิปโอนเงิน
+                </span>
               </div>
             </div>
-          )}
+
+            <p className="text-xs text-slate-500 text-center leading-relaxed">
+              ฝ่ายการเงินจะทำการตรวจสอบความถูกต้องของสลิปโอนเงิน ขอบคุณที่ร่วมสนับสนุนกิจกรรม <b>FSS Halloween Fancy Run 2026</b>
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setSubmittedOrder(null);
+                  onNavigate('home');
+                }}
+                className="flex-1 py-3 px-4 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-sm rounded-xl transition-all shadow-md text-center cursor-pointer"
+              >
+                กลับหน้าหลัก
+              </button>
+              <button
+                type="button"
+                onClick={() => setSubmittedOrder(null)}
+                className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition-colors text-center cursor-pointer"
+              >
+                ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

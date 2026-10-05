@@ -26,6 +26,7 @@ import {
   CheckCircle2,
   Copy,
   Check,
+  CreditCard,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import {
@@ -166,7 +167,7 @@ export const RegisterView: React.FC<Props> = ({
   const [slipImage, setSlipImage] = useState<string>('');
   const [copiedPromptPay, setCopiedPromptPay] = useState(false);
 
-  const handleCopyPromptPay = (num: string = '0882547704') => {
+  const handleCopyPromptPay = (num: string = '2178417854') => {
     navigator.clipboard?.writeText(num);
     setCopiedPromptPay(true);
     setTimeout(() => setCopiedPromptPay(false), 2000);
@@ -1089,20 +1090,20 @@ export const RegisterView: React.FC<Props> = ({
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-3 border-b border-slate-200">
                 <div className="space-y-1">
                   <div className="text-xs text-[#DC2626] font-bold uppercase tracking-wider flex items-center gap-1.5">
-                    <QrCode className="w-4 h-4" /> บัญชีชำระเงินค่าเสื้อ (พร้อมเพย์ PromptPay)
+                    <CreditCard className="w-4 h-4" /> บัญชีชำระเงินค่าเสื้อ (ธนาคารกสิกรไทย)
                   </div>
                   <div className="flex items-center gap-2 flex-wrap mt-1">
-                    <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white text-xs font-bold shadow-sm">
-                      พร้อมเพย์
+                    <span className="px-2.5 py-0.5 rounded-md bg-[#137E43] text-white text-xs font-bold shadow-sm flex items-center gap-1">
+                      KBANK กสิกรไทย
                     </span>
                     <span className="text-base sm:text-lg font-black text-slate-900 font-mono tracking-wider">
-                      088-254-7704
+                      217-8-41785-4
                     </span>
                     <button
                       type="button"
-                      onClick={() => handleCopyPromptPay('0882547704')}
-                      className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm"
-                      title="คัดลอกเบอร์พร้อมเพย์"
+                      onClick={() => handleCopyPromptPay('2178417854')}
+                      className="px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:border-slate-400 text-slate-700 text-xs font-semibold flex items-center gap-1 transition-all shadow-sm cursor-pointer"
+                      title="คัดลอกเลขที่บัญชี"
                     >
                       {copiedPromptPay ? (
                         <>
@@ -1112,13 +1113,13 @@ export const RegisterView: React.FC<Props> = ({
                       ) : (
                         <>
                           <Copy className="w-3.5 h-3.5 text-slate-500" />
-                          <span>คัดลอกเบอร์</span>
+                          <span>คัดลอกเลขบัญชี</span>
                         </>
                       )}
                     </button>
                   </div>
                   <p className="text-xs text-slate-600 font-medium pt-0.5">
-                    ชื่อบัญชี: <span className="font-bold text-slate-900">นางสาวพริมรตา ใจเฉียง</span>
+                    ชื่อบัญชี: <span className="font-bold text-slate-900">น.ส.พริมรตา ใจเฉียง</span>
                   </p>
                 </div>
                 <div className="text-right sm:border-l sm:border-slate-200 sm:pl-6">

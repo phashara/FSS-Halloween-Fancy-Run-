@@ -165,13 +165,13 @@ export const RealisticGhostPortrait: React.FC<Props> = ({
 
   return (
     <div
-      className={`relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center select-none ${className}`}
+      className={`relative rounded-2xl overflow-hidden bg-slate-950/95 border border-slate-800 flex items-center justify-center select-none ${className}`}
     >
       <img
         src={imageSrc}
         alt={asset.elementBadge}
         referrerPolicy="no-referrer"
-        className="w-full h-full object-cover object-center rounded-xl"
+        className={`w-full h-full ${customImageUrl ? 'object-contain' : 'object-cover'} object-center rounded-xl`}
       />
     </div>
   );

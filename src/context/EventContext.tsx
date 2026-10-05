@@ -5,6 +5,7 @@ import {
   doc,
   setDoc,
   getDocs,
+  deleteDoc,
   onSnapshot,
 } from 'firebase/firestore';
 import { SiteContentSection, AdminUser } from '../types/cms';
@@ -200,26 +201,18 @@ const safeLocalStorage = {
 };
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Purge all legacy large base64 images from browser localStorage to keep it under 10KB
+  // Purge test runner registrations, test shirt orders, and cards on request (ONE TIME)
   try {
-    const keysToPurge = [
-      'fss2026_demo_purged_v2',
-      STORAGE_KEYS.SHIRT_IMAGE,
-      STORAGE_KEYS.MEDAL_IMAGE,
-      STORAGE_KEYS.MAP_IMAGE,
-      STORAGE_KEYS.GHOST_SPECIES,
-    ];
-    keysToPurge.forEach((k) => safeLocalStorage.removeItem(k));
-
-    // Remove any fss_ghost_img_* from localStorage as well (now in IndexedDB)
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith('fss_ghost_img_')) {
-        localStorage.removeItem(key);
-      }
+    const testPurgeKey = 'fss2026_test_data_purged_v5';
+    if (!safeLocalStorage.getItem(testPurgeKey)) {
+      safeLocalStorage.removeItem(STORAGE_KEYS.CARDS);
+      safeLocalStorage.removeItem(STORAGE_KEYS.RUNNERS);
+      safeLocalStorage.removeItem(STORAGE_KEYS.ORDERS);
+      safeLocalStorage.removeItem(STORAGE_KEYS.CURRENT_CARD_ID);
+      safeLocalStorage.setItem(testPurgeKey, 'true');
     }
   } catch (e) {
-    console.warn('Storage cleanup notice:', e);
+    console.warn('Test data purge notice:', e);
   }
 
   const [cards, setCards] = useState<GhostCard[]>(() => {
@@ -303,10 +296,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
           if (parsed.shirt_page) {
-            parsed.shirt_page.accountNo = '088-254-7704';
-            parsed.shirt_page.accountName = 'นางสาวพริมรตา ใจเฉียง';
-            parsed.shirt_page.bankName = 'พร้อมเพย์ (PromptPay)';
-            parsed.shirt_page.promptPay = '088-254-7704 (พร้อมเพย์)';
+            parsed.shirt_page.accountNo = '217-8-41785-4';
+            parsed.shirt_page.accountName = 'น.ส.พริมรตา ใจเฉียง';
+            parsed.shirt_page.bankName = 'ธนาคารกสิกรไทย (KBANK)';
+            parsed.shirt_page.promptPay = '217-8-41785-4 (ธ.กสิกรไทย)';
           }
           return { ...DEFAULT_SITE_CONTENT, ...parsed };
         }
@@ -834,8 +827,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCustomShirtImageState(imgUrl);
     if (imgUrl) {
       await idbSet('system_asset_shirt', imgUrl);
+      safeLocalStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, imgUrl);
     } else {
       await idbRemove('system_asset_shirt');
+      safeLocalStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
     }
 
     try {
@@ -858,8 +853,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCustomMedalImageState(imgUrl);
     if (imgUrl) {
       await idbSet('system_asset_medal', imgUrl);
+      safeLocalStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, imgUrl);
     } else {
       await idbRemove('system_asset_medal');
+      safeLocalStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
     }
 
     try {
@@ -882,8 +879,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCustomMapImageState(imgUrl);
     if (imgUrl) {
       await idbSet('system_asset_map', imgUrl);
+      safeLocalStorage.setItem(STORAGE_KEYS.MAP_IMAGE, imgUrl);
     } else {
       await idbRemove('system_asset_map');
+      safeLocalStorage.removeItem(STORAGE_KEYS.MAP_IMAGE);
     }
 
     try {
@@ -1442,15 +1441,36 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const resetToDefaults = () => {
+  const resetToDefaults = async () => {
     setCards([]);
     setRunners([]);
     setOrders([]);
     setCurrentCardId(null);
+    setJustRevealedCard(null);
     safeLocalStorage.removeItem(STORAGE_KEYS.CARDS);
     safeLocalStorage.removeItem(STORAGE_KEYS.RUNNERS);
     safeLocalStorage.removeItem(STORAGE_KEYS.ORDERS);
     safeLocalStorage.removeItem(STORAGE_KEYS.CURRENT_CARD_ID);
+
+    try {
+      const runnersRef = collection(db, 'fss_runners');
+      const ordersRef = collection(db, 'fss_orders');
+      const cardsRef = collection(db, 'fss_cards');
+
+      const [rSnap, oSnap, cSnap] = await Promise.all([
+        getDocs(runnersRef),
+        getDocs(ordersRef),
+        getDocs(cardsRef),
+      ]);
+
+      const deletes: Promise<any>[] = [];
+      rSnap.forEach((d) => deletes.push(deleteDoc(d.ref)));
+      oSnap.forEach((d) => deletes.push(deleteDoc(d.ref)));
+      cSnap.forEach((d) => deletes.push(deleteDoc(d.ref)));
+      await Promise.all(deletes);
+    } catch (e) {
+      console.warn('Purge firestore notice:', e);
+    }
   };
 
   return (
