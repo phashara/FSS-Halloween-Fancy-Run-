@@ -453,6 +453,134 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Firebase Realtime Listener
   useEffect(() => {
     try {
+      // Immediate initial fetch on load from Firestore
+      const fetchInitialCloudData = async () => {
+        try {
+          // 1. Fetch site_content and system_assets
+          const [contentSnap, assetsSnap, ghostsSnap, runnersSnap, ordersSnap] = await Promise.all([
+            getDocs(collection(db, 'site_content')),
+            getDocs(collection(db, 'system_assets')),
+            getDocs(collection(db, 'ghost_species')),
+            getDocs(collection(db, 'runners')),
+            getDocs(collection(db, 'orders')),
+          ]);
+
+          if (!assetsSnap.empty) {
+            assetsSnap.forEach((docSnap) => {
+              const data = docSnap.data() as any;
+              if (docSnap.id === 'shirt' && data.imageUrl) {
+                setCustomShirtImageState(data.imageUrl);
+                idbSet('system_asset_shirt', data.imageUrl);
+              } else if (docSnap.id === 'medal' && data.imageUrl) {
+                setCustomMedalImageState(data.imageUrl);
+                idbSet('system_asset_medal', data.imageUrl);
+              } else if (docSnap.id === 'map' && data.imageUrl) {
+                setCustomMapImageState(data.imageUrl);
+                idbSet('system_asset_map', data.imageUrl);
+              }
+            });
+          }
+
+          if (!contentSnap.empty) {
+            const remoteContent: Record<string, SiteContentSection> = {};
+            contentSnap.forEach((docSnap) => {
+              const data = docSnap.data() as any;
+              if (docSnap.id === 'asset_shirt' || data.sectionKey === 'asset_shirt') {
+                if (data.imageUrl) {
+                  setCustomShirtImageState(data.imageUrl);
+                  idbSet('system_asset_shirt', data.imageUrl);
+                }
+              } else if (docSnap.id === 'asset_medal' || data.sectionKey === 'asset_medal') {
+                if (data.imageUrl) {
+                  setCustomMedalImageState(data.imageUrl);
+                  idbSet('system_asset_medal', data.imageUrl);
+                }
+              } else if (docSnap.id === 'asset_map' || data.sectionKey === 'asset_map') {
+                if (data.imageUrl) {
+                  setCustomMapImageState(data.imageUrl);
+                  idbSet('system_asset_map', data.imageUrl);
+                }
+              } else {
+                remoteContent[docSnap.id] = data as SiteContentSection;
+              }
+            });
+            setSiteContent((prev) => ({ ...DEFAULT_SITE_CONTENT, ...prev, ...remoteContent }));
+          }
+
+          if (!ghostsSnap.empty) {
+            const remoteGhosts: Record<GhostSpeciesId, GhostSpecies> = {} as any;
+            ghostsSnap.forEach((docSnap) => {
+              const sid = docSnap.id as GhostSpeciesId;
+              if (OFFICIAL_12_GHOST_IDS.includes(sid)) {
+                const data = docSnap.data() as GhostSpecies;
+                remoteGhosts[sid] = data;
+                if (data.customImageUrl) {
+                  idbSet(`ghost_img_${sid}`, data.customImageUrl);
+                }
+              }
+            });
+            setGhostSpeciesMap((prev) => {
+              const merged = { ...prev, ...remoteGhosts };
+              const cleaned: Record<string, GhostSpecies> = {};
+              OFFICIAL_12_GHOST_IDS.forEach((id) => {
+                const base = THAI_GHOSTS[id];
+                const custom = merged[id];
+                if (base) {
+                  cleaned[id] = {
+                    ...base,
+                    ...(custom && typeof custom === 'object' ? custom : {}),
+                    name: custom?.name || base.name,
+                    title: custom?.title || base.title,
+                    tagline: custom?.tagline || base.tagline,
+                    element: custom?.element || base.element,
+                    customImageUrl: custom?.customImageUrl || base.customImageUrl || undefined,
+                    baseStats: {
+                      ...base.baseStats,
+                      ...(custom?.baseStats || {}),
+                    },
+                  };
+                }
+              });
+              return cleaned as Record<GhostSpeciesId, GhostSpecies>;
+            });
+          }
+
+          if (!runnersSnap.empty) {
+            const remoteRunners: RunnerRegistration[] = [];
+            runnersSnap.forEach((docSnap) => {
+              remoteRunners.push(docSnap.data() as RunnerRegistration);
+            });
+            setRunners((prev) => {
+              const map = new Map<string, RunnerRegistration>();
+              INITIAL_RUNNERS.forEach((r) => map.set(r.regId, r));
+              (prev || []).forEach((r) => map.set(r.regId, r));
+              remoteRunners.forEach((r) => map.set(r.regId, r));
+              return Array.from(map.values());
+            });
+          }
+
+          if (!ordersSnap.empty) {
+            const remoteOrders: ShirtOrder[] = [];
+            ordersSnap.forEach((docSnap) => {
+              remoteOrders.push(docSnap.data() as ShirtOrder);
+            });
+            setOrders((prev) => {
+              const map = new Map<string, ShirtOrder>();
+              INITIAL_SHIRT_ORDERS.forEach((o) => map.set(o.orderId, o));
+              (prev || []).forEach((o) => map.set(o.orderId, o));
+              remoteOrders.forEach((o) => map.set(o.orderId, o));
+              return Array.from(map.values());
+            });
+          }
+
+          setIsFirebaseConnected(true);
+        } catch (fetchErr) {
+          console.warn('Initial cloud data fetch notice:', fetchErr);
+        }
+      };
+
+      fetchInitialCloudData();
+
       const unsubContent = onSnapshot(collection(db, 'site_content'), (snap) => {
         if (!snap.empty) {
           const remoteContent: Record<string, SiteContentSection> = {};
@@ -499,13 +627,13 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const data = docSnap.data() as any;
             if (docSnap.id === 'shirt' && data.imageUrl) {
               setCustomShirtImageState(data.imageUrl);
-              safeLocalStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, data.imageUrl);
+              idbSet('system_asset_shirt', data.imageUrl);
             } else if (docSnap.id === 'medal' && data.imageUrl) {
               setCustomMedalImageState(data.imageUrl);
-              safeLocalStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, data.imageUrl);
+              idbSet('system_asset_medal', data.imageUrl);
             } else if (docSnap.id === 'map' && data.imageUrl) {
               setCustomMapImageState(data.imageUrl);
-              safeLocalStorage.setItem(STORAGE_KEYS.MAP_IMAGE, data.imageUrl);
+              idbSet('system_asset_map', data.imageUrl);
             }
           });
           setIsFirebaseConnected(true);
@@ -524,7 +652,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               remoteGhosts[sid] = data;
               if (data.customImageUrl) {
                 idbSet(`ghost_img_${sid}`, data.customImageUrl);
-                safeLocalStorage.setItem(`fss_ghost_img_${sid}`, data.customImageUrl);
               }
             }
           });
@@ -534,7 +661,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             OFFICIAL_12_GHOST_IDS.forEach((id) => {
               const base = THAI_GHOSTS[id];
               const custom = merged[id];
-              const perGhostImg = safeLocalStorage.getItem(`fss_ghost_img_${id}`);
               if (base) {
                 cleaned[id] = {
                   ...base,
@@ -543,7 +669,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   title: custom?.title || base.title,
                   tagline: custom?.tagline || base.tagline,
                   element: custom?.element || base.element,
-                  customImageUrl: custom?.customImageUrl || perGhostImg || base.customImageUrl || undefined,
+                  customImageUrl: custom?.customImageUrl || base.customImageUrl || undefined,
                   baseStats: {
                     ...base.baseStats,
                     ...(custom?.baseStats || {}),

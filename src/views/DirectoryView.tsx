@@ -35,7 +35,6 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
-  const [filterCheckin, setFilterCheckin] = useState<string>('all');
   const [filterLevel, setFilterLevel] = useState<string>('all');
   const [filterShirt, setFilterShirt] = useState<string>('all');
   const [previewCard, setPreviewCard] = useState<GhostCard | null>(null);
@@ -95,9 +94,6 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
     if (filterType !== 'all' && runner.regType !== filterType) {
       return false;
     }
-
-    if (filterCheckin === 'checked_in' && !runner.checkedIn) return false;
-    if (filterCheckin === 'not_checked_in' && runner.checkedIn) return false;
 
     if (filterLevel !== 'all' && card && String(card.level) !== filterLevel) {
       return false;
@@ -178,7 +174,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
         </div>
 
         {/* Filter Dropdowns */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
           <div>
             <label className="block font-bold text-slate-700 mb-1">ประเภทการสมัคร</label>
             <select
@@ -209,19 +205,6 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 mb-1">สถานะเช็กอินวันงาน</label>
-            <select
-              value={filterCheckin}
-              onChange={(e) => setFilterCheckin(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
-            >
-              <option value="all">เช็กอินทั้งหมด</option>
-              <option value="checked_in">เช็กอินแล้ว ✓</option>
-              <option value="not_checked_in">ยังไม่เช็กอิน</option>
-            </select>
-          </div>
-
-          <div>
             <label className="block font-bold text-slate-700 mb-1">ระดับของการ์ดผี</label>
             <select
               value={filterLevel}
@@ -248,7 +231,6 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                 <th className="py-3.5 px-4">Card ID</th>
                 <th className="py-3.5 px-4">ข้อมูลสั่งเสื้อ</th>
                 <th className="py-3.5 px-4">ระดับการ์ด</th>
-                <th className="py-3.5 px-4">เช็กอิน</th>
                 <th className="py-3.5 px-4 text-center">ดูการ์ด</th>
               </tr>
             </thead>
@@ -377,17 +359,6 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                           '-'
                         )}
                       </td>
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {runner.checkedIn ? (
-                          <span className="text-[#00B67A] font-semibold flex items-center gap-1 text-xs">
-                            <CheckCircle className="w-3.5 h-3.5" /> เช็กอินแล้ว
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 flex items-center gap-1 text-xs">
-                            <Clock className="w-3.5 h-3.5" /> ยังไม่เช็กอิน
-                          </span>
-                        )}
-                      </td>
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         {card && (
                           <button
@@ -405,7 +376,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500 text-xs">
+                  <td colSpan={7} className="py-12 text-center text-slate-500 text-xs">
                     {runners.length === 0 ? (
                       <div className="space-y-1.5">
                         <p className="font-bold text-slate-700 text-sm">ยังไม่มีข้อมูลผู้สมัครในระบบ</p>
@@ -543,9 +514,13 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                   <span className="text-slate-900 font-medium">{previewRunner.faculty || previewRunner.organization || '-'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block text-xs">สถานะเช็กอิน:</span>
-                  <span className={`font-bold ${previewRunner.checkedIn ? 'text-[#00B67A]' : 'text-slate-500'}`}>
-                    {previewRunner.checkedIn ? '✓ เช็กอินแล้ว' : 'ยังไม่เช็กอิน'}
+                  <span className="text-slate-500 block text-xs">ประเภทการสมัคร:</span>
+                  <span className="font-bold text-[#DC2626]">
+                    {previewRunner.regType === 'RUN_FREE'
+                      ? 'วิ่งฟรี'
+                      : previewRunner.regType === 'RUN_AND_SHIRT'
+                      ? 'วิ่ง + สั่งเสื้อ'
+                      : 'สั่งซื้อเสื้ออย่างเดียว'}
                   </span>
                 </div>
                 <div>
