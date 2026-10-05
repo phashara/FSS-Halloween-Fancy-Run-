@@ -200,6 +200,24 @@ const safeLocalStorage = {
   },
 };
 
+// Helper to deeply remove undefined fields before saving to Cloud Firestore
+export function cleanForFirestore<T>(obj: T): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(cleanForFirestore);
+  }
+  if (typeof obj === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanForFirestore(value);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Purge test runner registrations, test shirt orders, and cards on request (ONE TIME)
   try {
@@ -761,6 +779,25 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.warn('Firebase orders listener notice:', err);
       });
 
+      const unsubCards = onSnapshot(collection(db, 'cards'), (snap) => {
+        if (!snap.empty) {
+          const remoteCards: GhostCard[] = [];
+          snap.forEach((docSnap) => {
+            remoteCards.push(docSnap.data() as GhostCard);
+          });
+          setCards((prev) => {
+            const map = new Map<string, GhostCard>();
+            INITIAL_CARDS.forEach((c) => map.set(c.cardId, c));
+            (prev || []).forEach((c) => map.set(c.cardId, c));
+            remoteCards.forEach((c) => map.set(c.cardId, c));
+            return Array.from(map.values());
+          });
+          setIsFirebaseConnected(true);
+        }
+      }, (err) => {
+        console.warn('Firebase cards listener notice:', err);
+      });
+
       return () => {
         window.removeEventListener('focus', handleFocus);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -769,6 +806,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         unsubGhosts();
         unsubRunners();
         unsubOrders();
+        unsubCards();
       };
     } catch (err) {
       console.warn('Firebase subscription notice:', err);
@@ -1110,6 +1148,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     let shirtOrderId: string | undefined;
+    let createdOrder: ShirtOrder | undefined;
     if (params.regType === 'RUN_AND_SHIRT' || params.regType === 'SHIRT_ONLY') {
       const ordNum = Math.floor(1000 + Math.random() * 9000);
       shirtOrderId = `ORD-${ordNum}`;
@@ -1117,7 +1156,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const normalizedSizes = params.shirtSizes && params.shirtSizes.length > 0
         ? params.shirtSizes
         : [params.shirtSize || 'L'];
-      const newOrder: ShirtOrder = {
+      createdOrder = {
         orderId: shirtOrderId,
         cardId,
         customerName: params.fullName,
@@ -1134,7 +1173,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         slipImage: params.slipImage,
         paymentTimestamp: params.slipImage ? new Date().toISOString() : undefined,
       };
-      setOrders((prev) => [newOrder, ...prev]);
+      setOrders((prev) => [createdOrder!, ...prev]);
     }
 
     const newRunner: RunnerRegistration = {
@@ -1192,14 +1231,20 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentCardId(cardId);
     setJustRevealedCard(newCard);
 
-    // Persist to Firestore in background
+    // Persist to Firestore in background safely
     try {
-      setDoc(doc(db, 'runners', newRunner.regId), newRunner).catch((err) =>
+      setDoc(doc(db, 'runners', newRunner.regId), cleanForFirestore(newRunner), { merge: true }).catch((err) =>
         console.warn('Firestore runner persist notice:', err)
       );
-      setDoc(doc(db, 'cards', newCard.cardId), newCard).catch((err) =>
+      setDoc(doc(db, 'cards', newCard.cardId), cleanForFirestore(newCard), { merge: true }).catch((err) =>
         console.warn('Firestore card persist notice:', err)
       );
+      if (createdOrder) {
+        setDoc(doc(db, 'orders', createdOrder.orderId), cleanForFirestore(createdOrder), { merge: true }).catch((err) =>
+          console.warn('Firestore order persist notice:', err)
+        );
+      }
+      setIsFirebaseConnected(true);
     } catch (err) {
       console.warn('Firestore persist error:', err);
     }
@@ -1253,9 +1298,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Persist order to Firestore in background
     try {
-      setDoc(doc(db, 'orders', newOrder.orderId), newOrder).catch((err) =>
+      setDoc(doc(db, 'orders', newOrder.orderId), cleanForFirestore(newOrder), { merge: true }).catch((err) =>
         console.warn('Firestore order persist notice:', err)
       );
+      const runner = runners.find((r) => r.cardId === params.cardId);
+      if (runner) {
+        setDoc(doc(db, 'runners', runner.regId), cleanForFirestore({ ...runner, shirtOrderId: orderId }), { merge: true }).catch((err) =>
+          console.warn('Firestore runner update notice:', err)
+        );
+      }
+      setIsFirebaseConnected(true);
     } catch (err) {
       console.warn('Firestore order persist error:', err);
     }
@@ -1265,19 +1317,27 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const approveShirtPayment = (orderId: string, officerName: string = 'เจ้าหน้าที่การเงิน') => {
     let targetCardId = '';
+    let updatedTargetOrder: ShirtOrder | undefined;
     const updatedOrders = orders.map((o) => {
       if (o.orderId === orderId) {
         targetCardId = o.cardId;
-        return {
+        updatedTargetOrder = {
           ...o,
           status: 'paid' as const,
           verifiedAt: new Date().toISOString(),
           verifiedBy: officerName,
         };
+        return updatedTargetOrder;
       }
       return o;
     });
     setOrders(updatedOrders);
+
+    if (updatedTargetOrder) {
+      setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true }).catch((err) =>
+        console.warn('Firestore order update notice:', err)
+      );
+    }
 
     if (targetCardId) {
       setCards((prev) =>
@@ -1290,18 +1350,26 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const rejectShirtPayment = (orderId: string, reason?: string) => {
     let targetCardId = '';
+    let updatedTargetOrder: ShirtOrder | undefined;
     const updatedOrders = orders.map((o) => {
       if (o.orderId === orderId) {
         targetCardId = o.cardId;
-        return {
+        updatedTargetOrder = {
           ...o,
           status: 'rejected' as const,
           notes: reason || 'สลิปไม่ถูกต้องหรือไม่พบยอดโอน',
         };
+        return updatedTargetOrder;
       }
       return o;
     });
     setOrders(updatedOrders);
+
+    if (updatedTargetOrder) {
+      setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true }).catch((err) =>
+        console.warn('Firestore order update notice:', err)
+      );
+    }
 
     if (targetCardId) {
       setCards((prev) =>
@@ -1314,39 +1382,64 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const markShirtClaimed = (orderId: string) => {
     let targetCardId = '';
+    let updatedTargetOrder: ShirtOrder | undefined;
     const updatedOrders = orders.map((o) => {
       if (o.orderId === orderId) {
         targetCardId = o.cardId;
-        return {
+        updatedTargetOrder = {
           ...o,
           status: 'claimed' as const,
           claimedAt: new Date().toISOString(),
         };
+        return updatedTargetOrder;
       }
       return o;
     });
     setOrders(updatedOrders);
 
+    if (updatedTargetOrder) {
+      setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true }).catch((err) =>
+        console.warn('Firestore order update notice:', err)
+      );
+    }
+
     if (targetCardId) {
       setRunners((prev) =>
-        prev.map((r) => (r.cardId === targetCardId ? { ...r, shirtClaimed: true } : r))
+        prev.map((r) => {
+          if (r.cardId === targetCardId) {
+            const updatedR = { ...r, shirtClaimed: true };
+            setDoc(doc(db, 'runners', r.regId), cleanForFirestore(updatedR), { merge: true }).catch((err) =>
+              console.warn('Firestore runner update notice:', err)
+            );
+            return updatedR;
+          }
+          return r;
+        })
       );
     }
   };
 
   const refundShirtOrder = (orderId: string) => {
     let targetCardId = '';
+    let updatedTargetOrder: ShirtOrder | undefined;
     const updatedOrders = orders.map((o) => {
       if (o.orderId === orderId) {
         targetCardId = o.cardId;
-        return {
+        updatedTargetOrder = {
           ...o,
           status: 'refunded' as const,
         };
+        return updatedTargetOrder;
       }
       return o;
     });
     setOrders(updatedOrders);
+
+    if (updatedTargetOrder) {
+      setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true }).catch((err) =>
+        console.warn('Firestore order update notice:', err)
+      );
+    }
 
     if (targetCardId) {
       setCards((prev) =>
@@ -1401,6 +1494,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const updatedRunners = runners.map((r) => (r.regId === runner.regId ? updatedRunner : r));
     setRunners(updatedRunners);
+
+    // Persist check-in to Firestore
+    setDoc(doc(db, 'runners', updatedRunner.regId), cleanForFirestore(updatedRunner), { merge: true }).catch((err) =>
+      console.warn('Firestore check-in update notice:', err)
+    );
 
     // Recompute card level if checked in
     setCards((prev) =>

@@ -26,10 +26,11 @@ interface Props {
 }
 
 export const ShirtDashboard: React.FC<Props> = ({
-  orders,
+  orders = [],
   onOrderClick,
   onNavigateToOrderForm,
 }) => {
+  const safeOrders = Array.isArray(orders) ? orders : [];
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSize, setFilterSize] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -37,26 +38,26 @@ export const ShirtDashboard: React.FC<Props> = ({
   const [selectedSlip, setSelectedSlip] = useState<string | null>(null);
 
   // Aggregations
-  const totalShirts = orders.reduce((sum, ord) => sum + (ord.quantity || 1), 0);
-  const totalRevenue = orders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
+  const totalShirts = safeOrders.reduce((sum, ord) => sum + (ord.quantity || 1), 0);
+  const totalRevenue = safeOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
 
   // Revenue by status
-  const paidOrders = orders.filter((o) => o.status === 'paid' || o.status === 'claimed');
+  const paidOrders = safeOrders.filter((o) => o.status === 'paid' || o.status === 'claimed');
   const paidShirts = paidOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
   const paidRevenue = paidOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
-  const pendingOrders = orders.filter((o) => o.status === 'pending_verification');
+  const pendingOrders = safeOrders.filter((o) => o.status === 'pending_verification');
   const pendingShirts = pendingOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
   const pendingRevenue = pendingOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
-  const unpaidOrders = orders.filter((o) => o.status === 'unpaid');
+  const unpaidOrders = safeOrders.filter((o) => o.status === 'unpaid');
   const unpaidShirts = unpaidOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
   const unpaidRevenue = unpaidOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
   // Delivery breakdown
-  const pickupOrders = orders.filter((o) => o.deliveryMethod === 'pickup_event');
+  const pickupOrders = safeOrders.filter((o) => o.deliveryMethod === 'pickup_event');
   const pickupShirts = pickupOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
-  const shippingOrders = orders.filter((o) => o.deliveryMethod === 'shipping');
+  const shippingOrders = safeOrders.filter((o) => o.deliveryMethod === 'shipping');
   const shippingShirts = shippingOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
 
   // Size breakdown
@@ -70,7 +71,7 @@ export const ShirtDashboard: React.FC<Props> = ({
     sizeCounts[size] = { count: 0, revenue: 0, ordersCount: 0 };
   });
 
-  orders.forEach((ord) => {
+  safeOrders.forEach((ord) => {
     const s = ord.size as string;
     if (!sizeCounts[s]) {
       sizeCounts[s] = { count: 0, revenue: 0, ordersCount: 0 };
@@ -91,7 +92,7 @@ export const ShirtDashboard: React.FC<Props> = ({
   });
 
   // Filtered orders list
-  const filteredOrders = orders.filter((ord) => {
+  const filteredOrders = safeOrders.filter((ord) => {
     const q = searchTerm.toLowerCase();
     const matchQuery =
       !searchTerm ||
@@ -110,7 +111,7 @@ export const ShirtDashboard: React.FC<Props> = ({
   // Export CSV
   const handleExportCSV = () => {
     const headers = ['Order ID', 'Card ID', 'Customer Name', 'Phone', 'Size', 'Quantity', 'Total Amount', 'Delivery Method', 'Status', 'Timestamp'];
-    const rows = orders.map((o) => [
+    const rows = safeOrders.map((o) => [
       o.orderId,
       o.cardId,
       `"${o.customerName}"`,
