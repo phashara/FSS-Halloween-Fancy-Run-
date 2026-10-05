@@ -102,10 +102,19 @@ export const OfficialShirtImage: React.FC<Props> = ({
     setErrorMessage('ไม่สามารถแสดงผลรูปภาพที่อัปโหลดได้ ระบบได้แสดงภาพแบบเสื้อแทนแล้ว');
   };
 
-  const handleResetToDefault = () => {
-    setCustomShirtImage(null);
-    setViewMode('original');
-    setImageLoadError(false);
+  const handleResetToDefault = async () => {
+    setIsProcessing(true);
+    setErrorMessage(null);
+    try {
+      await setCustomShirtImage(null);
+      setViewMode('original');
+      setImageLoadError(false);
+    } catch (err: any) {
+      console.error('Shirt reset failed:', err);
+      setErrorMessage(err?.message || 'ไม่สามารถรีเซ็ตเป็นภาพแบบเสื้อเดิมได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

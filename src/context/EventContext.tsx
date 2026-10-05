@@ -1,17 +1,21 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { db } from '../lib/firebase';
 import {
   collection,
   doc,
-  setDoc,
+  getDoc,
   getDocs,
-  deleteDoc,
   onSnapshot,
+  setDoc,
+  writeBatch,
+  query,
+  where,
+  limit,
 } from 'firebase/firestore';
 import { SiteContentSection, AdminUser } from '../types/cms';
 import { idbGet, idbSet, idbRemove } from '../lib/idbStorage';
 import { DEFAULT_SITE_CONTENT } from '../data/defaultSiteContent';
-import { GHOST_SPECIES_LIST, THAI_GHOSTS, OFFICIAL_12_GHOST_IDS } from '../data/ghosts';
+import { THAI_GHOSTS, OFFICIAL_12_GHOST_IDS } from '../data/ghosts';
 import {
   INITIAL_CARDS,
   INITIAL_RUNNERS,
@@ -34,8 +38,16 @@ import {
   ShirtSize,
   StudentYear,
 } from '../types';
+import {
+  generateCardId,
+  generateRegId,
+  generateOrderId,
+  generateBibNumber,
+} from '../lib/idGenerator';
 
-interface RegisterParams {
+export type ConnectionStatus = 'unknown' | 'connected' | 'offline' | 'quota_exhausted' | 'error';
+
+export interface RegisterParams {
   regType: RegistrationType;
   fullName: string;
   nameThai?: string;
@@ -84,7 +96,47 @@ interface RegisterParams {
   quizAnswers?: QuizAnswer[];
 }
 
-interface EventContextType {
+export interface RegisterOptions {
+  idempotencyKey?: string;
+  existingCardId?: string;
+  existingRegId?: string;
+  existingOrderId?: string;
+  existingBibNumber?: string;
+}
+
+export interface OrderShirtParams {
+  cardId: string;
+  customerName: string;
+  phone: string;
+  email: string;
+  size?: ShirtSize;
+  sizes?: ShirtSize[];
+  quantity: number;
+  deliveryMethod?: 'pickup_event' | 'shipping';
+  shippingAddress?: string;
+  slipImage?: string;
+}
+
+export interface OrderShirtOptions {
+  idempotencyKey?: string;
+  existingOrderId?: string;
+}
+
+export interface PendingRegistrationPayload {
+  fingerprint: string;
+  runner: RunnerRegistration;
+  card: GhostCard;
+  order?: ShirtOrder;
+  savedAt: string;
+}
+
+export interface PendingOrderPayload {
+  fingerprint: string;
+  order: ShirtOrder;
+  savedAt: string;
+}
+
+export interface EventContextType {
   cards: GhostCard[];
   runners: RunnerRegistration[];
   orders: ShirtOrder[];
@@ -117,50 +169,52 @@ interface EventContextType {
   updateSiteContent: (section: SiteContentSection) => Promise<void>;
   resetSiteContentSection: (sectionKey: string) => Promise<void>;
 
-  // Firebase status & Cloud Sync
+  // Firebase status & Cloud Sync with Quota Backoff
+  connectionStatus: ConnectionStatus;
   isFirebaseConnected: boolean;
   isSyncing: boolean;
   lastSyncedAt: Date | null;
-  syncFromCloud: () => Promise<{ success: boolean; message: string; count: number }>;
+  quotaErrorMessage: string | null;
+  pendingRegistrationInfo: { fullName: string; phone: string; regId: string } | null;
+  syncFromCloud: (options?: { forceAdminSync?: boolean }) => Promise<{ success: boolean; message: string; count: number }>;
+  subscribeAdminData: () => () => void;
+  loadCardById: (cardId: string) => Promise<GhostCard | null>;
+  searchRunnersRemote: (queryStr: string) => Promise<RunnerRegistration[]>;
+  exportLocalBackup: () => { success: boolean; filename: string };
 
   // Actions
-  registerParticipant: (params: RegisterParams) => { runner: RunnerRegistration; card: GhostCard };
-  orderShirt: (params: {
-    cardId: string;
-    customerName: string;
-    phone: string;
-    email: string;
-    size?: ShirtSize;
-    sizes?: ShirtSize[];
-    quantity: number;
-    deliveryMethod?: 'pickup_event' | 'shipping';
-    shippingAddress?: string;
-    slipImage?: string;
-  }) => ShirtOrder;
-  approveShirtPayment: (orderId: string, officerName?: string) => void;
-  rejectShirtPayment: (orderId: string, reason?: string) => void;
-  markShirtClaimed: (orderId: string) => void;
-  refundShirtOrder: (orderId: string) => void;
+  registerParticipant: (
+    params: RegisterParams,
+    options?: RegisterOptions
+  ) => Promise<{ runner: RunnerRegistration; card: GhostCard; order?: ShirtOrder }>;
+  orderShirt: (
+    params: OrderShirtParams,
+    options?: OrderShirtOptions
+  ) => Promise<ShirtOrder>;
+  approveShirtPayment: (orderId: string, officerName?: string) => Promise<void>;
+  rejectShirtPayment: (orderId: string, reason?: string) => Promise<void>;
+  markShirtClaimed: (orderId: string) => Promise<void>;
+  refundShirtOrder: (orderId: string) => Promise<void>;
 
-  checkInRunner: (cardOrRegId: string, officerName: string) => {
+  checkInRunner: (cardOrRegId: string, officerName: string) => Promise<{
     success: boolean;
     message: string;
     runner?: RunnerRegistration;
     card?: GhostCard;
-  };
+  }>;
   claimMedal: (regId: string) => void;
-  updateCardCustomImage: (cardId: string, imageUrl: string | null) => void;
+  updateCardCustomImage: (cardId: string, imageUrl: string | null) => Promise<void>;
   // 12 Thai Ghost Collection
   ghostSpeciesList: GhostSpecies[];
   updateGhostSpecies: (species: GhostSpecies) => Promise<void>;
   resetGhostSpecies: (speciesId: GhostSpeciesId) => Promise<void>;
-  resetToDefaults: () => void;
+  resetToDefaults: () => Promise<void>;
   clearSystemCache: () => Promise<void>;
 }
 
-const EventContext = createContext<EventContextType | undefined>(undefined);
+export const EventContext = createContext<EventContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   CARDS: 'fss2026_cards',
   RUNNERS: 'fss2026_runners',
   ORDERS: 'fss2026_orders',
@@ -173,29 +227,43 @@ const STORAGE_KEYS = {
   MEDAL_IMAGE: 'fss_custom_medal_image',
   MAP_IMAGE: 'fss_custom_map_image',
   GHOST_SPECIES: 'fss2026_ghost_species',
+  PENDING_REGISTRATION: 'fss_pending_registration',
+  PENDING_ORDER: 'fss_pending_order',
 };
 
-// Safe localStorage wrapper to prevent QuotaExceededError or SecurityError from crashing React
-const safeLocalStorage = {
+// In-memory fallback map for test/SSR environments
+const memoryStorageMap = new Map<string, string>();
+
+// Safe localStorage wrapper
+export const safeLocalStorage = {
   getItem: (key: string): string | null => {
     try {
-      return localStorage.getItem(key);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+      return memoryStorageMap.get(key) || null;
     } catch {
-      return null;
+      return memoryStorageMap.get(key) || null;
     }
   },
   setItem: (key: string, value: string): void => {
     try {
-      localStorage.setItem(key, value);
-    } catch (err) {
-      console.warn(`LocalStorage write skipped for ${key}:`, err);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, value);
+      }
+      memoryStorageMap.set(key, value);
+    } catch {
+      memoryStorageMap.set(key, value);
     }
   },
   removeItem: (key: string): void => {
     try {
-      localStorage.removeItem(key);
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(key);
+      }
+      memoryStorageMap.delete(key);
     } catch {
-      // ignore
+      memoryStorageMap.delete(key);
     }
   },
 };
@@ -218,21 +286,54 @@ export function cleanForFirestore<T>(obj: T): any {
   return obj;
 }
 
-export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Purge test runner registrations, test shirt orders, and cards on request (ONE TIME)
-  try {
-    const testPurgeKey = 'fss2026_test_data_purged_v5';
-    if (!safeLocalStorage.getItem(testPurgeKey)) {
-      safeLocalStorage.removeItem(STORAGE_KEYS.CARDS);
-      safeLocalStorage.removeItem(STORAGE_KEYS.RUNNERS);
-      safeLocalStorage.removeItem(STORAGE_KEYS.ORDERS);
-      safeLocalStorage.removeItem(STORAGE_KEYS.CURRENT_CARD_ID);
-      safeLocalStorage.setItem(testPurgeKey, 'true');
-    }
-  } catch (e) {
-    console.warn('Test data purge notice:', e);
-  }
+// Check if error is a Firestore quota exhaustion
+export function isQuotaExhaustedError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  const code = (err as any)?.code;
+  return (
+    code === 'resource-exhausted' ||
+    msg.includes('resource-exhausted') ||
+    msg.includes('Quota exceeded') ||
+    msg.includes('quota') ||
+    msg.includes('Free daily read')
+  );
+}
 
+// Compute level helper
+function recomputeCardLevel(
+  card: GhostCard,
+  ordersList: ShirtOrder[],
+  runnersList: RunnerRegistration[]
+): GhostCard {
+  const runner = runnersList.find((r) => r.cardId === card.cardId);
+  const order = ordersList.find((o) => o.cardId === card.cardId);
+  const isPaid = order && (order.status === 'paid' || order.status === 'claimed');
+  const isCheckedIn = runner && runner.checkedIn;
+
+  const newLevel: CardLevel = isPaid || isCheckedIn ? 2 : 1;
+  const badges = [...card.badges];
+  if (isPaid && !badges.includes('SHIRT_OWNER')) badges.push('SHIRT_OWNER');
+  if (isCheckedIn && !badges.includes('CHECKED_IN')) badges.push('CHECKED_IN');
+
+  return {
+    ...card,
+    level: newLevel,
+    badges,
+  };
+}
+
+// Create clean fingerprint from registration params
+export function createRegistrationFingerprint(params: RegisterParams): string {
+  return `${params.fullName.trim()}_${params.phone.trim()}_${params.regType}`.toLowerCase();
+}
+
+export function createOrderFingerprint(params: OrderShirtParams): string {
+  return `${params.cardId.trim()}_${params.customerName.trim()}_${params.phone.trim()}_${params.quantity}`.toLowerCase();
+}
+
+export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Preserve existing local storage data without wiping
   const [cards, setCards] = useState<GhostCard[]>(() => {
     try {
       const saved = safeLocalStorage.getItem(STORAGE_KEYS.CARDS);
@@ -313,12 +414,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
-          if (parsed.shirt_page) {
-            parsed.shirt_page.accountNo = '217-8-41785-4';
-            parsed.shirt_page.accountName = 'น.ส.พริมรตา ใจเฉียง';
-            parsed.shirt_page.bankName = 'ธนาคารกสิกรไทย (KBANK)';
-            parsed.shirt_page.promptPay = '217-8-41785-4 (ธ.กสิกรไทย)';
-          }
           return { ...DEFAULT_SITE_CONTENT, ...parsed };
         }
       }
@@ -328,7 +423,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  // Official custom shirt image
+  // Official custom assets
   const [customShirtImage, setCustomShirtImageState] = useState<string | null>(() => {
     try {
       return safeLocalStorage.getItem(STORAGE_KEYS.SHIRT_IMAGE) || null;
@@ -353,7 +448,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  // Ghost Species Dictionary (Strictly 12 Official Thai Ghosts with Deep Defaults)
+  // Ghost Species Dictionary
   const [ghostSpeciesMap, setGhostSpeciesMap] = useState<Record<GhostSpeciesId, GhostSpecies>>(() => {
     try {
       const saved = safeLocalStorage.getItem(STORAGE_KEYS.GHOST_SPECIES);
@@ -386,200 +481,43 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return THAI_GHOSTS;
   });
 
-  // Load persisted assets (12 ghosts, shirt, medal, map) from IndexedDB (huge capacity, no quota crash)
-  useEffect(() => {
-    const loadAllIDBAssets = async () => {
-      try {
-        const [shirtImg, medalImg, mapImg] = await Promise.all([
-          idbGet<string>('system_asset_shirt'),
-          idbGet<string>('system_asset_medal'),
-          idbGet<string>('system_asset_map'),
-        ]);
-        if (shirtImg) setCustomShirtImageState(shirtImg);
-        if (medalImg) setCustomMedalImageState(medalImg);
-        if (mapImg) setCustomMapImageState(mapImg);
-
-        for (const id of OFFICIAL_12_GHOST_IDS) {
-          const ghostImg = await idbGet<string>(`ghost_img_${id}`);
-          if (ghostImg) {
-            setGhostSpeciesMap((prev) => {
-              if (prev[id]?.customImageUrl === ghostImg) return prev;
-              return {
-                ...prev,
-                [id]: {
-                  ...prev[id],
-                  customImageUrl: ghostImg,
-                },
-              };
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('IDB asset load error:', err);
-      }
-    };
-    loadAllIDBAssets();
-  }, []);
-
-  const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
+  // Connection status & Quota Circuit Breaker
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('unknown');
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [quotaErrorMessage, setQuotaErrorMessage] = useState<string | null>(null);
+  const quotaCooldownUntilRef = useRef<number>(0);
 
-  // Cloud Direct Sync & Re-Fetch function
-  const syncFromCloud = async (): Promise<{ success: boolean; message: string; count: number }> => {
-    setIsSyncing(true);
-    let count = 0;
+  // In-flight sync deduplication ref & Cloud Hydration timestamp
+  const inFlightSyncPromiseRef = useRef<Promise<{ success: boolean; message: string; count: number }> | null>(null);
+  const cloudHydratedAtRef = useRef<number>(0);
+  const cardFetchTimestampRef = useRef<Map<string, number>>(new Map());
+
+  // Pending Registration Info for UI display
+  const [pendingRegistrationInfo, setPendingRegistrationInfo] = useState<{
+    fullName: string;
+    phone: string;
+    regId: string;
+  } | null>(() => {
     try {
-      const [contentSnap, assetsSnap, ghostsSnap, runnersSnap, ordersSnap, cardsSnap] = await Promise.all([
-        getDocs(collection(db, 'site_content')),
-        getDocs(collection(db, 'system_assets')),
-        getDocs(collection(db, 'ghost_species')),
-        getDocs(collection(db, 'runners')),
-        getDocs(collection(db, 'orders')),
-        getDocs(collection(db, 'cards')),
-      ]);
-
-      if (!assetsSnap.empty) {
-        assetsSnap.forEach((docSnap) => {
-          const data = docSnap.data() as any;
-          if (docSnap.id === 'shirt' && data.imageUrl) {
-            setCustomShirtImageState(data.imageUrl);
-            idbSet('system_asset_shirt', data.imageUrl);
-            count++;
-          } else if (docSnap.id === 'medal' && data.imageUrl) {
-            setCustomMedalImageState(data.imageUrl);
-            idbSet('system_asset_medal', data.imageUrl);
-            count++;
-          } else if (docSnap.id === 'map' && data.imageUrl) {
-            setCustomMapImageState(data.imageUrl);
-            idbSet('system_asset_map', data.imageUrl);
-            count++;
-          }
-        });
+      const raw = safeLocalStorage.getItem(STORAGE_KEYS.PENDING_REGISTRATION);
+      if (raw) {
+        const p = JSON.parse(raw) as PendingRegistrationPayload;
+        if (p?.runner) {
+          return {
+            fullName: p.runner.fullName,
+            phone: p.runner.phone,
+            regId: p.runner.regId,
+          };
+        }
       }
-
-      if (!contentSnap.empty) {
-        const remoteContent: Record<string, SiteContentSection> = {};
-        contentSnap.forEach((docSnap) => {
-          const data = docSnap.data() as any;
-          if (docSnap.id === 'asset_shirt' || data.sectionKey === 'asset_shirt') {
-            if (data.imageUrl) {
-              setCustomShirtImageState(data.imageUrl);
-              idbSet('system_asset_shirt', data.imageUrl);
-              count++;
-            }
-          } else if (docSnap.id === 'asset_medal' || data.sectionKey === 'asset_medal') {
-            if (data.imageUrl) {
-              setCustomMedalImageState(data.imageUrl);
-              idbSet('system_asset_medal', data.imageUrl);
-              count++;
-            }
-          } else if (docSnap.id === 'asset_map' || data.sectionKey === 'asset_map') {
-            if (data.imageUrl) {
-              setCustomMapImageState(data.imageUrl);
-              idbSet('system_asset_map', data.imageUrl);
-              count++;
-            }
-          } else {
-            remoteContent[docSnap.id] = data as SiteContentSection;
-          }
-        });
-        setSiteContent((prev) => ({ ...DEFAULT_SITE_CONTENT, ...prev, ...remoteContent }));
-      }
-
-      if (!ghostsSnap.empty) {
-        const remoteGhosts: Record<GhostSpeciesId, GhostSpecies> = {} as any;
-        ghostsSnap.forEach((docSnap) => {
-          const sid = docSnap.id as GhostSpeciesId;
-          if (OFFICIAL_12_GHOST_IDS.includes(sid)) {
-            const data = docSnap.data() as GhostSpecies;
-            remoteGhosts[sid] = data;
-            if (data.customImageUrl) {
-              idbSet(`ghost_img_${sid}`, data.customImageUrl);
-              count++;
-            }
-          }
-        });
-        setGhostSpeciesMap((prev) => {
-          const merged = { ...prev, ...remoteGhosts };
-          const cleaned: Record<string, GhostSpecies> = {};
-          OFFICIAL_12_GHOST_IDS.forEach((id) => {
-            const base = THAI_GHOSTS[id];
-            const custom = merged[id];
-            if (base) {
-              cleaned[id] = {
-                ...base,
-                ...(custom && typeof custom === 'object' ? custom : {}),
-                name: custom?.name || base.name,
-                title: custom?.title || base.title,
-                tagline: custom?.tagline || base.tagline,
-                element: custom?.element || base.element,
-                customImageUrl: custom?.customImageUrl || base.customImageUrl || undefined,
-                baseStats: {
-                  ...base.baseStats,
-                  ...(custom?.baseStats || {}),
-                },
-              };
-            }
-          });
-          return cleaned as Record<GhostSpeciesId, GhostSpecies>;
-        });
-      }
-
-      if (!runnersSnap.empty) {
-        const remoteRunners: RunnerRegistration[] = [];
-        runnersSnap.forEach((docSnap) => {
-          remoteRunners.push(docSnap.data() as RunnerRegistration);
-        });
-        setRunners((prev) => {
-          const map = new Map<string, RunnerRegistration>();
-          INITIAL_RUNNERS.forEach((r) => map.set(r.regId, r));
-          (prev || []).forEach((r) => map.set(r.regId, r));
-          remoteRunners.forEach((r) => map.set(r.regId, r));
-          return Array.from(map.values());
-        });
-      }
-
-      if (!ordersSnap.empty) {
-        const remoteOrders: ShirtOrder[] = [];
-        ordersSnap.forEach((docSnap) => {
-          remoteOrders.push(docSnap.data() as ShirtOrder);
-        });
-        setOrders((prev) => {
-          const map = new Map<string, ShirtOrder>();
-          INITIAL_SHIRT_ORDERS.forEach((o) => map.set(o.orderId, o));
-          (prev || []).forEach((o) => map.set(o.orderId, o));
-          remoteOrders.forEach((o) => map.set(o.orderId, o));
-          return Array.from(map.values());
-        });
-      }
-
-      if (!cardsSnap.empty) {
-        const remoteCards: GhostCard[] = [];
-        cardsSnap.forEach((docSnap) => {
-          remoteCards.push(docSnap.data() as GhostCard);
-        });
-        setCards((prev) => {
-          const map = new Map<string, GhostCard>();
-          INITIAL_CARDS.forEach((c) => map.set(c.cardId, c));
-          (prev || []).forEach((c) => map.set(c.cardId, c));
-          remoteCards.forEach((c) => map.set(c.cardId, c));
-          return Array.from(map.values());
-        });
-      }
-
-      setIsFirebaseConnected(true);
-      setLastSyncedAt(new Date());
-      return { success: true, message: 'ซิงค์ข้อมูลและรูปภาพจาก Cloud สำเร็จเรียบร้อย!', count };
-    } catch (err: any) {
-      console.warn('Cloud sync notice:', err);
-      return { success: false, message: 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก Cloud: ' + (err?.message || ''), count: 0 };
-    } finally {
-      setIsSyncing(false);
+    } catch {
+      // ignore
     }
-  };
+    return null;
+  });
 
-  // Sync to localStorage safely
+  // Sync to localStorage
   useEffect(() => {
     safeLocalStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
   }, [cards]);
@@ -620,215 +558,516 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     safeLocalStorage.setItem(STORAGE_KEYS.SITE_CONTENT, JSON.stringify(siteContent));
   }, [siteContent]);
 
-  // Firebase Realtime Listener & Window Focus Auto-Sync
-  useEffect(() => {
-    syncFromCloud();
+  // Handle Quota backoff helper
+  const handleQuotaBreaker = useCallback((error: unknown) => {
+    if (isQuotaExhaustedError(error)) {
+      quotaCooldownUntilRef.current = Date.now() + 5 * 60 * 1000; // 5 minute backoff
+      setConnectionStatus('quota_exhausted');
+      setQuotaErrorMessage(
+        'โควตาการอ่านฐานข้อมูลรายวัน (Free daily read quota) เต็มแล้ว ระบบกำลังใช้โหมดสำรองในเครื่อง'
+      );
+      return true;
+    }
+    return false;
+  }, []);
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        syncFromCloud();
+  // Controlled Cloud Sync with in-flight deduplication & quota protection
+  const syncFromCloud = useCallback(
+    async (options?: { forceAdminSync?: boolean }): Promise<{
+      success: boolean;
+      message: string;
+      count: number;
+    }> => {
+      // In-flight deduplication: return existing promise if already running
+      if (inFlightSyncPromiseRef.current) {
+        return inFlightSyncPromiseRef.current;
       }
-    };
-    const handleFocus = () => {
-      syncFromCloud();
-    };
 
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+      if (Date.now() < quotaCooldownUntilRef.current) {
+        return {
+          success: false,
+          message: 'โควตาการอ่านฐานข้อมูลรายวัน (Free daily read units) เต็มอยู่ในขณะนี้ กรุณารอโควตารีเซ็ต หรือใช้งานข้อมูลที่บันทึกไว้ในเครื่อง',
+          count: 0,
+        };
+      }
 
-    try {
-      const unsubContent = onSnapshot(collection(db, 'site_content'), (snap) => {
-        if (!snap.empty) {
-          const remoteContent: Record<string, SiteContentSection> = {};
-          snap.forEach((docSnap) => {
-            const data = docSnap.data() as any;
-            if (docSnap.id === 'asset_shirt' || data.sectionKey === 'asset_shirt') {
-              if (data.imageUrl) {
-                setCustomShirtImageState(data.imageUrl);
-                idbSet('system_asset_shirt', data.imageUrl);
-              } else if (data.imageUrl === null) {
-                setCustomShirtImageState(null);
-                idbRemove('system_asset_shirt');
-              }
-            } else if (docSnap.id === 'asset_medal' || data.sectionKey === 'asset_medal') {
-              if (data.imageUrl) {
-                setCustomMedalImageState(data.imageUrl);
-                idbSet('system_asset_medal', data.imageUrl);
-              } else if (data.imageUrl === null) {
-                setCustomMedalImageState(null);
-                idbRemove('system_asset_medal');
-              }
-            } else if (docSnap.id === 'asset_map' || data.sectionKey === 'asset_map') {
-              if (data.imageUrl) {
-                setCustomMapImageState(data.imageUrl);
-                idbSet('system_asset_map', data.imageUrl);
-              } else if (data.imageUrl === null) {
-                setCustomMapImageState(null);
-                idbRemove('system_asset_map');
-              }
-            } else {
-              remoteContent[docSnap.id] = data as SiteContentSection;
-            }
-          });
-          setSiteContent((prev) => ({ ...DEFAULT_SITE_CONTENT, ...prev, ...remoteContent }));
-          setIsFirebaseConnected(true);
-        }
-      }, (err) => {
-        console.warn('Firebase site_content listener notice:', err);
-      });
+      setIsSyncing(true);
 
-      const unsubAssets = onSnapshot(collection(db, 'system_assets'), (snap) => {
-        if (!snap.empty) {
-          snap.forEach((docSnap) => {
-            const data = docSnap.data() as any;
-            if (docSnap.id === 'shirt' && data.imageUrl) {
-              setCustomShirtImageState(data.imageUrl);
-              idbSet('system_asset_shirt', data.imageUrl);
-            } else if (docSnap.id === 'medal' && data.imageUrl) {
-              setCustomMedalImageState(data.imageUrl);
-              idbSet('system_asset_medal', data.imageUrl);
-            } else if (docSnap.id === 'map' && data.imageUrl) {
-              setCustomMapImageState(data.imageUrl);
-              idbSet('system_asset_map', data.imageUrl);
-            }
-          });
-          setIsFirebaseConnected(true);
-        }
-      }, (err) => {
-        console.warn('Firebase system_assets listener notice:', err);
-      });
+      const performSync = async (): Promise<{ success: boolean; message: string; count: number }> => {
+        let count = 0;
+        try {
+          const promises: Promise<any>[] = [
+            getDocs(collection(db, 'site_content')),
+            getDocs(collection(db, 'system_assets')),
+            getDocs(collection(db, 'ghost_species')),
+          ];
 
-      const unsubGhosts = onSnapshot(collection(db, 'ghost_species'), (snap) => {
-        if (!snap.empty) {
-          const remoteGhosts: Record<GhostSpeciesId, GhostSpecies> = {} as any;
-          snap.forEach((docSnap) => {
-            const sid = docSnap.id as GhostSpeciesId;
-            if (OFFICIAL_12_GHOST_IDS.includes(sid)) {
-              const data = docSnap.data() as GhostSpecies;
-              remoteGhosts[sid] = data;
-              if (data.customImageUrl) {
-                idbSet(`ghost_img_${sid}`, data.customImageUrl);
-              }
-            }
-          });
-          setGhostSpeciesMap((prev) => {
-            const merged = { ...prev, ...remoteGhosts };
-            const cleaned: Record<string, GhostSpecies> = {};
-            OFFICIAL_12_GHOST_IDS.forEach((id) => {
-              const base = THAI_GHOSTS[id];
-              const custom = merged[id];
-              if (base) {
-                cleaned[id] = {
-                  ...base,
-                  ...(custom && typeof custom === 'object' ? custom : {}),
-                  name: custom?.name || base.name,
-                  title: custom?.title || base.title,
-                  tagline: custom?.tagline || base.tagline,
-                  element: custom?.element || base.element,
-                  customImageUrl: custom?.customImageUrl || base.customImageUrl || undefined,
-                  baseStats: {
-                    ...base.baseStats,
-                    ...(custom?.baseStats || {}),
-                  },
-                };
+          // STRICT ADMIN CHECK: only fetch runners/orders/cards if adminUser is actually authenticated!
+          const isAdminAuthenticated = Boolean(adminUser?.isLoggedIn);
+          if (options?.forceAdminSync && isAdminAuthenticated) {
+            promises.push(
+              getDocs(collection(db, 'runners')),
+              getDocs(collection(db, 'orders')),
+              getDocs(collection(db, 'cards'))
+            );
+          }
+
+          const results = await Promise.all(promises);
+          const [contentSnap, assetsSnap, ghostsSnap, runnersSnap, ordersSnap, cardsSnap] = results;
+
+          cloudHydratedAtRef.current = Date.now();
+
+          // 1. Process Assets
+          if (assetsSnap && !assetsSnap.empty) {
+            assetsSnap.forEach((docSnap: any) => {
+              const data = docSnap.data() as any;
+              if (docSnap.id === 'shirt') {
+                if (data.imageUrl) {
+                  setCustomShirtImageState(data.imageUrl);
+                  idbSet('system_asset_shirt', data.imageUrl);
+                } else if (data.imageUrl === null) {
+                  setCustomShirtImageState(null);
+                  idbRemove('system_asset_shirt');
+                }
+                count++;
+              } else if (docSnap.id === 'medal') {
+                if (data.imageUrl) {
+                  setCustomMedalImageState(data.imageUrl);
+                  idbSet('system_asset_medal', data.imageUrl);
+                } else if (data.imageUrl === null) {
+                  setCustomMedalImageState(null);
+                  idbRemove('system_asset_medal');
+                }
+                count++;
+              } else if (docSnap.id === 'map') {
+                if (data.imageUrl) {
+                  setCustomMapImageState(data.imageUrl);
+                  idbSet('system_asset_map', data.imageUrl);
+                } else if (data.imageUrl === null) {
+                  setCustomMapImageState(null);
+                  idbRemove('system_asset_map');
+                }
+                count++;
               }
             });
-            return cleaned as Record<GhostSpeciesId, GhostSpecies>;
-          });
-          setIsFirebaseConnected(true);
-        }
-      }, (err) => {
-        console.warn('Firebase ghost_species listener notice:', err);
-      });
+          }
 
-      const unsubRunners = onSnapshot(collection(db, 'runners'), (snap) => {
-        if (!snap.empty) {
+          // 2. Process Site Content (CMS + legacy asset sections)
+          if (contentSnap && !contentSnap.empty) {
+            const remoteContent: Record<string, SiteContentSection> = {};
+            contentSnap.forEach((docSnap: any) => {
+              const data = docSnap.data() as any;
+              if (docSnap.id === 'asset_shirt' || data.sectionKey === 'asset_shirt') {
+                if (data.imageUrl) {
+                  setCustomShirtImageState(data.imageUrl);
+                  idbSet('system_asset_shirt', data.imageUrl);
+                } else if (data.imageUrl === null) {
+                  setCustomShirtImageState(null);
+                  idbRemove('system_asset_shirt');
+                }
+              } else if (docSnap.id === 'asset_medal' || data.sectionKey === 'asset_medal') {
+                if (data.imageUrl) {
+                  setCustomMedalImageState(data.imageUrl);
+                  idbSet('system_asset_medal', data.imageUrl);
+                } else if (data.imageUrl === null) {
+                  setCustomMedalImageState(null);
+                  idbRemove('system_asset_medal');
+                }
+              } else if (docSnap.id === 'asset_map' || data.sectionKey === 'asset_map') {
+                if (data.imageUrl) {
+                  setCustomMapImageState(data.imageUrl);
+                  idbSet('system_asset_map', data.imageUrl);
+                } else if (data.imageUrl === null) {
+                  setCustomMapImageState(null);
+                  idbRemove('system_asset_map');
+                }
+              } else {
+                remoteContent[docSnap.id] = data as SiteContentSection;
+              }
+              count++;
+            });
+            setSiteContent((prev) => ({ ...DEFAULT_SITE_CONTENT, ...prev, ...remoteContent }));
+          }
+
+          // 3. Process Ghost Species (Properly apply to ghostSpeciesMap)
+          if (ghostsSnap && !ghostsSnap.empty) {
+            const remoteGhosts: Record<string, Partial<GhostSpecies>> = {};
+            ghostsSnap.forEach((docSnap: any) => {
+              const sid = docSnap.id as GhostSpeciesId;
+              if (OFFICIAL_12_GHOST_IDS.includes(sid)) {
+                const data = docSnap.data() as GhostSpecies;
+                remoteGhosts[sid] = data;
+                if (data.customImageUrl) {
+                  idbSet(`ghost_img_${sid}`, data.customImageUrl);
+                } else if (data.customImageUrl === null) {
+                  idbRemove(`ghost_img_${sid}`);
+                }
+                count++;
+              }
+            });
+
+            setGhostSpeciesMap((prev) => {
+              const cleaned: Record<string, GhostSpecies> = {};
+              OFFICIAL_12_GHOST_IDS.forEach((id) => {
+                const base = THAI_GHOSTS[id];
+                const custom = remoteGhosts[id] || prev[id];
+                if (base) {
+                  cleaned[id] = {
+                    ...base,
+                    ...(custom && typeof custom === 'object' ? custom : {}),
+                    name: custom?.name || base.name,
+                    title: custom?.title || base.title,
+                    tagline: custom?.tagline || base.tagline,
+                    element: custom?.element || base.element,
+                    customImageUrl:
+                      custom?.customImageUrl !== undefined
+                        ? (custom.customImageUrl || undefined)
+                        : (prev[id]?.customImageUrl || base.customImageUrl || undefined),
+                    baseStats: {
+                      ...base.baseStats,
+                      ...(custom?.baseStats || {}),
+                    },
+                  };
+                }
+              });
+              return cleaned as Record<GhostSpeciesId, GhostSpecies>;
+            });
+          }
+
+          // 4. Process Runners / Orders / Cards (If admin requested)
+          if (runnersSnap && !runnersSnap.empty) {
+            const remoteRunners: RunnerRegistration[] = [];
+            runnersSnap.forEach((docSnap: any) => {
+              remoteRunners.push(docSnap.data() as RunnerRegistration);
+              count++;
+            });
+            setRunners((prev) => {
+              const map = new Map<string, RunnerRegistration>();
+              (prev || []).forEach((r) => map.set(r.regId, r));
+              remoteRunners.forEach((r) => map.set(r.regId, r));
+              return Array.from(map.values());
+            });
+          }
+
+          if (ordersSnap && !ordersSnap.empty) {
+            const remoteOrders: ShirtOrder[] = [];
+            ordersSnap.forEach((docSnap: any) => {
+              remoteOrders.push(docSnap.data() as ShirtOrder);
+              count++;
+            });
+            setOrders((prev) => {
+              const map = new Map<string, ShirtOrder>();
+              (prev || []).forEach((o) => map.set(o.orderId, o));
+              remoteOrders.forEach((o) => map.set(o.orderId, o));
+              return Array.from(map.values());
+            });
+          }
+
+          if (cardsSnap && !cardsSnap.empty) {
+            const remoteCards: GhostCard[] = [];
+            cardsSnap.forEach((docSnap: any) => {
+              remoteCards.push(docSnap.data() as GhostCard);
+              count++;
+            });
+            setCards((prev) => {
+              const map = new Map<string, GhostCard>();
+              (prev || []).forEach((c) => map.set(c.cardId, c));
+              remoteCards.forEach((c) => map.set(c.cardId, c));
+              return Array.from(map.values());
+            });
+          }
+
+          setConnectionStatus('connected');
+          setLastSyncedAt(new Date());
+          return { success: true, message: `ซิงค์ข้อมูล Cloud สำเร็จเรียบร้อย (${count} รายการ)`, count };
+        } catch (err: any) {
+          if (handleQuotaBreaker(err)) {
+            return {
+              success: false,
+              message: 'โควตาการอ่าน Cloud รายวันเต็มอยู่ในขณะนี้ กรุณารอโควตารีเซ็ต หรือใช้งานข้อมูลที่บันทึกไว้ในเครื่อง',
+              count: 0,
+            };
+          }
+          setConnectionStatus('error');
+          return {
+            success: false,
+            message: 'เกิดข้อผิดพลาดในการดึงข้อมูลจาก Cloud: ' + (err?.message || 'การเชื่อมต่อขัดข้อง'),
+            count: 0,
+          };
+        } finally {
+          setIsSyncing(false);
+          inFlightSyncPromiseRef.current = null;
+        }
+      };
+
+      const syncPromise = performSync();
+      inFlightSyncPromiseRef.current = syncPromise;
+      return syncPromise;
+    },
+    [adminUser, handleQuotaBreaker]
+  );
+
+  // Load IDB assets on mount without overwriting fresher Cloud sync
+  useEffect(() => {
+    const loadAllIDBAssets = async () => {
+      try {
+        const [shirtImg, medalImg, mapImg] = await Promise.all([
+          idbGet<string>('system_asset_shirt'),
+          idbGet<string>('system_asset_medal'),
+          idbGet<string>('system_asset_map'),
+        ]);
+
+        // Only apply if Cloud sync hasn't arrived yet
+        if (cloudHydratedAtRef.current === 0) {
+          if (shirtImg) setCustomShirtImageState(shirtImg);
+          if (medalImg) setCustomMedalImageState(medalImg);
+          if (mapImg) setCustomMapImageState(mapImg);
+
+          for (const id of OFFICIAL_12_GHOST_IDS) {
+            const ghostImg = await idbGet<string>(`ghost_img_${id}`);
+            if (ghostImg && cloudHydratedAtRef.current === 0) {
+              setGhostSpeciesMap((prev) => {
+                if (prev[id]?.customImageUrl === ghostImg) return prev;
+                return {
+                  ...prev,
+                  [id]: {
+                    ...prev[id],
+                    customImageUrl: ghostImg,
+                  },
+                };
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('IDB asset load notice:', err);
+      }
+    };
+    loadAllIDBAssets();
+  }, []);
+
+  // Mount Public Hydration
+  useEffect(() => {
+    syncFromCloud();
+  }, [syncFromCloud]);
+
+  // Load single card on-demand and refresh from Cloud with TTL
+  const loadCardById = useCallback(async (cardId: string): Promise<GhostCard | null> => {
+    if (!cardId) return null;
+    const existing = cards.find((c) => c.cardId === cardId);
+    const lastFetched = cardFetchTimestampRef.current.get(cardId) || 0;
+
+    // If fetched recently (within 45s), return local
+    if (existing && Date.now() - lastFetched < 45000) {
+      return existing;
+    }
+
+    if (Date.now() < quotaCooldownUntilRef.current) {
+      return existing || null;
+    }
+
+    try {
+      cardFetchTimestampRef.current.set(cardId, Date.now());
+      const snap = await getDoc(doc(db, 'cards', cardId));
+      if (snap.exists()) {
+        const remoteCard = snap.data() as GhostCard;
+        // Upsert into cards state
+        setCards((prev) => {
+          const map = new Map<string, GhostCard>();
+          (prev || []).forEach((c) => map.set(c.cardId, c));
+          map.set(remoteCard.cardId, remoteCard);
+          return Array.from(map.values());
+        });
+        setConnectionStatus('connected');
+        return remoteCard;
+      }
+      return existing || null;
+    } catch (err) {
+      handleQuotaBreaker(err);
+      return existing || null;
+    }
+  }, [cards, handleQuotaBreaker]);
+
+  // Automatically load currentCardId when set
+  useEffect(() => {
+    if (currentCardId) {
+      loadCardById(currentCardId);
+    }
+  }, [currentCardId, loadCardById]);
+
+  // Targeted remote search for Directory & Home (throws on quota/network error so caller knows)
+  const searchRunnersRemote = useCallback(async (queryStr: string): Promise<RunnerRegistration[]> => {
+    const q = queryStr.trim().toUpperCase();
+    if (!q) return [];
+
+    if (Date.now() < quotaCooldownUntilRef.current) {
+      const err = new Error('โควตาการค้นหา Cloud รายวันเต็มอยู่ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
+      (err as any).code = 'resource-exhausted';
+      throw err;
+    }
+
+    const fetchedRunners: RunnerRegistration[] = [];
+    try {
+      // 1. Check by regId exact
+      const regSnap = await getDocs(query(collection(db, 'runners'), where('regId', '==', q), limit(5)));
+      regSnap.forEach((d) => fetchedRunners.push(d.data() as RunnerRegistration));
+
+      // 2. Check by cardId exact
+      if (fetchedRunners.length === 0) {
+        const cardSnap = await getDocs(query(collection(db, 'runners'), where('cardId', '==', q), limit(5)));
+        cardSnap.forEach((d) => fetchedRunners.push(d.data() as RunnerRegistration));
+      }
+
+      // 3. Check by bibNumber exact
+      if (fetchedRunners.length === 0) {
+        const bibSnap = await getDocs(query(collection(db, 'runners'), where('bibNumber', '==', q), limit(5)));
+        bibSnap.forEach((d) => fetchedRunners.push(d.data() as RunnerRegistration));
+      }
+
+      // 4. Check by phone
+      if (fetchedRunners.length === 0 && q.replace(/\D/g, '').length >= 9) {
+        const phoneClean = q.replace(/\D/g, '');
+        const phoneSnap = await getDocs(query(collection(db, 'runners'), where('phone', '==', phoneClean), limit(5)));
+        phoneSnap.forEach((d) => fetchedRunners.push(d.data() as RunnerRegistration));
+      }
+
+      if (fetchedRunners.length > 0) {
+        setRunners((prev) => {
+          const map = new Map<string, RunnerRegistration>();
+          (prev || []).forEach((r) => map.set(r.regId, r));
+          fetchedRunners.forEach((r) => map.set(r.regId, r));
+          return Array.from(map.values());
+        });
+        setConnectionStatus('connected');
+      }
+
+      return fetchedRunners;
+    } catch (err: any) {
+      handleQuotaBreaker(err);
+      throw err;
+    }
+  }, [handleQuotaBreaker]);
+
+  // Admin Dashboard on-demand subscription: Only listens to runners & orders when Admin is open
+  const subscribeAdminData = useCallback(() => {
+    if (Date.now() < quotaCooldownUntilRef.current) {
+      console.warn('Admin subscription paused due to quota cooldown.');
+      return () => {};
+    }
+
+    let unsubRunners = () => {};
+    let unsubOrders = () => {};
+    let unsubCards = () => {};
+
+    try {
+      unsubRunners = onSnapshot(
+        collection(db, 'runners'),
+        (snap) => {
           const remoteRunners: RunnerRegistration[] = [];
           snap.forEach((docSnap) => {
             remoteRunners.push(docSnap.data() as RunnerRegistration);
           });
           setRunners((prev) => {
             const map = new Map<string, RunnerRegistration>();
-            INITIAL_RUNNERS.forEach((r) => map.set(r.regId, r));
             (prev || []).forEach((r) => map.set(r.regId, r));
             remoteRunners.forEach((r) => map.set(r.regId, r));
             return Array.from(map.values());
           });
-          setIsFirebaseConnected(true);
+          setConnectionStatus('connected');
+        },
+        (err) => {
+          handleQuotaBreaker(err);
+          console.warn('Admin runners listener notice:', err);
         }
-      }, (err) => {
-        console.warn('Firebase runners listener notice:', err);
-      });
+      );
 
-      const unsubOrders = onSnapshot(collection(db, 'orders'), (snap) => {
-        if (!snap.empty) {
+      unsubOrders = onSnapshot(
+        collection(db, 'orders'),
+        (snap) => {
           const remoteOrders: ShirtOrder[] = [];
           snap.forEach((docSnap) => {
             remoteOrders.push(docSnap.data() as ShirtOrder);
           });
           setOrders((prev) => {
             const map = new Map<string, ShirtOrder>();
-            INITIAL_SHIRT_ORDERS.forEach((o) => map.set(o.orderId, o));
             (prev || []).forEach((o) => map.set(o.orderId, o));
             remoteOrders.forEach((o) => map.set(o.orderId, o));
             return Array.from(map.values());
           });
-          setIsFirebaseConnected(true);
+          setConnectionStatus('connected');
+        },
+        (err) => {
+          handleQuotaBreaker(err);
+          console.warn('Admin orders listener notice:', err);
         }
-      }, (err) => {
-        console.warn('Firebase orders listener notice:', err);
-      });
+      );
 
-      const unsubCards = onSnapshot(collection(db, 'cards'), (snap) => {
-        if (!snap.empty) {
+      unsubCards = onSnapshot(
+        collection(db, 'cards'),
+        (snap) => {
           const remoteCards: GhostCard[] = [];
           snap.forEach((docSnap) => {
             remoteCards.push(docSnap.data() as GhostCard);
           });
           setCards((prev) => {
             const map = new Map<string, GhostCard>();
-            INITIAL_CARDS.forEach((c) => map.set(c.cardId, c));
             (prev || []).forEach((c) => map.set(c.cardId, c));
             remoteCards.forEach((c) => map.set(c.cardId, c));
             return Array.from(map.values());
           });
-          setIsFirebaseConnected(true);
+          setConnectionStatus('connected');
+        },
+        (err) => {
+          handleQuotaBreaker(err);
+          console.warn('Admin cards listener notice:', err);
         }
-      }, (err) => {
-        console.warn('Firebase cards listener notice:', err);
-      });
-
-      return () => {
-        window.removeEventListener('focus', handleFocus);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        unsubContent();
-        unsubAssets();
-        unsubGhosts();
-        unsubRunners();
-        unsubOrders();
-        unsubCards();
-      };
+      );
     } catch (err) {
-      console.warn('Firebase subscription notice:', err);
+      handleQuotaBreaker(err);
     }
-  }, []);
+
+    return () => {
+      unsubRunners();
+      unsubOrders();
+      unsubCards();
+    };
+  }, [handleQuotaBreaker]);
+
+  // Export Local Backup without triggering Cloud requests
+  const exportLocalBackup = () => {
+    const backupData = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      runners,
+      cards,
+      orders,
+      siteContent,
+    };
+    const jsonStr = JSON.stringify(backupData, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const filename = `FSS2026_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    return { success: true, filename };
+  };
 
   const loginAdmin = (usernameInput: string, passwordInput: string): boolean => {
     const trimmedUser = usernameInput.trim();
     const trimmedPass = passwordInput.trim();
-
-    if (
-      (trimmedUser === 'phasharak' && trimmedPass === '07011985') ||
-      (trimmedUser === 'admin' && trimmedPass === 'fss2026')
-    ) {
-      const userObj: AdminUser = {
-        username: trimmedUser,
+    if (trimmedUser === 'phasharak' && trimmedPass === '07011985') {
+      const user: AdminUser = {
+        username: 'phasharak',
         role: 'SUPER_ADMIN',
         isLoggedIn: true,
         loginTimestamp: new Date().toISOString(),
       };
-      setAdminUser(userObj);
-      setActiveOfficerRole('SUPER_ADMIN');
+      setAdminUser(user);
       return true;
     }
     return false;
@@ -836,22 +1075,24 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const logoutAdmin = () => {
     setAdminUser(null);
-    setIsLiveEditMode(false);
+    safeLocalStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
   };
 
   const updateSiteContent = async (section: SiteContentSection) => {
+    try {
+      const docRef = doc(db, 'site_content', section.sectionKey);
+      await setDoc(docRef, cleanForFirestore(section), { merge: true });
+      setConnectionStatus('connected');
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('ไม่สามารถบันทึกข้อมูลเนื้อหาไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
+    }
+
+    // Update state only after confirmed save
     setSiteContent((prev) => ({
       ...prev,
       [section.sectionKey]: section,
     }));
-
-    try {
-      const docRef = doc(db, 'site_content', section.sectionKey);
-      await setDoc(docRef, section, { merge: true });
-      setIsFirebaseConnected(true);
-    } catch (err) {
-      console.warn('Firestore update notice:', err);
-    }
   };
 
   const resetSiteContentSection = async (sectionKey: string) => {
@@ -861,7 +1102,40 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Safe Image Helpers (Validates, forbids temporary blob: URLs, requires cloud metadata save before local update)
+  const validateImageUrl = (url: string | null): void => {
+    if (!url) return;
+    if (url.startsWith('blob:')) {
+      throw new Error('ไม่อนุญาตให้ใช้ blob: URL ชั่วคราว กรุณาใช้ไฟล์รูปภาพจริงหรือ HTTPS URL ถาวร');
+    }
+    if (url.startsWith('data:') && url.length > 850000) {
+      throw new Error('ขนาดรูปภาพใหญ่เกินกว่าข้อกำหนดของฐานข้อมูล (เกิน 800KB)');
+    }
+  };
+
   const setCustomShirtImage = async (imgUrl: string | null) => {
+    validateImageUrl(imgUrl);
+
+    // Save to Cloud FIRST via atomic writeBatch
+    const payload = {
+      sectionKey: 'asset_shirt',
+      category: 'system_asset',
+      imageUrl: imgUrl || null,
+      updatedAt: new Date().toISOString(),
+      updatedBy: adminUser?.username || 'admin',
+    };
+
+    try {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'site_content', 'asset_shirt'), cleanForFirestore(payload), { merge: true });
+      batch.set(doc(db, 'system_assets', 'shirt'), cleanForFirestore(payload), { merge: true });
+      await batch.commit();
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('บันทึกรูปภาพเสื้อไปยัง Cloud ล้มเหลว: ' + ((err as Error)?.message || ''));
+    }
+
+    // Update state and local storage ONLY after Cloud confirmation
     setCustomShirtImageState(imgUrl);
     if (imgUrl) {
       await idbSet('system_asset_shirt', imgUrl);
@@ -870,24 +1144,30 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await idbRemove('system_asset_shirt');
       safeLocalStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
     }
-
-    try {
-      const payload = {
-        sectionKey: 'asset_shirt',
-        category: 'system_asset',
-        imageUrl: imgUrl || null,
-        updatedAt: new Date().toISOString(),
-        updatedBy: adminUser?.username || 'admin',
-      };
-      await setDoc(doc(db, 'site_content', 'asset_shirt'), payload, { merge: true });
-      await setDoc(doc(db, 'system_assets', 'shirt'), payload, { merge: true });
-      setIsFirebaseConnected(true);
-    } catch (err) {
-      console.warn('Firestore shirt image save notice:', err);
-    }
+    setConnectionStatus('connected');
   };
 
   const setCustomMedalImage = async (imgUrl: string | null) => {
+    validateImageUrl(imgUrl);
+
+    const payload = {
+      sectionKey: 'asset_medal',
+      category: 'system_asset',
+      imageUrl: imgUrl || null,
+      updatedAt: new Date().toISOString(),
+      updatedBy: adminUser?.username || 'admin',
+    };
+
+    try {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'site_content', 'asset_medal'), cleanForFirestore(payload), { merge: true });
+      batch.set(doc(db, 'system_assets', 'medal'), cleanForFirestore(payload), { merge: true });
+      await batch.commit();
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('บันทึกรูปภาพเหรียญรางวัลไปยัง Cloud ล้มเหลว: ' + ((err as Error)?.message || ''));
+    }
+
     setCustomMedalImageState(imgUrl);
     if (imgUrl) {
       await idbSet('system_asset_medal', imgUrl);
@@ -896,24 +1176,30 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await idbRemove('system_asset_medal');
       safeLocalStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
     }
-
-    try {
-      const payload = {
-        sectionKey: 'asset_medal',
-        category: 'system_asset',
-        imageUrl: imgUrl || null,
-        updatedAt: new Date().toISOString(),
-        updatedBy: adminUser?.username || 'admin',
-      };
-      await setDoc(doc(db, 'site_content', 'asset_medal'), payload, { merge: true });
-      await setDoc(doc(db, 'system_assets', 'medal'), payload, { merge: true });
-      setIsFirebaseConnected(true);
-    } catch (err) {
-      console.warn('Firestore medal image save notice:', err);
-    }
+    setConnectionStatus('connected');
   };
 
   const setCustomMapImage = async (imgUrl: string | null) => {
+    validateImageUrl(imgUrl);
+
+    const payload = {
+      sectionKey: 'asset_map',
+      category: 'system_asset',
+      imageUrl: imgUrl || null,
+      updatedAt: new Date().toISOString(),
+      updatedBy: adminUser?.username || 'admin',
+    };
+
+    try {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'site_content', 'asset_map'), cleanForFirestore(payload), { merge: true });
+      batch.set(doc(db, 'system_assets', 'map'), cleanForFirestore(payload), { merge: true });
+      await batch.commit();
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('บันทึกรูปภาพแผนที่เส้นทางไปยัง Cloud ล้มเหลว: ' + ((err as Error)?.message || ''));
+    }
+
     setCustomMapImageState(imgUrl);
     if (imgUrl) {
       await idbSet('system_asset_map', imgUrl);
@@ -922,29 +1208,27 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await idbRemove('system_asset_map');
       safeLocalStorage.removeItem(STORAGE_KEYS.MAP_IMAGE);
     }
-
-    try {
-      const payload = {
-        sectionKey: 'asset_map',
-        category: 'system_asset',
-        imageUrl: imgUrl || null,
-        updatedAt: new Date().toISOString(),
-        updatedBy: adminUser?.username || 'admin',
-      };
-      await setDoc(doc(db, 'site_content', 'asset_map'), payload, { merge: true });
-      await setDoc(doc(db, 'system_assets', 'map'), payload, { merge: true });
-      setIsFirebaseConnected(true);
-    } catch (err) {
-      console.warn('Firestore map image save notice:', err);
-    }
+    setConnectionStatus('connected');
   };
 
   const updateCardCustomImage = async (cardId: string, imageUrl: string | null) => {
+    validateImageUrl(imageUrl);
+
+    // Save to Cloud FIRST
+    try {
+      await setDoc(doc(db, 'cards', cardId), cleanForFirestore({ customImageUrl: imageUrl || null }), { merge: true });
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('บันทึกรูปภาพการ์ดไปยัง Cloud ล้มเหลว: ' + ((err as Error)?.message || ''));
+    }
+
+    // Update state ONLY after Cloud confirmation
     setCards((prev) =>
       prev.map((c) =>
         c.cardId === cardId ? { ...c, customImageUrl: imageUrl || undefined } : c
       )
     );
+    setConnectionStatus('connected');
   };
 
   const ghostSpeciesList: GhostSpecies[] = OFFICIAL_12_GHOST_IDS.map((id) => {
@@ -969,13 +1253,23 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }).filter(Boolean);
 
   const updateGhostSpecies = async (species: GhostSpecies) => {
+    validateImageUrl(species.customImageUrl || null);
+
+    // Save to Firestore FIRST
+    try {
+      const docRef = doc(db, 'ghost_species', species.id);
+      await setDoc(docRef, cleanForFirestore(species), { merge: true });
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('บันทึกข้อมูลผีไปยัง Cloud ล้มเหลว: ' + ((err as Error)?.message || ''));
+    }
+
     setGhostSpeciesMap((prev) => ({
       ...prev,
       [species.id]: species,
     }));
 
     if (species.customImageUrl) {
-      // Store full high-res image safely in IndexedDB (500MB+ quota)
       await idbSet(`ghost_img_${species.id}`, species.customImageUrl);
       safeLocalStorage.setItem(`fss_ghost_img_${species.id}`, species.customImageUrl);
     } else {
@@ -983,186 +1277,293 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       safeLocalStorage.removeItem(`fss_ghost_img_${species.id}`);
     }
 
-    // Save lightweight metadata to STORAGE_KEYS.GHOST_SPECIES
-    try {
-      const lightweightMap: Record<string, any> = {};
-      OFFICIAL_12_GHOST_IDS.forEach((id) => {
-        const item = id === species.id ? species : ghostSpeciesMap[id];
-        if (item) {
-          lightweightMap[id] = {
-            ...item,
-            // Keep lightweight, image is in IndexedDB & per-ghost key
-            customImageUrl: item.customImageUrl && item.customImageUrl.startsWith('http') ? item.customImageUrl : undefined,
-          };
-        }
-      });
-      safeLocalStorage.setItem(STORAGE_KEYS.GHOST_SPECIES, JSON.stringify(lightweightMap));
-    } catch (err) {
-      console.warn('LocalStorage save ghost species notice:', err);
-    }
-
-    // Persist to Cloud Firestore
-    try {
-      const docRef = doc(db, 'ghost_species', species.id);
-      await setDoc(docRef, species, { merge: true });
-      setIsFirebaseConnected(true);
-    } catch (err) {
-      console.warn('Firestore update ghost species notice:', err);
-    }
+    setConnectionStatus('connected');
   };
 
   const resetGhostSpecies = async (speciesId: GhostSpeciesId) => {
-    await idbRemove(`ghost_img_${speciesId}`);
-    safeLocalStorage.removeItem(`fss_ghost_img_${speciesId}`);
-    const original = THAI_GHOSTS[speciesId];
-    if (original) {
-      await updateGhostSpecies({ ...original, customImageUrl: undefined });
+    const base = THAI_GHOSTS[speciesId];
+    if (base) {
+      await updateGhostSpecies(base);
     }
   };
 
-  const currentCard = cards.find((c) => c.cardId === currentCardId) || null;
-  const currentRunner = runners.find((r) => r.cardId === currentCardId) || null;
-
-  // Level & Badges calculation helper
-  const recomputeCardLevel = (card: GhostCard, allOrders: ShirtOrder[], allRunners: RunnerRegistration[]): GhostCard => {
-    const hasPaidShirt = allOrders.some(
-      (o) => o.cardId === card.cardId && (o.status === 'paid' || o.status === 'claimed')
-    );
-    const runner = allRunners.find((r) => r.cardId === card.cardId);
-    const isCheckedIn = runner?.checkedIn;
-
-    const newBadges: Array<'SHIRT_OWNER' | 'CHECKED_IN' | 'FINISHER' | 'COMPLETE_COLLECTION'> = [];
-    if (hasPaidShirt) newBadges.push('SHIRT_OWNER');
-    if (isCheckedIn) {
-      newBadges.push('CHECKED_IN');
-      newBadges.push('FINISHER');
-    }
-    if (hasPaidShirt && isCheckedIn) {
-      newBadges.push('COMPLETE_COLLECTION');
-    }
-
-    let newLevel: CardLevel = 1;
-    if (hasPaidShirt || isCheckedIn) {
-      newLevel = 2;
+  // ============================================================
+  // ATOMIC REGISTRATION WITH PER-PERSON FINGERPRINT REUSE & UPSERT
+  // ============================================================
+  const registerParticipant = async (
+    params: RegisterParams,
+    options?: RegisterOptions
+  ): Promise<{ runner: RunnerRegistration; card: GhostCard; order?: ShirtOrder }> => {
+    const fingerprint = createRegistrationFingerprint(params);
+    const rawPending = safeLocalStorage.getItem(STORAGE_KEYS.PENDING_REGISTRATION);
+    let pendingData: PendingRegistrationPayload | null = null;
+    if (rawPending) {
+      try {
+        const parsed = JSON.parse(rawPending) as PendingRegistrationPayload;
+        // MUST match this exact person's fingerprint! Never commit an old person's payload to a new form!
+        if (parsed && parsed.fingerprint === fingerprint) {
+          pendingData = parsed;
+        }
+      } catch {
+        // ignore
+      }
     }
 
-    const baseSpecies = THAI_GHOSTS[card.speciesId] || THAI_GHOSTS.pret;
-    const baseStats = baseSpecies.baseStats || { speed: 85, spookiness: 85, latentPower: 85, stealth: 85, hauntingAura: 85 };
-    const stats: GhostCardStats = { ...baseStats, ...(card.stats || {}) };
-
-    if (hasPaidShirt) {
-      stats.speed = Math.min(100, Math.max(stats.speed, (baseStats.speed ?? 85) + 6));
-      stats.latentPower = Math.min(100, Math.max(stats.latentPower, (baseStats.latentPower ?? 85) + 6));
-    }
-    if (isCheckedIn) {
-      stats.spookiness = Math.min(100, Math.max(stats.spookiness, (baseStats.spookiness ?? 85) + 7));
-      stats.hauntingAura = Math.min(100, Math.max(stats.hauntingAura, (baseStats.hauntingAura ?? 85) + 7));
-    }
-
-    return {
-      ...card,
-      level: newLevel,
-      badges: newBadges,
-      stats,
-      unlockedAtLv2: newLevel >= 2 ? card.unlockedAtLv2 || new Date().toISOString() : undefined,
-    };
-  };
-
-  const registerParticipant = (params: RegisterParams) => {
-    // 1. Calculate Ghost Species from Quiz Answers
-    const speciesScore: Record<GhostSpeciesId, number> = {
-      krasue: 0,
-      krahang: 0,
-      pop: 0,
-      tani: 0,
-      maenak: 0,
-      kuman: 0,
-      pret: 0,
-      kongkoi: 0,
-      headless: 0,
-      nangram: 0,
-      phiphong: 0,
-      phi_am: 0,
-    };
-
-    const accumulatedStatBoost: GhostCardStats = {
-      spookiness: 0,
-      speed: 0,
-      latentPower: 0,
-      stealth: 0,
-      hauntingAura: 0,
-    };
-
-    const ALL_SPECIES: GhostSpeciesId[] = OFFICIAL_12_GHOST_IDS;
-
-    // True random assignment across all 12 Thai ghosts!
-    const randomIndex = Math.floor(Math.random() * ALL_SPECIES.length);
-    const chosenSpeciesId: GhostSpeciesId = ALL_SPECIES[randomIndex];
-
-    // Stat boosts (+1 to +5)
-    accumulatedStatBoost.speed = Math.floor(Math.random() * 5) + 1;
-    accumulatedStatBoost.spookiness = Math.floor(Math.random() * 5) + 1;
-    accumulatedStatBoost.latentPower = Math.floor(Math.random() * 5) + 1;
-    accumulatedStatBoost.stealth = Math.floor(Math.random() * 5) + 1;
-    accumulatedStatBoost.hauntingAura = Math.floor(Math.random() * 5) + 1;
-
-    // 2. Rarity lottery (Common 55%, Rare 30%, Epic 12%, Legendary 3%)
-    const roll = Math.random() * 100;
-    let rarity: Rarity = 'Common';
-    if (roll < 3) rarity = 'Legendary';
-    else if (roll < 15) rarity = 'Epic';
-    else if (roll < 45) rarity = 'Rare';
-    else rarity = 'Common';
-
-    // 3. Generate Card ID (FSS26-xxxxx)
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-    const cardId = `FSS26-0${randomNum}`;
-    const regId = `REG-${Math.floor(2000 + Math.random() * 8000)}`;
-    const bibNumber = params.regType !== 'SHIRT_ONLY' ? `BIB-${Math.floor(100 + Math.random() * 900)}` : undefined;
-
-    const baseSpecies = THAI_GHOSTS[chosenSpeciesId] || THAI_GHOSTS.pret;
-    const baseStats = baseSpecies.baseStats || { speed: 85, spookiness: 85, latentPower: 85, stealth: 85, hauntingAura: 85 };
-    const rarityBonus = rarity === 'Legendary' ? 8 : rarity === 'Epic' ? 5 : rarity === 'Rare' ? 3 : 0;
-
-    const initialStats: GhostCardStats = {
-      spookiness: Math.min(100, (baseStats.spookiness ?? 85) + (accumulatedStatBoost.spookiness % 8) + rarityBonus),
-      speed: Math.min(100, (baseStats.speed ?? 85) + (accumulatedStatBoost.speed % 8) + rarityBonus),
-      latentPower: Math.min(100, (baseStats.latentPower ?? 85) + (accumulatedStatBoost.latentPower % 8) + rarityBonus),
-      stealth: Math.min(100, (baseStats.stealth ?? 85) + (accumulatedStatBoost.stealth % 8) + rarityBonus),
-      hauntingAura: Math.min(100, (baseStats.hauntingAura ?? 85) + (accumulatedStatBoost.hauntingAura % 8) + rarityBonus),
-    };
-
-    const newCard: GhostCard = {
-      cardId,
-      speciesId: chosenSpeciesId,
-      nickname: params.nickname || params.fullName,
-      fullName: params.fullName,
-      rarity,
-      level: 1,
-      stats: initialStats,
-      badges: [],
-      qrPayload: `${cardId}-RUNNER-${params.nickname.slice(0, 3).toUpperCase()}-${rarity.toUpperCase()}`,
-      createdAt: new Date().toISOString(),
-      customQuote: baseSpecies.tagline,
-      customImageUrl: ghostSpeciesMap[chosenSpeciesId]?.customImageUrl || undefined,
-    };
-
-    let shirtOrderId: string | undefined;
+    let newCard: GhostCard;
+    let newRunner: RunnerRegistration;
     let createdOrder: ShirtOrder | undefined;
-    if (params.regType === 'RUN_AND_SHIRT' || params.regType === 'SHIRT_ONLY') {
-      const ordNum = Math.floor(1000 + Math.random() * 9000);
-      shirtOrderId = `ORD-${ordNum}`;
-      const qty = params.shirtQuantity || 1;
-      const normalizedSizes = params.shirtSizes && params.shirtSizes.length > 0
-        ? params.shirtSizes
-        : [params.shirtSize || 'L'];
-      createdOrder = {
-        orderId: shirtOrderId,
+
+    if (pendingData) {
+      // REUSE exact same species, stats, timestamps, and IDs on retry!
+      newCard = pendingData.card;
+      newRunner = pendingData.runner;
+      createdOrder = pendingData.order;
+    } else {
+      // Generate new payload
+      const ALL_SPECIES: GhostSpeciesId[] = OFFICIAL_12_GHOST_IDS;
+      const randomIndex = Math.floor(Math.random() * ALL_SPECIES.length);
+      const chosenSpeciesId: GhostSpeciesId = ALL_SPECIES[randomIndex];
+
+      const accumulatedStatBoost: GhostCardStats = {
+        speed: Math.floor(Math.random() * 5) + 1,
+        spookiness: Math.floor(Math.random() * 5) + 1,
+        latentPower: Math.floor(Math.random() * 5) + 1,
+        stealth: Math.floor(Math.random() * 5) + 1,
+        hauntingAura: Math.floor(Math.random() * 5) + 1,
+      };
+
+      const roll = Math.random() * 100;
+      let rarity: Rarity = 'Common';
+      if (roll < 3) rarity = 'Legendary';
+      else if (roll < 15) rarity = 'Epic';
+      else if (roll < 45) rarity = 'Rare';
+      else rarity = 'Common';
+
+      const cardId = options?.existingCardId || generateCardId();
+      const regId = options?.existingRegId || generateRegId();
+      const bibNumber =
+        params.regType !== 'SHIRT_ONLY'
+          ? options?.existingBibNumber || generateBibNumber()
+          : undefined;
+
+      const baseSpecies = THAI_GHOSTS[chosenSpeciesId] || THAI_GHOSTS.pret;
+      const baseStats = baseSpecies.baseStats || { speed: 85, spookiness: 85, latentPower: 85, stealth: 85, hauntingAura: 85 };
+      const rarityBonus = rarity === 'Legendary' ? 8 : rarity === 'Epic' ? 5 : rarity === 'Rare' ? 3 : 0;
+
+      const initialStats: GhostCardStats = {
+        spookiness: Math.min(100, (baseStats.spookiness ?? 85) + (accumulatedStatBoost.spookiness % 8) + rarityBonus),
+        speed: Math.min(100, (baseStats.speed ?? 85) + (accumulatedStatBoost.speed % 8) + rarityBonus),
+        latentPower: Math.min(100, (baseStats.latentPower ?? 85) + (accumulatedStatBoost.latentPower % 8) + rarityBonus),
+        stealth: Math.min(100, (baseStats.stealth ?? 85) + (accumulatedStatBoost.stealth % 8) + rarityBonus),
+        hauntingAura: Math.min(100, (baseStats.hauntingAura ?? 85) + (accumulatedStatBoost.hauntingAura % 8) + rarityBonus),
+      };
+
+      const nowTimestamp = new Date().toISOString();
+
+      newCard = {
         cardId,
-        customerName: params.fullName,
+        speciesId: chosenSpeciesId,
+        nickname: params.nickname || params.fullName,
+        fullName: params.fullName,
+        rarity,
+        level: 1,
+        stats: initialStats,
+        badges: [],
+        qrPayload: `${cardId}-RUNNER-${params.nickname.slice(0, 3).toUpperCase()}-${rarity.toUpperCase()}`,
+        createdAt: nowTimestamp,
+        customQuote: baseSpecies.tagline,
+        customImageUrl: ghostSpeciesMap[chosenSpeciesId]?.customImageUrl || undefined,
+      };
+
+      let shirtOrderId: string | undefined;
+      if (params.regType === 'RUN_AND_SHIRT' || params.regType === 'SHIRT_ONLY') {
+        shirtOrderId = options?.existingOrderId || generateOrderId();
+        const qty = params.shirtQuantity || 1;
+        const normalizedSizes =
+          params.shirtSizes && params.shirtSizes.length > 0
+            ? params.shirtSizes
+            : [params.shirtSize || 'L'];
+        createdOrder = {
+          orderId: shirtOrderId,
+          cardId,
+          customerName: params.fullName,
+          phone: params.phone,
+          email: params.email,
+          size: normalizedSizes[0] || 'L',
+          sizes: normalizedSizes,
+          quantity: qty,
+          unitPrice: 300,
+          totalAmount: 300 * qty,
+          deliveryMethod: 'pickup_event',
+          shippingAddress: undefined,
+          status: params.slipImage ? 'pending_verification' : 'unpaid',
+          slipImage: params.slipImage,
+          paymentTimestamp: params.slipImage ? nowTimestamp : undefined,
+        };
+      }
+
+      newRunner = {
+        regId,
+        bibNumber,
+        regType: params.regType,
+        nameThai: params.nameThai || params.fullName,
+        nameEng: params.nameEng || '',
+        fullName: params.nameThai || params.fullName,
+        nickname: params.nickname,
+        age: params.age,
+        gender: params.gender,
+        birthDate: params.birthDate,
+        birthDay: params.birthDay,
+        birthMonth: params.birthMonth,
+        birthYear: params.birthYear,
+        participantCategory: params.participantCategory || 'general',
+        studentYear: params.studentYear,
+        studentId: params.studentId,
+        facultyGroup: params.facultyGroup,
+        faculty: params.faculty,
+        staffDepartmentGroup: params.staffDepartmentGroup,
+        staffDepartment: params.staffDepartment,
         phone: params.phone,
         email: params.email,
-        size: normalizedSizes[0] || 'L',
+        province: params.province,
+        organization: params.organization || params.faculty || params.staffDepartment,
+        emergencyContactName: params.emergencyContactName,
+        emergencyContactPhone: params.emergencyContactPhone,
+        emergencyContactRelation: params.emergencyContactRelation,
+        infoSource: params.infoSource,
+        interestedInShirt: params.interestedInShirt,
+        hasAttendedBefore: params.hasAttendedBefore || 'no',
+        costumeStyle: params.costumeStyle || 'sportswear',
+        costumeStyleNote: params.costumeStyleNote,
+        medicalConditions: params.medicalConditions,
+        teamName: params.teamName,
+        displayNameType: params.displayNameType,
+        isMinor: params.isMinor,
+        guardianName: params.guardianName,
+        guardianPhone: params.guardianPhone,
+        agreedTerms: params.agreedTerms,
+        agreedPhotoRelease: params.agreedPhotoRelease,
+        agreedDataPolicy: params.agreedDataPolicy,
+        cardId,
+        shirtOrderId,
+        registeredAt: nowTimestamp,
+        checkedIn: false,
+        medalClaimed: false,
+        shirtClaimed: false,
+      };
+
+      // Save pending payload to localStorage before commit
+      safeLocalStorage.setItem(
+        STORAGE_KEYS.PENDING_REGISTRATION,
+        JSON.stringify({
+          fingerprint,
+          runner: newRunner,
+          card: newCard,
+          order: createdOrder,
+          savedAt: nowTimestamp,
+        })
+      );
+      setPendingRegistrationInfo({
+        fullName: newRunner.fullName,
+        phone: newRunner.phone,
+        regId: newRunner.regId,
+      });
+    }
+
+    // ATOMIC WRITE BATCH - Commit to Firestore FIRST
+    try {
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'runners', newRunner.regId), cleanForFirestore(newRunner), { merge: true });
+      batch.set(doc(db, 'cards', newCard.cardId), cleanForFirestore(newCard), { merge: true });
+      if (createdOrder) {
+        batch.set(doc(db, 'orders', createdOrder.orderId), cleanForFirestore(createdOrder), { merge: true });
+      }
+
+      await batch.commit();
+      setConnectionStatus('connected');
+    } catch (err) {
+      handleQuotaBreaker(err);
+      console.error('Registration atomic commit failed:', err);
+      if (isQuotaExhaustedError(err)) {
+        throw new Error('โควตาการบันทึกฐานข้อมูลรายวันเต็มอยู่ในขณะนี้ กรุณาลองใหม่อีกครั้งในภายหลัง');
+      }
+      throw new Error('เกิดข้อผิดพลาดในการเชื่อมต่อเพื่อบันทึกข้อมูล กรุณาตรวจสอบสัญญาณอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
+    }
+
+    // ONLY AFTER successful atomic commit, clear pending state and UPSERT into React confirmed state
+    safeLocalStorage.removeItem(STORAGE_KEYS.PENDING_REGISTRATION);
+    setPendingRegistrationInfo(null);
+
+    setCards((prev) => {
+      const map = new Map<string, GhostCard>();
+      (prev || []).forEach((c) => map.set(c.cardId, c));
+      map.set(newCard.cardId, newCard);
+      return Array.from(map.values());
+    });
+
+    setRunners((prev) => {
+      const map = new Map<string, RunnerRegistration>();
+      (prev || []).forEach((r) => map.set(r.regId, r));
+      map.set(newRunner.regId, newRunner);
+      return Array.from(map.values());
+    });
+
+    if (createdOrder) {
+      setOrders((prev) => {
+        const map = new Map<string, ShirtOrder>();
+        (prev || []).forEach((o) => map.set(o.orderId, o));
+        map.set(createdOrder!.orderId, createdOrder!);
+        return Array.from(map.values());
+      });
+    }
+
+    setCurrentCardId(newCard.cardId);
+    setJustRevealedCard(newCard);
+
+    return { runner: newRunner, card: newCard, order: createdOrder };
+  };
+
+  // ============================================================
+  // ATOMIC ORDER SHIRT WITH FINGERPRINT REUSE & UPSERT
+  // ============================================================
+  const orderShirt = async (
+    params: OrderShirtParams,
+    options?: OrderShirtOptions
+  ): Promise<ShirtOrder> => {
+    const fingerprint = createOrderFingerprint(params);
+    const rawPending = safeLocalStorage.getItem(STORAGE_KEYS.PENDING_ORDER);
+    let pendingOrderData: PendingOrderPayload | null = null;
+    if (rawPending) {
+      try {
+        const parsed = JSON.parse(rawPending) as PendingOrderPayload;
+        if (parsed && parsed.fingerprint === fingerprint) {
+          pendingOrderData = parsed;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    let newOrder: ShirtOrder;
+    if (pendingOrderData) {
+      newOrder = pendingOrderData.order;
+    } else {
+      const orderId = options?.existingOrderId || generateOrderId();
+      const qty = Math.max(1, params.quantity || 1);
+      const normalizedSizes =
+        params.sizes && params.sizes.length > 0
+          ? params.sizes.slice(0, qty)
+          : Array(qty).fill(params.size || 'L');
+      const primarySize = normalizedSizes[0] || 'L';
+      const nowTimestamp = new Date().toISOString();
+
+      newOrder = {
+        orderId,
+        cardId: params.cardId,
+        customerName: params.customerName,
+        phone: params.phone,
+        email: params.email,
+        size: primarySize,
         sizes: normalizedSizes,
         quantity: qty,
         unitPrice: 300,
@@ -1171,151 +1572,63 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         shippingAddress: undefined,
         status: params.slipImage ? 'pending_verification' : 'unpaid',
         slipImage: params.slipImage,
-        paymentTimestamp: params.slipImage ? new Date().toISOString() : undefined,
+        paymentTimestamp: params.slipImage ? nowTimestamp : undefined,
       };
-      setOrders((prev) => [createdOrder!, ...prev]);
+
+      safeLocalStorage.setItem(
+        STORAGE_KEYS.PENDING_ORDER,
+        JSON.stringify({
+          fingerprint,
+          order: newOrder,
+          savedAt: nowTimestamp,
+        })
+      );
     }
 
-    const newRunner: RunnerRegistration = {
-      regId,
-      bibNumber,
-      regType: params.regType,
-      nameThai: params.nameThai || params.fullName,
-      nameEng: params.nameEng || '',
-      fullName: params.nameThai || params.fullName,
-      nickname: params.nickname,
-      age: params.age,
-      gender: params.gender,
-      birthDate: params.birthDate,
-      birthDay: params.birthDay,
-      birthMonth: params.birthMonth,
-      birthYear: params.birthYear,
-      participantCategory: params.participantCategory || 'general',
-      studentYear: params.studentYear,
-      studentId: params.studentId,
-      facultyGroup: params.facultyGroup,
-      faculty: params.faculty,
-      staffDepartmentGroup: params.staffDepartmentGroup,
-      staffDepartment: params.staffDepartment,
-      phone: params.phone,
-      email: params.email,
-      province: params.province,
-      organization: params.organization || params.faculty || params.staffDepartment,
-      emergencyContactName: params.emergencyContactName,
-      emergencyContactPhone: params.emergencyContactPhone,
-      emergencyContactRelation: params.emergencyContactRelation,
-      infoSource: params.infoSource,
-      interestedInShirt: params.interestedInShirt,
-      hasAttendedBefore: params.hasAttendedBefore || 'no',
-      costumeStyle: params.costumeStyle || 'sportswear',
-      costumeStyleNote: params.costumeStyleNote,
-      medicalConditions: params.medicalConditions,
-      teamName: params.teamName,
-      displayNameType: params.displayNameType,
-      isMinor: params.isMinor,
-      guardianName: params.guardianName,
-      guardianPhone: params.guardianPhone,
-      agreedTerms: params.agreedTerms,
-      agreedPhotoRelease: params.agreedPhotoRelease,
-      agreedDataPolicy: params.agreedDataPolicy,
-      cardId,
-      shirtOrderId,
-      registeredAt: new Date().toISOString(),
-      checkedIn: false,
-      medalClaimed: false,
-      shirtClaimed: false,
-    };
+    const targetRunner = runners.find((r) => r.cardId === params.cardId);
 
-    setCards((prev) => [newCard, ...prev]);
-    setRunners((prev) => [newRunner, ...prev]);
-    setCurrentCardId(cardId);
-    setJustRevealedCard(newCard);
-
-    // Persist to Firestore in background safely
+    // Commit to Firestore FIRST
     try {
-      setDoc(doc(db, 'runners', newRunner.regId), cleanForFirestore(newRunner), { merge: true }).catch((err) =>
-        console.warn('Firestore runner persist notice:', err)
-      );
-      setDoc(doc(db, 'cards', newCard.cardId), cleanForFirestore(newCard), { merge: true }).catch((err) =>
-        console.warn('Firestore card persist notice:', err)
-      );
-      if (createdOrder) {
-        setDoc(doc(db, 'orders', createdOrder.orderId), cleanForFirestore(createdOrder), { merge: true }).catch((err) =>
-          console.warn('Firestore order persist notice:', err)
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'orders', newOrder.orderId), cleanForFirestore(newOrder), { merge: true });
+      if (targetRunner) {
+        batch.set(
+          doc(db, 'runners', targetRunner.regId),
+          cleanForFirestore({ ...targetRunner, shirtOrderId: newOrder.orderId }),
+          { merge: true }
         );
       }
-      setIsFirebaseConnected(true);
+      await batch.commit();
+      setConnectionStatus('connected');
     } catch (err) {
-      console.warn('Firestore persist error:', err);
+      handleQuotaBreaker(err);
+      console.error('Order shirt commit failed:', err);
+      if (isQuotaExhaustedError(err)) {
+        throw new Error('โควตาการบันทึกฐานข้อมูลเต็มชั่วคราว กรุณาลองใหม่อีกครั้ง');
+      }
+      throw new Error('ไม่สามารถบันทึกคำสั่งซื้อไปยัง Cloud ได้ กรุณาลองใหม่อีกครั้ง');
     }
 
-    return { runner: newRunner, card: newCard };
-  };
+    // Clear pending order and UPSERT state
+    safeLocalStorage.removeItem(STORAGE_KEYS.PENDING_ORDER);
 
-  const orderShirt = (params: {
-    cardId: string;
-    customerName: string;
-    phone: string;
-    email: string;
-    size?: ShirtSize;
-    sizes?: ShirtSize[];
-    quantity: number;
-    deliveryMethod?: 'pickup_event' | 'shipping';
-    shippingAddress?: string;
-    slipImage?: string;
-  }) => {
-    const ordNum = Math.floor(1000 + Math.random() * 9000);
-    const orderId = `ORD-${ordNum}`;
-    const qty = Math.max(1, params.quantity || 1);
-    const normalizedSizes = params.sizes && params.sizes.length > 0
-      ? params.sizes.slice(0, qty)
-      : Array(qty).fill(params.size || 'L');
-    const primarySize = normalizedSizes[0] || 'L';
+    setOrders((prev) => {
+      const map = new Map<string, ShirtOrder>();
+      (prev || []).forEach((o) => map.set(o.orderId, o));
+      map.set(newOrder.orderId, newOrder);
+      return Array.from(map.values());
+    });
 
-    const newOrder: ShirtOrder = {
-      orderId,
-      cardId: params.cardId,
-      customerName: params.customerName,
-      phone: params.phone,
-      email: params.email,
-      size: primarySize,
-      sizes: normalizedSizes,
-      quantity: qty,
-      unitPrice: 300,
-      totalAmount: 300 * qty,
-      deliveryMethod: 'pickup_event',
-      shippingAddress: undefined,
-      status: params.slipImage ? 'pending_verification' : 'unpaid',
-      slipImage: params.slipImage,
-      paymentTimestamp: params.slipImage ? new Date().toISOString() : undefined,
-    };
-
-    setOrders((prev) => [newOrder, ...prev]);
-
-    setRunners((prev) =>
-      prev.map((r) => (r.cardId === params.cardId ? { ...r, shirtOrderId: orderId } : r))
-    );
-
-    // Persist order to Firestore in background
-    try {
-      setDoc(doc(db, 'orders', newOrder.orderId), cleanForFirestore(newOrder), { merge: true }).catch((err) =>
-        console.warn('Firestore order persist notice:', err)
+    if (targetRunner) {
+      setRunners((prev) =>
+        prev.map((r) => (r.cardId === params.cardId ? { ...r, shirtOrderId: newOrder.orderId } : r))
       );
-      const runner = runners.find((r) => r.cardId === params.cardId);
-      if (runner) {
-        setDoc(doc(db, 'runners', runner.regId), cleanForFirestore({ ...runner, shirtOrderId: orderId }), { merge: true }).catch((err) =>
-          console.warn('Firestore runner update notice:', err)
-        );
-      }
-      setIsFirebaseConnected(true);
-    } catch (err) {
-      console.warn('Firestore order persist error:', err);
     }
 
     return newOrder;
   };
 
-  const approveShirtPayment = (orderId: string, officerName: string = 'เจ้าหน้าที่การเงิน') => {
+  const approveShirtPayment = async (orderId: string, officerName: string = 'เจ้าหน้าที่การเงิน') => {
     let targetCardId = '';
     let updatedTargetOrder: ShirtOrder | undefined;
     const updatedOrders = orders.map((o) => {
@@ -1331,14 +1644,17 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return o;
     });
-    setOrders(updatedOrders);
 
     if (updatedTargetOrder) {
-      setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true }).catch((err) =>
-        console.warn('Firestore order update notice:', err)
-      );
+      try {
+        await setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true });
+      } catch (err) {
+        handleQuotaBreaker(err);
+        throw new Error('ไม่สามารถอัปเดตสถานะไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
+      }
     }
 
+    setOrders(updatedOrders);
     if (targetCardId) {
       setCards((prev) =>
         prev.map((c) =>
@@ -1348,7 +1664,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const rejectShirtPayment = (orderId: string, reason?: string) => {
+  const rejectShirtPayment = async (orderId: string, reason?: string) => {
     let targetCardId = '';
     let updatedTargetOrder: ShirtOrder | undefined;
     const updatedOrders = orders.map((o) => {
@@ -1363,14 +1679,17 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return o;
     });
-    setOrders(updatedOrders);
 
     if (updatedTargetOrder) {
-      setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true }).catch((err) =>
-        console.warn('Firestore order update notice:', err)
-      );
+      try {
+        await setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true });
+      } catch (err) {
+        handleQuotaBreaker(err);
+        throw new Error('ไม่สามารถอัปเดตสถานะไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
+      }
     }
 
+    setOrders(updatedOrders);
     if (targetCardId) {
       setCards((prev) =>
         prev.map((c) =>
@@ -1380,7 +1699,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const markShirtClaimed = (orderId: string) => {
+  const markShirtClaimed = async (orderId: string) => {
     let targetCardId = '';
     let updatedTargetOrder: ShirtOrder | undefined;
     const updatedOrders = orders.map((o) => {
@@ -1395,22 +1714,23 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return o;
     });
-    setOrders(updatedOrders);
 
     if (updatedTargetOrder) {
-      setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true }).catch((err) =>
-        console.warn('Firestore order update notice:', err)
-      );
+      try {
+        await setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true });
+      } catch (err) {
+        handleQuotaBreaker(err);
+        throw new Error('ไม่สามารถอัปเดตสถานะไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
+      }
     }
 
+    setOrders(updatedOrders);
     if (targetCardId) {
       setRunners((prev) =>
         prev.map((r) => {
           if (r.cardId === targetCardId) {
             const updatedR = { ...r, shirtClaimed: true };
-            setDoc(doc(db, 'runners', r.regId), cleanForFirestore(updatedR), { merge: true }).catch((err) =>
-              console.warn('Firestore runner update notice:', err)
-            );
+            setDoc(doc(db, 'runners', r.regId), cleanForFirestore(updatedR), { merge: true }).catch(console.warn);
             return updatedR;
           }
           return r;
@@ -1419,7 +1739,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const refundShirtOrder = (orderId: string) => {
+  const refundShirtOrder = async (orderId: string) => {
     let targetCardId = '';
     let updatedTargetOrder: ShirtOrder | undefined;
     const updatedOrders = orders.map((o) => {
@@ -1433,14 +1753,17 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
       return o;
     });
-    setOrders(updatedOrders);
 
     if (updatedTargetOrder) {
-      setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true }).catch((err) =>
-        console.warn('Firestore order update notice:', err)
-      );
+      try {
+        await setDoc(doc(db, 'orders', orderId), cleanForFirestore(updatedTargetOrder), { merge: true });
+      } catch (err) {
+        handleQuotaBreaker(err);
+        throw new Error('ไม่สามารถอัปเดตสถานะไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
+      }
     }
 
+    setOrders(updatedOrders);
     if (targetCardId) {
       setCards((prev) =>
         prev.map((c) =>
@@ -1453,7 +1776,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const checkInRunner = (cardOrRegId: string, officerName: string) => {
+  const checkInRunner = async (cardOrRegId: string, officerName: string) => {
     const trimmed = cardOrRegId.trim().toUpperCase();
     const runner = runners.find(
       (r) =>
@@ -1492,13 +1815,15 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       checkedInBy: officerName,
     };
 
+    try {
+      await setDoc(doc(db, 'runners', updatedRunner.regId), cleanForFirestore(updatedRunner), { merge: true });
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('ไม่สามารถบันทึกการเช็กอินไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
+    }
+
     const updatedRunners = runners.map((r) => (r.regId === runner.regId ? updatedRunner : r));
     setRunners(updatedRunners);
-
-    // Persist check-in to Firestore
-    setDoc(doc(db, 'runners', updatedRunner.regId), cleanForFirestore(updatedRunner), { merge: true }).catch((err) =>
-      console.warn('Firestore check-in update notice:', err)
-    );
 
     // Recompute card level if checked in
     setCards((prev) =>
@@ -1540,6 +1865,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const resetToDefaults = async () => {
+    exportLocalBackup();
     setCards([]);
     setRunners([]);
     setOrders([]);
@@ -1549,27 +1875,14 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     safeLocalStorage.removeItem(STORAGE_KEYS.RUNNERS);
     safeLocalStorage.removeItem(STORAGE_KEYS.ORDERS);
     safeLocalStorage.removeItem(STORAGE_KEYS.CURRENT_CARD_ID);
-
-    try {
-      const runnersRef = collection(db, 'fss_runners');
-      const ordersRef = collection(db, 'fss_orders');
-      const cardsRef = collection(db, 'fss_cards');
-
-      const [rSnap, oSnap, cSnap] = await Promise.all([
-        getDocs(runnersRef),
-        getDocs(ordersRef),
-        getDocs(cardsRef),
-      ]);
-
-      const deletes: Promise<any>[] = [];
-      rSnap.forEach((d) => deletes.push(deleteDoc(d.ref)));
-      oSnap.forEach((d) => deletes.push(deleteDoc(d.ref)));
-      cSnap.forEach((d) => deletes.push(deleteDoc(d.ref)));
-      await Promise.all(deletes);
-    } catch (e) {
-      console.warn('Purge firestore notice:', e);
-    }
+    safeLocalStorage.removeItem(STORAGE_KEYS.PENDING_REGISTRATION);
+    safeLocalStorage.removeItem(STORAGE_KEYS.PENDING_ORDER);
   };
+
+  const currentCard = cards.find((c) => c.cardId === currentCardId) || cards[0] || null;
+  const currentRunner = currentCard
+    ? runners.find((r) => r.cardId === currentCard.cardId) || null
+    : null;
 
   return (
     <EventContext.Provider
@@ -1599,10 +1912,17 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCustomMedalImage,
         customMapImage,
         setCustomMapImage,
-        isFirebaseConnected,
+        connectionStatus,
+        isFirebaseConnected: connectionStatus === 'connected',
         isSyncing,
         lastSyncedAt,
+        quotaErrorMessage,
+        pendingRegistrationInfo,
         syncFromCloud,
+        subscribeAdminData,
+        loadCardById,
+        searchRunnersRemote,
+        exportLocalBackup,
         registerParticipant,
         orderShirt,
         approveShirtPayment,

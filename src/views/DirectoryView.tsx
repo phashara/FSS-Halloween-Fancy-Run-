@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import {
   Search,
@@ -36,9 +36,30 @@ import { EditableText } from '../components/EditableText';
 import { REALISTIC_GHOST_ASSETS } from '../components/RealisticGhostPortrait';
 
 export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) => {
-  const { runners, cards, orders, ghostSpeciesList, adminUser } = useEventContext();
+  const {
+    runners,
+    cards,
+    orders,
+    ghostSpeciesList,
+    adminUser,
+    syncFromCloud,
+    isSyncing,
+    connectionStatus,
+    searchRunnersRemote,
+  } = useEventContext();
 
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Automatically search remote records when search query is typed
+  useEffect(() => {
+    const trimmed = searchTerm.trim();
+    if (trimmed.length >= 3) {
+      const timer = setTimeout(() => {
+        searchRunnersRemote(trimmed);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [searchTerm, searchRunnersRemote]);
   const [activeViewTab, setActiveViewTab] = useState<'all' | 'runners' | 'orders'>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [filterShirt, setFilterShirt] = useState<string>('all');
@@ -432,6 +453,19 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
             />
           </p>
         </div>
+
+        <button
+          type="button"
+          disabled={isSyncing}
+          onClick={async () => {
+            const res = await syncFromCloud({ forceAdminSync: !!adminUser?.isLoggedIn });
+            alert(res.message);
+          }}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 hover:text-[#DC2626] border border-slate-200 text-xs font-bold transition-all shadow-sm cursor-pointer self-start sm:self-auto"
+        >
+          <span className={`text-base ${isSyncing ? 'animate-spin' : ''}`}>🔄</span>
+          <span>{isSyncing ? 'กำลังดึงข้อมูลล่าสุด...' : 'ซิงค์ข้อมูลกับ Cloud'}</span>
+        </button>
       </div>
 
       {/* Search & Filter Bar */}
@@ -763,10 +797,15 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                 ) : (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-500 text-xs">
-                      {runners.length === 0 ? (
+                      {connectionStatus === 'quota_exhausted' || connectionStatus === 'error' ? (
+                        <div className="space-y-1.5 py-4 text-amber-800">
+                          <p className="font-bold text-sm">⚠️ ค้นหาไม่ได้เพราะ Cloud ขัดข้องหรือโควตาการอ่านรายวันเต็ม</p>
+                          <p className="text-xs text-amber-700">ระบบกำลังใช้งานข้อมูลสำรองในเครื่อง คุณสามารถพิมพ์ค้นหาตรงรหัส (BIB/Card ID) ได้อีกครั้ง</p>
+                        </div>
+                      ) : runners.length === 0 ? (
                         <div className="space-y-1.5">
-                          <p className="font-bold text-slate-700 text-sm">ยังไม่มีข้อมูลผู้สมัครในระบบ</p>
-                          <p className="text-slate-400">เมื่อมีผู้สมัครวิ่งหรือสั่งซื้อเสื้อ รายชื่อจะปรากฏที่นี่ทันทีแบบ Real-time</p>
+                          <p className="font-bold text-slate-700 text-sm">พิมพ์ค้นหาด้วยชื่อ, เบอร์โทร, BIB หรือ Card ID</p>
+                          <p className="text-slate-400">ระบบจะทำการค้นหาตรงจาก Cloud และดึงการ์ดผู้สมัครมาแสดงผลทันที</p>
                         </div>
                       ) : (
                         'ไม่พบข้อมูลผู้สมัครที่ตรงกับเงื่อนไขการค้นหา'

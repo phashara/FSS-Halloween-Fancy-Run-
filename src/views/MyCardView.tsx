@@ -25,9 +25,12 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
     runners,
     setCurrentCardId,
     ghostSpeciesList,
+    loadCardById,
+    searchRunnersRemote,
   } = useEventContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const species = currentCard
     ? ghostSpeciesList.find((g) => g.id === currentCard.speciesId) || THAI_GHOSTS[currentCard.speciesId] || THAI_GHOSTS.pret
@@ -38,12 +41,13 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
       : `คุณคือผี${species.name}`
     : '';
 
-  const handleSearchCard = (e: React.FormEvent) => {
+  const handleSearchCard = async (e: React.FormEvent) => {
     e.preventDefault();
     setSearchError('');
     const q = searchQuery.trim().toUpperCase();
     if (!q) return;
 
+    // 1. Check local state
     const foundCard = cards.find(
       (c) =>
         c.cardId.toUpperCase() === q ||
@@ -51,15 +55,41 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
         runners.some(
           (r) =>
             r.cardId === c.cardId &&
-            (r.phone.includes(q) || r.regId.toUpperCase() === q)
+            (r.phone.includes(q) || r.regId.toUpperCase() === q || (r.bibNumber && r.bibNumber.toUpperCase() === q))
         )
     );
 
     if (foundCard) {
       setCurrentCardId(foundCard.cardId);
       setSearchQuery('');
-    } else {
-      setSearchError('ไม่พบการ์ดผีด้วยหมายเลขหรือเบอร์โทรนี้');
+      return;
+    }
+
+    // 2. Fetch on-demand from Cloud Firestore
+    setIsSearching(true);
+    try {
+      if (q.startsWith('FSS26')) {
+        const remoteCard = await loadCardById(q);
+        if (remoteCard) {
+          setCurrentCardId(remoteCard.cardId);
+          setSearchQuery('');
+          return;
+        }
+      }
+
+      const remoteRunners = await searchRunnersRemote(q);
+      if (remoteRunners.length > 0 && remoteRunners[0].cardId) {
+        await loadCardById(remoteRunners[0].cardId);
+        setCurrentCardId(remoteRunners[0].cardId);
+        setSearchQuery('');
+        return;
+      }
+
+      setSearchError('ไม่พบการ์ดผีด้วยหมายเลข Card ID, BIB, หรือเบอร์โทรนี้');
+    } catch {
+      setSearchError('เกิดข้อผิดพลาดในการค้นหา กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsSearching(false);
     }
   };
 

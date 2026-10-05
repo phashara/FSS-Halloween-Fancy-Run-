@@ -103,10 +103,19 @@ export const OfficialMedalImage: React.FC<Props> = ({
     setErrorMessage('ไม่สามารถแสดงผลรูปภาพที่อัปโหลดได้ ระบบได้แสดงภาพแบบเหรียญต้นฉบับแทนแล้ว');
   };
 
-  const handleResetToDefault = () => {
-    setCustomMedalImage(null);
-    setViewMode('original');
-    setImageLoadError(false);
+  const handleResetToDefault = async () => {
+    setIsProcessing(true);
+    setErrorMessage(null);
+    try {
+      await setCustomMedalImage(null);
+      setViewMode('original');
+      setImageLoadError(false);
+    } catch (err: any) {
+      console.error('Medal reset failed:', err);
+      setErrorMessage(err?.message || 'ไม่สามารถรีเซ็ตเป็นภาพแบบเหรียญเดิมได้ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

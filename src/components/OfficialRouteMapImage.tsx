@@ -113,9 +113,18 @@ export const OfficialRouteMapImage: React.FC<Props> = ({
       return;
     }
     if (window.confirm('คุณต้องการรีเซ็ตรูปแผนที่กลับเป็นค่าเริ่มต้นทางการหรือไม่?')) {
-      await setCustomMapImage(null);
-      setViewMode('original');
-      setImageLoadError(false);
+      setIsProcessing(true);
+      setErrorMessage(null);
+      try {
+        await setCustomMapImage(null);
+        setViewMode('original');
+        setImageLoadError(false);
+      } catch (err: any) {
+        console.error('Map reset failed:', err);
+        setErrorMessage(err?.message || 'ไม่สามารถรีเซ็ตเป็นแผนที่เดิมได้ กรุณาลองใหม่อีกครั้ง');
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
   Users,
@@ -51,7 +51,22 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     clearSystemCache,
     adminUser,
     logoutAdmin,
+    syncFromCloud,
+    isSyncing,
+    lastSyncedAt,
+    connectionStatus,
+    quotaErrorMessage,
+    subscribeAdminData,
+    exportLocalBackup,
   } = useEventContext();
+
+  // Admin Dashboard on-demand subscription for runners & orders
+  useEffect(() => {
+    const unsubscribe = subscribeAdminData();
+    return () => {
+      unsubscribe();
+    };
+  }, [subscribeAdminData]);
 
   const [activeTab, setActiveTab] = useState<
     'runners' | 'orders' | 'finance' | 'shirt_dashboard' | 'metrics'
@@ -321,6 +336,32 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
           <button
             type="button"
             onClick={() => {
+              const res = exportLocalBackup();
+              alert(`ส่งออกข้อมูลสำรอง (Backup) สำเร็จ: ${res.filename}`);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold transition-colors border border-emerald-200 cursor-pointer shadow-sm"
+            title="ดาวน์โหลดไฟล์สำรองข้อมูลทั้งหมดในเครื่อง (JSON)"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600" /> สำรองข้อมูล (Backup)
+          </button>
+
+          <button
+            type="button"
+            disabled={isSyncing}
+            onClick={async () => {
+              const res = await syncFromCloud({ forceAdminSync: true });
+              alert(res.message);
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors border border-blue-200 cursor-pointer shadow-sm"
+            title="ดึงข้อมูลล่าสุดจาก Cloud Firestore"
+          >
+            <Cloud className={`w-3.5 h-3.5 text-blue-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'กำลังซิงค์...' : '🔄 ซิงค์ข้อมูล Cloud'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
               if (confirm('ต้องการล้างแคชหน่วยความจำเบราว์เซอร์ทั้งหมดและโหลดใหม่ใช่หรือไม่?')) {
                 clearSystemCache();
               }
@@ -358,6 +399,19 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
           </button>
         </div>
       </div>
+
+      {/* Quota Exhaustion / Connection Warning Banner */}
+      {connectionStatus === 'quota_exhausted' && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex items-start gap-3 text-xs sm:text-sm">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold">⚠️ โควตาการอ่านฐานข้อมูลรายวัน (Free Daily Read Units) เต็มแล้ว</p>
+            <p className="text-xs text-amber-800">
+              {quotaErrorMessage || 'ระบบกำลังใช้งานโหมดสำรองในเครื่อง (Offline Local Mode) เพื่อป้องกันการเรียกซ้ำ ข้อมูลที่บันทึกไว้ในเครื่องยังคงอยู่ครบถ้วน'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">

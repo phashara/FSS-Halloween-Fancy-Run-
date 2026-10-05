@@ -43,6 +43,7 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
   const [errorMsg, setErrorMsg] = useState('');
   const [copiedPromptPay, setCopiedPromptPay] = useState(false);
   const [submittedOrder, setSubmittedOrder] = useState<ShirtOrder | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCopyPromptPay = (num: string = '2178417854') => {
     navigator.clipboard?.writeText(num);
@@ -71,8 +72,9 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
     });
   };
 
-  const handleOrderSubmit = (e: React.FormEvent) => {
+  const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setErrorMsg('');
     setSuccessMsg('');
 
@@ -90,30 +92,38 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
       return;
     }
 
-    const createdOrder = orderShirt({
-      cardId: cardId || 'DIRECT_ORDER',
-      customerName: customerName.trim(),
-      phone: phone.trim(),
-      email: email.trim(),
-      size: sizes[0] || 'L',
-      sizes,
-      quantity,
-      deliveryMethod: 'pickup_event',
-      slipImage,
-    });
+    setIsSubmitting(true);
+    try {
+      const createdOrder = await orderShirt({
+        cardId: cardId || 'DIRECT_ORDER',
+        customerName: customerName.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+        size: sizes[0] || 'L',
+        sizes,
+        quantity,
+        deliveryMethod: 'pickup_event',
+        slipImage,
+      });
 
-    setSubmittedOrder(createdOrder);
-    setSuccessMsg(
-      `บันทึกคำสั่งซื้อ #${createdOrder.orderId} เรียบร้อยแล้ว! เจ้าหน้าที่กำลังตรวจสอบสลิปและจะยืนยันคำสั่งซื้อของคุณทันที`
-    );
+      setSubmittedOrder(createdOrder);
+      setSuccessMsg(
+        `บันทึกคำสั่งซื้อ #${createdOrder.orderId} เรียบร้อยแล้ว! เจ้าหน้าที่กำลังตรวจสอบสลิปและจะยืนยันคำสั่งซื้อของคุณทันที`
+      );
 
-    // Reset form fields
-    setCustomerName('');
-    setPhone('');
-    setEmail('');
-    setSlipImage('');
-    setQuantity(1);
-    setSizes(['L']);
+      // Reset form fields
+      setCustomerName('');
+      setPhone('');
+      setEmail('');
+      setSlipImage('');
+      setQuantity(1);
+      setSizes(['L']);
+    } catch (err: any) {
+      console.error('Order shirt error:', err);
+      setErrorMsg(err?.message || 'เกิดข้อผิดพลาดในการบันทึกคำสั่งซื้อ กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -484,14 +494,19 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={!slipImage}
+                disabled={!slipImage || isSubmitting}
                 className={`w-full py-3.5 font-bold text-sm rounded-xl shadow-sm transition-all flex items-center justify-center gap-2 ${
-                  slipImage
+                  slipImage && !isSubmitting
                     ? 'bg-[#DC2626] hover:bg-[#B91C1C] text-white cursor-pointer active:scale-[0.99]'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 }`}
               >
-                {slipImage ? (
+                {isSubmitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>กำลังบันทึกคำสั่งซื้อไปยัง Cloud...</span>
+                  </>
+                ) : slipImage ? (
                   <>
                     <span>ยืนยันการสั่งซื้อเสื้อ {quantity} ตัว (฿{(300 * quantity).toLocaleString()})</span>
                     <ArrowRight className="w-4 h-4" />

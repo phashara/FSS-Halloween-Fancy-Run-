@@ -38,8 +38,9 @@ interface Props {
 }
 
 export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType }) => {
-  const { adminUser, ghostSpeciesList, runners } = useEventContext();
+  const { adminUser, ghostSpeciesList, runners, searchRunnersRemote, loadCardById, setCurrentCardId } = useEventContext();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   const handleRegisterChoice = (type: 'RUN_FREE' | 'RUN_AND_SHIRT' | 'SHIRT_ONLY') => {
     if (onSelectRegistrationType) {
@@ -48,10 +49,36 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
     onNavigate('register');
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  const handleSearchSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
-    onNavigate('directory');
+    const q = searchQuery.trim().toUpperCase();
+    if (!q) return;
+
+    setIsSearching(true);
+    try {
+      if (q.startsWith('FSS26')) {
+        const card = await loadCardById(q);
+        if (card) {
+          setCurrentCardId(card.cardId);
+          onNavigate('mycard');
+          return;
+        }
+      }
+
+      const results = await searchRunnersRemote(q);
+      if (results.length > 0 && results[0].cardId) {
+        await loadCardById(results[0].cardId);
+        setCurrentCardId(results[0].cardId);
+        onNavigate('mycard');
+        return;
+      }
+
+      onNavigate('directory');
+    } catch {
+      onNavigate('directory');
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   return (
@@ -175,9 +202,9 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs text-slate-500 font-medium">ผู้สมัครแล้ว</p>
+            <p className="text-xs text-slate-500 font-medium">สถานะการรับสมัคร</p>
             <p className="text-sm font-bold text-slate-900">
-              {(runners?.length || 0).toLocaleString()} คน
+              {adminUser?.isLoggedIn ? `${runners.length} คน (มีผลซิงค์)` : 'เปิดรับสมัครอย่างเป็นทางการ'}
             </p>
           </div>
         </div>

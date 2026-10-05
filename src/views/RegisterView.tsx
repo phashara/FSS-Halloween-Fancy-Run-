@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Sparkles,
   Ghost,
@@ -29,6 +29,12 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
+import {
+  generateCardId,
+  generateRegId,
+  generateOrderId,
+  generateBibNumber,
+} from '../lib/idGenerator';
 import {
   GhostCard,
   ParticipantCategory,
@@ -193,9 +199,23 @@ export const RegisterView: React.FC<Props> = ({
     });
   };
 
-  // Reveal Modal
+  // Reveal Modal & Submitting state
   const [newlyCreatedCard, setNewlyCreatedCard] = useState<GhostCard | null>(null);
   const [showRevealModal, setShowRevealModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Store pre-generated idempotent IDs for retry without duplicate records
+  const pendingIdempotencyRef = useRef<{
+    cardId: string;
+    regId: string;
+    orderId: string;
+    bibNumber?: string;
+  }>({
+    cardId: generateCardId(),
+    regId: generateRegId(),
+    orderId: generateOrderId(),
+    bibNumber: generateBibNumber(),
+  });
 
   // Validation error
   const [errorMsg, setErrorMsg] = useState('');
@@ -284,7 +304,11 @@ export const RegisterView: React.FC<Props> = ({
     handleSubmitRegistration();
   };
 
-  const handleSubmitRegistration = () => {
+  const handleSubmitRegistration = async () => {
+    if (isSubmitting) return;
+    setErrorMsg('');
+    setIsSubmitting(true);
+
     const birthDateFormatted = `${birthDay}/${birthMonth}/${birthYear}`;
     const effectiveFaculty =
       faculty === 'อื่นๆ' ? (customFaculty.trim() || 'อื่นๆ') : faculty;
@@ -307,72 +331,87 @@ export const RegisterView: React.FC<Props> = ({
         ? effectiveStaffDepartment
         : organization.trim() || 'บุคคลทั่วไป';
 
-    const { runner, card } = registerParticipant({
-      regType: interestedInShirt === 'yes' && regType === 'RUN_FREE' ? 'RUN_AND_SHIRT' : regType,
-      fullName: nameThai.trim(),
-      nameThai: nameThai.trim(),
-      nameEng: nameEng.trim(),
-      nickname: nickname.trim(),
-      age: Number(age),
-      gender,
-      birthDate: birthDateFormatted,
-      birthDay,
-      birthMonth,
-      birthYear,
-      participantCategory,
-      studentYear: participantCategory === 'student' ? studentYear : undefined,
-      studentId:
-        participantCategory === 'student' || participantCategory === 'alumni'
-          ? studentId.trim()
-          : undefined,
-      facultyGroup:
-        participantCategory === 'student' || participantCategory === 'alumni'
-          ? selectedFacultyGroup
-          : undefined,
-      faculty:
-        participantCategory === 'student' || participantCategory === 'alumni'
-          ? effectiveFaculty
-          : undefined,
-      staffDepartmentGroup:
-        participantCategory === 'staff' ? selectedStaffGroup : undefined,
-      staffDepartment:
-        participantCategory === 'staff' ? effectiveStaffDepartment : undefined,
-      phone: phone.trim(),
-      email: email.trim(),
-      province: province.trim(),
-      organization: computedOrg,
-      emergencyContactName: emergencyContactName.trim(),
-      emergencyContactPhone: emergencyContactPhone.trim(),
-      emergencyContactRelation: emergencyContactRelation.trim(),
-      infoSource,
-      interestedInShirt,
-      hasAttendedBefore,
-      costumeStyle,
-      medicalConditions,
-      teamName,
-      displayNameType,
-      isMinor,
-      guardianName,
-      guardianPhone,
-      agreedTerms,
-      agreedPhotoRelease,
-      agreedDataPolicy,
-      shirtSize:
-        interestedInShirt === 'yes' && regType !== 'RUN_FREE'
-          ? shirtSizes[0] || 'L'
-          : undefined,
-      shirtSizes:
-        interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? shirtSizes : undefined,
-      shirtQuantity:
-        interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? shirtQuantity : undefined,
-      deliveryMethod: 'pickup_event',
-      shippingAddress: undefined,
-      slipImage:
-        interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? slipImage : undefined,
-    });
+    try {
+      const { runner, card } = await registerParticipant(
+        {
+          regType: interestedInShirt === 'yes' && regType === 'RUN_FREE' ? 'RUN_AND_SHIRT' : regType,
+          fullName: nameThai.trim(),
+          nameThai: nameThai.trim(),
+          nameEng: nameEng.trim(),
+          nickname: nickname.trim(),
+          age: Number(age),
+          gender,
+          birthDate: birthDateFormatted,
+          birthDay,
+          birthMonth,
+          birthYear,
+          participantCategory,
+          studentYear: participantCategory === 'student' ? studentYear : undefined,
+          studentId:
+            participantCategory === 'student' || participantCategory === 'alumni'
+              ? studentId.trim()
+              : undefined,
+          facultyGroup:
+            participantCategory === 'student' || participantCategory === 'alumni'
+              ? selectedFacultyGroup
+              : undefined,
+          faculty:
+            participantCategory === 'student' || participantCategory === 'alumni'
+              ? effectiveFaculty
+              : undefined,
+          staffDepartmentGroup:
+            participantCategory === 'staff' ? selectedStaffGroup : undefined,
+          staffDepartment:
+            participantCategory === 'staff' ? effectiveStaffDepartment : undefined,
+          phone: phone.trim(),
+          email: email.trim(),
+          province: province.trim(),
+          organization: computedOrg,
+          emergencyContactName: emergencyContactName.trim(),
+          emergencyContactPhone: emergencyContactPhone.trim(),
+          emergencyContactRelation: emergencyContactRelation.trim(),
+          infoSource,
+          interestedInShirt,
+          hasAttendedBefore,
+          costumeStyle,
+          medicalConditions,
+          teamName,
+          displayNameType,
+          isMinor,
+          guardianName,
+          guardianPhone,
+          agreedTerms,
+          agreedPhotoRelease,
+          agreedDataPolicy,
+          shirtSize:
+            interestedInShirt === 'yes' && regType !== 'RUN_FREE'
+              ? shirtSizes[0] || 'L'
+              : undefined,
+          shirtSizes:
+            interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? shirtSizes : undefined,
+          shirtQuantity:
+            interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? shirtQuantity : undefined,
+          deliveryMethod: 'pickup_event',
+          shippingAddress: undefined,
+          slipImage:
+            interestedInShirt === 'yes' && regType !== 'RUN_FREE' ? slipImage : undefined,
+        },
+        {
+          existingCardId: pendingIdempotencyRef.current.cardId,
+          existingRegId: pendingIdempotencyRef.current.regId,
+          existingOrderId: pendingIdempotencyRef.current.orderId,
+          existingBibNumber: pendingIdempotencyRef.current.bibNumber,
+        }
+      );
 
-    setNewlyCreatedCard(card);
-    setShowRevealModal(true);
+      setNewlyCreatedCard(card);
+      setShowRevealModal(true);
+    } catch (err: any) {
+      console.error('Registration submit error:', err);
+      setErrorMsg(err?.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const hasShirtPayment =
@@ -995,10 +1034,18 @@ export const RegisterView: React.FC<Props> = ({
             </button>
             <button
               type="button"
+              disabled={isSubmitting}
               onClick={handleStep2Next}
-              className="px-8 py-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-2"
+              className={`px-8 py-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-2 ${
+                isSubmitting ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
-              {hasShirtPayment ? (
+              {isSubmitting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>กำลังบันทึกข้อมูลเข้าระบบ...</span>
+                </>
+              ) : hasShirtPayment ? (
                 <>
                   <span>ถัดไป: ชำระเงินค่าเสื้อ & แนบสลิป</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1192,17 +1239,26 @@ export const RegisterView: React.FC<Props> = ({
             </button>
             <button
               type="button"
-              disabled={!slipImage}
+              disabled={!slipImage || isSubmitting}
               onClick={handleStep3Submit}
               className={`px-8 py-3.5 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-2 ${
-                slipImage
+                slipImage && !isSubmitting
                   ? 'bg-[#DC2626] hover:bg-[#B91C1C] text-white cursor-pointer'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed'
               }`}
             >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>ยืนยันการสมัคร & ชำระเงิน (สุ่มการ์ดผีทันที 👻)</span>
-              <ArrowRight className="w-4 h-4" />
+              {isSubmitting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  <span>กำลังบันทึกข้อมูลเข้าระบบ...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span>ยืนยันการสมัคร & ชำระเงิน (สุ่มการ์ดผีทันที 👻)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         </div>

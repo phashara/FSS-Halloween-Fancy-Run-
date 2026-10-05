@@ -41,6 +41,9 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
     logoutAdmin,
     isSyncing,
     syncFromCloud,
+    connectionStatus,
+    quotaErrorMessage,
+    pendingRegistrationInfo,
   } = useEventContext();
 
   const handleSyncClick = async () => {
@@ -101,6 +104,27 @@ export const Navbar: React.FC<Props> = ({ currentView, onNavigate }) => {
                 <span>ออกจากระบบ</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Cloud Status / Pending Registration Notification Banner */}
+        {connectionStatus === 'quota_exhausted' && (
+          <div className="bg-amber-500 text-amber-950 px-4 py-1.5 text-xs font-bold flex items-center justify-between gap-2 shadow-inner">
+            <span>⚠️ Cloud Read Quota Full (กำลังใช้งานข้อมูลสำรองในเครื่อง - ข้อมูลของคุณไม่สูญหาย)</span>
+            <span className="text-[10px] bg-amber-900/20 px-2 py-0.5 rounded font-mono">OFFLINE MODE</span>
+          </div>
+        )}
+
+        {pendingRegistrationInfo && (
+          <div className="bg-blue-600 text-white px-4 py-1.5 text-xs font-bold flex items-center justify-between gap-2 shadow-inner">
+            <span>⏳ มีรายการสมัครค้างส่งของคุณ ({pendingRegistrationInfo.fullName}) - ระบบจะนำส่งข้อมูลชุดเดิมเมื่อกดส่งอีกครั้ง</span>
+            <button
+              type="button"
+              onClick={() => handleNavClick('register')}
+              className="underline hover:text-blue-100 text-xs font-bold cursor-pointer"
+            >
+              ไปที่หน้าสมัคร
+            </button>
           </div>
         )}
 
