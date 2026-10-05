@@ -3,10 +3,13 @@ import { db } from '../lib/firebase';
 import {
   collection,
   doc,
+  documentId,
   getDoc,
   getDocs,
   onSnapshot,
+  orderBy,
   setDoc,
+  startAfter,
   writeBatch,
   query,
   where,
@@ -136,6 +139,25 @@ export interface PendingOrderPayload {
   savedAt: string;
 }
 
+export interface LoadDirectoryPageOptions {
+  pageSize?: number;
+  lastDoc?: any;
+}
+
+export interface DirectoryPageResult {
+  runners: RunnerRegistration[];
+  cards: GhostCard[];
+  orders: ShirtOrder[];
+  hasMore: boolean;
+  lastDoc: any;
+}
+
+export interface SearchResultPayload {
+  runners: RunnerRegistration[];
+  cards: GhostCard[];
+  orders: ShirtOrder[];
+}
+
 export interface EventContextType {
   cards: GhostCard[];
   runners: RunnerRegistration[];
@@ -179,7 +201,8 @@ export interface EventContextType {
   syncFromCloud: (options?: { forceAdminSync?: boolean }) => Promise<{ success: boolean; message: string; count: number }>;
   subscribeAdminData: () => () => void;
   loadCardById: (cardId: string) => Promise<GhostCard | null>;
-  searchRunnersRemote: (queryStr: string) => Promise<RunnerRegistration[]>;
+  loadDirectoryPage: (options?: LoadDirectoryPageOptions) => Promise<DirectoryPageResult>;
+  searchRunnersRemote: (queryStr: string) => Promise<SearchResultPayload>;
   exportLocalBackup: () => { success: boolean; filename: string };
 
   // Actions
@@ -333,7 +356,6 @@ export function createOrderFingerprint(params: OrderShirtParams): string {
 }
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Preserve existing local storage data without wiping
   const [cards, setCards] = useState<GhostCard[]>(() => {
     try {
       const saved = safeLocalStorage.getItem(STORAGE_KEYS.CARDS);
@@ -689,7 +711,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setSiteContent((prev) => ({ ...DEFAULT_SITE_CONTENT, ...prev, ...remoteContent }));
           }
 
-          // 3. Process Ghost Species (Properly apply to ghostSpeciesMap)
+          // 3. Process Ghost Species
           if (ghostsSnap && !ghostsSnap.empty) {
             const remoteGhosts: Record<string, Partial<GhostSpecies>> = {};
             ghostsSnap.forEach((docSnap: any) => {
@@ -734,47 +756,32 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             });
           }
 
-          // 4. Process Runners / Orders / Cards (If admin requested)
-          if (runnersSnap && !runnersSnap.empty) {
+          // 4. Process Runners / Orders / Cards with AUTHORITATIVE REPLACEMENT (no stale row pollution)
+          if (runnersSnap) {
             const remoteRunners: RunnerRegistration[] = [];
             runnersSnap.forEach((docSnap: any) => {
               remoteRunners.push(docSnap.data() as RunnerRegistration);
               count++;
             });
-            setRunners((prev) => {
-              const map = new Map<string, RunnerRegistration>();
-              (prev || []).forEach((r) => map.set(r.regId, r));
-              remoteRunners.forEach((r) => map.set(r.regId, r));
-              return Array.from(map.values());
-            });
+            setRunners(remoteRunners);
           }
 
-          if (ordersSnap && !ordersSnap.empty) {
+          if (ordersSnap) {
             const remoteOrders: ShirtOrder[] = [];
             ordersSnap.forEach((docSnap: any) => {
               remoteOrders.push(docSnap.data() as ShirtOrder);
               count++;
             });
-            setOrders((prev) => {
-              const map = new Map<string, ShirtOrder>();
-              (prev || []).forEach((o) => map.set(o.orderId, o));
-              remoteOrders.forEach((o) => map.set(o.orderId, o));
-              return Array.from(map.values());
-            });
+            setOrders(remoteOrders);
           }
 
-          if (cardsSnap && !cardsSnap.empty) {
+          if (cardsSnap) {
             const remoteCards: GhostCard[] = [];
             cardsSnap.forEach((docSnap: any) => {
               remoteCards.push(docSnap.data() as GhostCard);
               count++;
             });
-            setCards((prev) => {
-              const map = new Map<string, GhostCard>();
-              (prev || []).forEach((c) => map.set(c.cardId, c));
-              remoteCards.forEach((c) => map.set(c.cardId, c));
-              return Array.from(map.values());
-            });
+            setCards(remoteCards);
           }
 
           setConnectionStatus('connected');
@@ -817,7 +824,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           idbGet<string>('system_asset_map'),
         ]);
 
-        // Only apply if Cloud sync hasn't arrived yet
         if (cloudHydratedAtRef.current === 0) {
           if (shirtImg) setCustomShirtImageState(shirtImg);
           if (medalImg) setCustomMedalImageState(medalImg);
@@ -851,13 +857,12 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     syncFromCloud();
   }, [syncFromCloud]);
 
-  // Load single card on-demand and refresh from Cloud with TTL
+  // Load single card on-demand and refresh from Cloud
   const loadCardById = useCallback(async (cardId: string): Promise<GhostCard | null> => {
     if (!cardId) return null;
     const existing = cards.find((c) => c.cardId === cardId);
     const lastFetched = cardFetchTimestampRef.current.get(cardId) || 0;
 
-    // If fetched recently (within 45s), return local
     if (existing && Date.now() - lastFetched < 45000) {
       return existing;
     }
@@ -871,7 +876,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const snap = await getDoc(doc(db, 'cards', cardId));
       if (snap.exists()) {
         const remoteCard = snap.data() as GhostCard;
-        // Upsert into cards state
         setCards((prev) => {
           const map = new Map<string, GhostCard>();
           (prev || []).forEach((c) => map.set(c.cardId, c));
@@ -895,60 +899,213 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [currentCardId, loadCardById]);
 
-  // Targeted remote search for Directory & Home (throws on quota/network error so caller knows)
-  const searchRunnersRemote = useCallback(async (queryStr: string): Promise<RunnerRegistration[]> => {
-    const q = queryStr.trim().toUpperCase();
-    if (!q) return [];
-
-    if (Date.now() < quotaCooldownUntilRef.current) {
-      const err = new Error('โควตาการค้นหา Cloud รายวันเต็มอยู่ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
-      (err as any).code = 'resource-exhausted';
-      throw err;
-    }
-
-    const fetchedRunners: RunnerRegistration[] = [];
-    try {
-      // 1. Check by regId exact
-      const regSnap = await getDocs(query(collection(db, 'runners'), where('regId', '==', q), limit(5)));
-      regSnap.forEach((d) => fetchedRunners.push(d.data() as RunnerRegistration));
-
-      // 2. Check by cardId exact
-      if (fetchedRunners.length === 0) {
-        const cardSnap = await getDocs(query(collection(db, 'runners'), where('cardId', '==', q), limit(5)));
-        cardSnap.forEach((d) => fetchedRunners.push(d.data() as RunnerRegistration));
+  // Cloud-backed Paginated Directory Loader (reads orderBy documentId with limit & startAfter cursor)
+  const loadDirectoryPage = useCallback(
+    async (options?: LoadDirectoryPageOptions): Promise<DirectoryPageResult> => {
+      const pageSize = options?.pageSize || 20;
+      if (Date.now() < quotaCooldownUntilRef.current) {
+        const err = new Error('โควตาการอ่าน Cloud รายวันเต็มอยู่ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
+        (err as any).code = 'resource-exhausted';
+        throw err;
       }
 
-      // 3. Check by bibNumber exact
-      if (fetchedRunners.length === 0) {
-        const bibSnap = await getDocs(query(collection(db, 'runners'), where('bibNumber', '==', q), limit(5)));
-        bibSnap.forEach((d) => fetchedRunners.push(d.data() as RunnerRegistration));
-      }
+      try {
+        const runnersRef = collection(db, 'runners');
+        const queryConstraints: any[] = [orderBy(documentId()), limit(pageSize + 1)];
+        if (options?.lastDoc) {
+          queryConstraints.push(startAfter(options.lastDoc));
+        }
 
-      // 4. Check by phone
-      if (fetchedRunners.length === 0 && q.replace(/\D/g, '').length >= 9) {
-        const phoneClean = q.replace(/\D/g, '');
-        const phoneSnap = await getDocs(query(collection(db, 'runners'), where('phone', '==', phoneClean), limit(5)));
-        phoneSnap.forEach((d) => fetchedRunners.push(d.data() as RunnerRegistration));
-      }
+        const runnerSnap = await getDocs(query(runnersRef, ...queryConstraints));
+        const fetchedRunners: RunnerRegistration[] = [];
+        const rawDocs: any[] = [];
 
-      if (fetchedRunners.length > 0) {
-        setRunners((prev) => {
-          const map = new Map<string, RunnerRegistration>();
-          (prev || []).forEach((r) => map.set(r.regId, r));
-          fetchedRunners.forEach((r) => map.set(r.regId, r));
-          return Array.from(map.values());
+        runnerSnap.forEach((d) => {
+          fetchedRunners.push(d.data() as RunnerRegistration);
+          rawDocs.push(d);
         });
+
+        const hasMore = fetchedRunners.length > pageSize;
+        const pageRunners = hasMore ? fetchedRunners.slice(0, pageSize) : fetchedRunners;
+        const newLastDoc = rawDocs[pageRunners.length - 1] || null;
+
+        // Hydrate associated cards and orders for this page
+        const fetchedCardsMap = new Map<string, GhostCard>();
+        const fetchedOrdersMap = new Map<string, ShirtOrder>();
+
+        const cardIdsToFetch = Array.from(
+          new Set(pageRunners.map((r) => r.cardId).filter(Boolean))
+        );
+        const orderIdsToFetch = Array.from(
+          new Set(pageRunners.map((r) => r.shirtOrderId).filter(Boolean))
+        );
+
+        for (const cid of cardIdsToFetch) {
+          try {
+            const cSnap = await getDoc(doc(db, 'cards', cid));
+            if (cSnap.exists()) {
+              fetchedCardsMap.set(cid, cSnap.data() as GhostCard);
+            }
+          } catch (err) {
+            handleQuotaBreaker(err);
+            throw err;
+          }
+        }
+
+        for (const oid of orderIdsToFetch) {
+          if (oid) {
+            try {
+              const oSnap = await getDoc(doc(db, 'orders', oid));
+              if (oSnap.exists()) {
+                fetchedOrdersMap.set(oid, oSnap.data() as ShirtOrder);
+              }
+            } catch (err) {
+              handleQuotaBreaker(err);
+              throw err;
+            }
+          }
+        }
+
         setConnectionStatus('connected');
+
+        return {
+          runners: pageRunners,
+          cards: Array.from(fetchedCardsMap.values()),
+          orders: Array.from(fetchedOrdersMap.values()),
+          hasMore,
+          lastDoc: newLastDoc,
+        };
+      } catch (err: any) {
+        handleQuotaBreaker(err);
+        throw err;
+      }
+    },
+    [handleQuotaBreaker]
+  );
+
+  // Targeted remote search for Directory & Home (returns separate result payload without polluting global state)
+  const searchRunnersRemote = useCallback(
+    async (queryStr: string): Promise<SearchResultPayload> => {
+      const rawStr = queryStr.trim();
+      const upperStr = rawStr.toUpperCase();
+      if (!rawStr) return { runners: [], cards: [], orders: [] };
+
+      if (Date.now() < quotaCooldownUntilRef.current) {
+        const err = new Error('โควตาการค้นหา Cloud รายวันเต็มอยู่ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
+        (err as any).code = 'resource-exhausted';
+        throw err;
       }
 
-      return fetchedRunners;
-    } catch (err: any) {
-      handleQuotaBreaker(err);
-      throw err;
-    }
-  }, [handleQuotaBreaker]);
+      const fetchedRunnersMap = new Map<string, RunnerRegistration>();
+      const fetchedCardsMap = new Map<string, GhostCard>();
+      const fetchedOrdersMap = new Map<string, ShirtOrder>();
 
-  // Admin Dashboard on-demand subscription: Only listens to runners & orders when Admin is open
+      try {
+        const runnersRef = collection(db, 'runners');
+        const ordersRef = collection(db, 'orders');
+
+        // Exact match queries across runner name fields, IDs, and phone
+        const runnerQueries: any[] = [
+          query(runnersRef, where('regId', '==', upperStr), limit(10)),
+          query(runnersRef, where('cardId', '==', upperStr), limit(10)),
+          query(runnersRef, where('bibNumber', '==', upperStr), limit(10)),
+          query(runnersRef, where('fullName', '==', rawStr), limit(10)),
+          query(runnersRef, where('nameThai', '==', rawStr), limit(10)),
+          query(runnersRef, where('nameEng', '==', rawStr), limit(10)),
+          query(runnersRef, where('nickname', '==', rawStr), limit(10)),
+        ];
+
+        const cleanPhone = rawStr.replace(/\D/g, '');
+        if (cleanPhone.length >= 8) {
+          runnerQueries.push(query(runnersRef, where('phone', '==', cleanPhone), limit(10)));
+        }
+
+        // Direct orders query (supporting ORD-... exact or phone/name)
+        const orderQueries: any[] = [
+          query(ordersRef, where('orderId', '==', upperStr), limit(10)),
+          query(ordersRef, where('customerName', '==', rawStr), limit(10)),
+        ];
+        if (cleanPhone.length >= 8) {
+          orderQueries.push(query(ordersRef, where('phone', '==', cleanPhone), limit(10)));
+        }
+
+        const runnerSnaps = await Promise.all(runnerQueries.map((q) => getDocs(q)));
+        const orderSnaps = await Promise.all(orderQueries.map((q) => getDocs(q)));
+
+        runnerSnaps.forEach((snap) => {
+          if (snap && !snap.empty) {
+            snap.forEach((docSnap) => {
+              const data = docSnap.data() as RunnerRegistration;
+              if (data && data.regId) {
+                fetchedRunnersMap.set(data.regId, data);
+              }
+            });
+          }
+        });
+
+        orderSnaps.forEach((snap) => {
+          if (snap && !snap.empty) {
+            snap.forEach((docSnap) => {
+              const data = docSnap.data() as ShirtOrder;
+              if (data && data.orderId) {
+                fetchedOrdersMap.set(data.orderId, data);
+              }
+            });
+          }
+        });
+
+        const fetchedRunners = Array.from(fetchedRunnersMap.values());
+
+        // Hydrate associated cards and orders for runners
+        const cardIdsToFetch = Array.from(
+          new Set(fetchedRunners.map((r) => r.cardId).filter(Boolean))
+        );
+        const orderIdsToFetch = Array.from(
+          new Set(fetchedRunners.map((r) => r.shirtOrderId).filter(Boolean))
+        );
+
+        for (const cid of cardIdsToFetch) {
+          try {
+            const cSnap = await getDoc(doc(db, 'cards', cid));
+            if (cSnap.exists()) {
+              fetchedCardsMap.set(cid, cSnap.data() as GhostCard);
+            }
+          } catch (err) {
+            handleQuotaBreaker(err);
+            throw err;
+          }
+        }
+
+        for (const oid of orderIdsToFetch) {
+          if (oid && !fetchedOrdersMap.has(oid)) {
+            try {
+              const oSnap = await getDoc(doc(db, 'orders', oid));
+              if (oSnap.exists()) {
+                fetchedOrdersMap.set(oid, oSnap.data() as ShirtOrder);
+              }
+            } catch (err) {
+              handleQuotaBreaker(err);
+              throw err;
+            }
+          }
+        }
+
+        setConnectionStatus('connected');
+
+        return {
+          runners: fetchedRunners,
+          cards: Array.from(fetchedCardsMap.values()),
+          orders: Array.from(fetchedOrdersMap.values()),
+        };
+      } catch (err: any) {
+        handleQuotaBreaker(err);
+        throw err;
+      }
+    },
+    [handleQuotaBreaker]
+  );
+
+  // Admin Dashboard on-demand subscription: AUTHORITATIVE REPLACEMENT (no stale row pollution)
   const subscribeAdminData = useCallback(() => {
     if (Date.now() < quotaCooldownUntilRef.current) {
       console.warn('Admin subscription paused due to quota cooldown.');
@@ -967,12 +1124,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           snap.forEach((docSnap) => {
             remoteRunners.push(docSnap.data() as RunnerRegistration);
           });
-          setRunners((prev) => {
-            const map = new Map<string, RunnerRegistration>();
-            (prev || []).forEach((r) => map.set(r.regId, r));
-            remoteRunners.forEach((r) => map.set(r.regId, r));
-            return Array.from(map.values());
-          });
+          setRunners(remoteRunners); // Authoritative replacement
           setConnectionStatus('connected');
         },
         (err) => {
@@ -988,12 +1140,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           snap.forEach((docSnap) => {
             remoteOrders.push(docSnap.data() as ShirtOrder);
           });
-          setOrders((prev) => {
-            const map = new Map<string, ShirtOrder>();
-            (prev || []).forEach((o) => map.set(o.orderId, o));
-            remoteOrders.forEach((o) => map.set(o.orderId, o));
-            return Array.from(map.values());
-          });
+          setOrders(remoteOrders); // Authoritative replacement
           setConnectionStatus('connected');
         },
         (err) => {
@@ -1009,12 +1156,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           snap.forEach((docSnap) => {
             remoteCards.push(docSnap.data() as GhostCard);
           });
-          setCards((prev) => {
-            const map = new Map<string, GhostCard>();
-            (prev || []).forEach((c) => map.set(c.cardId, c));
-            remoteCards.forEach((c) => map.set(c.cardId, c));
-            return Array.from(map.values());
-          });
+          setCards(remoteCards); // Authoritative replacement
           setConnectionStatus('connected');
         },
         (err) => {
@@ -1088,7 +1230,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       throw new Error('ไม่สามารถบันทึกข้อมูลเนื้อหาไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
     }
 
-    // Update state only after confirmed save
     setSiteContent((prev) => ({
       ...prev,
       [section.sectionKey]: section,
@@ -1102,7 +1243,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Safe Image Helpers (Validates, forbids temporary blob: URLs, requires cloud metadata save before local update)
   const validateImageUrl = (url: string | null): void => {
     if (!url) return;
     if (url.startsWith('blob:')) {
@@ -1116,7 +1256,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setCustomShirtImage = async (imgUrl: string | null) => {
     validateImageUrl(imgUrl);
 
-    // Save to Cloud FIRST via atomic writeBatch
     const payload = {
       sectionKey: 'asset_shirt',
       category: 'system_asset',
@@ -1135,7 +1274,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       throw new Error('บันทึกรูปภาพเสื้อไปยัง Cloud ล้มเหลว: ' + ((err as Error)?.message || ''));
     }
 
-    // Update state and local storage ONLY after Cloud confirmation
     setCustomShirtImageState(imgUrl);
     if (imgUrl) {
       await idbSet('system_asset_shirt', imgUrl);
@@ -1214,7 +1352,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateCardCustomImage = async (cardId: string, imageUrl: string | null) => {
     validateImageUrl(imageUrl);
 
-    // Save to Cloud FIRST
     try {
       await setDoc(doc(db, 'cards', cardId), cleanForFirestore({ customImageUrl: imageUrl || null }), { merge: true });
     } catch (err) {
@@ -1222,7 +1359,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       throw new Error('บันทึกรูปภาพการ์ดไปยัง Cloud ล้มเหลว: ' + ((err as Error)?.message || ''));
     }
 
-    // Update state ONLY after Cloud confirmation
     setCards((prev) =>
       prev.map((c) =>
         c.cardId === cardId ? { ...c, customImageUrl: imageUrl || undefined } : c
@@ -1255,7 +1391,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const updateGhostSpecies = async (species: GhostSpecies) => {
     validateImageUrl(species.customImageUrl || null);
 
-    // Save to Firestore FIRST
     try {
       const docRef = doc(db, 'ghost_species', species.id);
       await setDoc(docRef, cleanForFirestore(species), { merge: true });
@@ -1287,9 +1422,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // ============================================================
-  // ATOMIC REGISTRATION WITH PER-PERSON FINGERPRINT REUSE & UPSERT
-  // ============================================================
   const registerParticipant = async (
     params: RegisterParams,
     options?: RegisterOptions
@@ -1300,7 +1432,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (rawPending) {
       try {
         const parsed = JSON.parse(rawPending) as PendingRegistrationPayload;
-        // MUST match this exact person's fingerprint! Never commit an old person's payload to a new form!
         if (parsed && parsed.fingerprint === fingerprint) {
           pendingData = parsed;
         }
@@ -1314,12 +1445,10 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let createdOrder: ShirtOrder | undefined;
 
     if (pendingData) {
-      // REUSE exact same species, stats, timestamps, and IDs on retry!
       newCard = pendingData.card;
       newRunner = pendingData.runner;
       createdOrder = pendingData.order;
     } else {
-      // Generate new payload
       const ALL_SPECIES: GhostSpeciesId[] = OFFICIAL_12_GHOST_IDS;
       const randomIndex = Math.floor(Math.random() * ALL_SPECIES.length);
       const chosenSpeciesId: GhostSpeciesId = ALL_SPECIES[randomIndex];
@@ -1452,7 +1581,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         shirtClaimed: false,
       };
 
-      // Save pending payload to localStorage before commit
       safeLocalStorage.setItem(
         STORAGE_KEYS.PENDING_REGISTRATION,
         JSON.stringify({
@@ -1470,7 +1598,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     }
 
-    // ATOMIC WRITE BATCH - Commit to Firestore FIRST
     try {
       const batch = writeBatch(db);
       batch.set(doc(db, 'runners', newRunner.regId), cleanForFirestore(newRunner), { merge: true });
@@ -1490,7 +1617,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       throw new Error('เกิดข้อผิดพลาดในการเชื่อมต่อเพื่อบันทึกข้อมูล กรุณาตรวจสอบสัญญาณอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง');
     }
 
-    // ONLY AFTER successful atomic commit, clear pending state and UPSERT into React confirmed state
     safeLocalStorage.removeItem(STORAGE_KEYS.PENDING_REGISTRATION);
     setPendingRegistrationInfo(null);
 
@@ -1523,9 +1649,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { runner: newRunner, card: newCard, order: createdOrder };
   };
 
-  // ============================================================
-  // ATOMIC ORDER SHIRT WITH FINGERPRINT REUSE & UPSERT
-  // ============================================================
   const orderShirt = async (
     params: OrderShirtParams,
     options?: OrderShirtOptions
@@ -1587,7 +1710,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const targetRunner = runners.find((r) => r.cardId === params.cardId);
 
-    // Commit to Firestore FIRST
     try {
       const batch = writeBatch(db);
       batch.set(doc(db, 'orders', newOrder.orderId), cleanForFirestore(newOrder), { merge: true });
@@ -1609,7 +1731,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       throw new Error('ไม่สามารถบันทึกคำสั่งซื้อไปยัง Cloud ได้ กรุณาลองใหม่อีกครั้ง');
     }
 
-    // Clear pending order and UPSERT state
     safeLocalStorage.removeItem(STORAGE_KEYS.PENDING_ORDER);
 
     setOrders((prev) => {
@@ -1825,7 +1946,6 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const updatedRunners = runners.map((r) => (r.regId === runner.regId ? updatedRunner : r));
     setRunners(updatedRunners);
 
-    // Recompute card level if checked in
     setCards((prev) =>
       prev.map((c) =>
         c.cardId === runner.cardId ? recomputeCardLevel(c, orders, updatedRunners) : c
@@ -1921,6 +2041,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         syncFromCloud,
         subscribeAdminData,
         loadCardById,
+        loadDirectoryPage,
         searchRunnersRemote,
         exportLocalBackup,
         registerParticipant,

@@ -66,9 +66,9 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
       }
 
       const results = await searchRunnersRemote(q);
-      if (results.length > 0 && results[0].cardId) {
-        await loadCardById(results[0].cardId);
-        setCurrentCardId(results[0].cardId);
+      if (results.runners && results.runners.length > 0 && results.runners[0].cardId) {
+        await loadCardById(results.runners[0].cardId);
+        setCurrentCardId(results.runners[0].cardId);
         onNavigate('mycard');
         return;
       }

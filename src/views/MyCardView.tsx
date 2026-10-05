@@ -77,10 +77,10 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
         }
       }
 
-      const remoteRunners = await searchRunnersRemote(q);
-      if (remoteRunners.length > 0 && remoteRunners[0].cardId) {
-        await loadCardById(remoteRunners[0].cardId);
-        setCurrentCardId(remoteRunners[0].cardId);
+      const searchRes = await searchRunnersRemote(q);
+      if (searchRes.runners && searchRes.runners.length > 0 && searchRes.runners[0].cardId) {
+        await loadCardById(searchRes.runners[0].cardId);
+        setCurrentCardId(searchRes.runners[0].cardId);
         setSearchQuery('');
         return;
       }
