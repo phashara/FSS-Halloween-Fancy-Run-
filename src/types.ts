@@ -6,7 +6,7 @@ export type GhostSpeciesId =
   | 'krasue'         // 2. ผีกระสือ
   | 'krahang'        // 3. ผีกระหัง
   | 'pop'            // 4. ผีปอบ
-  | 'kongkoi'        // 5. ผีกองกอง
+  | 'kongkoi'        // 5. ผีกองกอย
   | 'pitakhon'       // 6. ผีตาโขน
   | 'pusom'          // 7. ปู่โสมเฝ้าทรัพย์
   | 'mabong'         // 8. ผีม้าบ้อง
@@ -110,6 +110,11 @@ export interface RunnerRegistration {
   infoSource?: string;
   // 10. สนใจซื้อเสื้อไหม yes / No
   interestedInShirt?: 'yes' | 'no';
+  // 11. เคยมาร่วมงานหรือไม่: yes / no
+  hasAttendedBefore?: 'yes' | 'no';
+  // 12. วันงานจะแต่งตัวแบบไหน: sportswear (ชุดกีฬา) | ghost (ชุดผี) | other (อื่นๆ)
+  costumeStyle?: 'sportswear' | 'ghost' | 'other';
+  costumeStyleNote?: string;
   // Additional safety & details
   medicalConditions?: string;
   teamName?: string;

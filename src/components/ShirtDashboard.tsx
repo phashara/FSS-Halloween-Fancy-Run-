@@ -557,8 +557,8 @@ export const ShirtDashboard: React.FC<Props> = ({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
-                    ไม่พบรายการคำสั่งซื้อตามเงื่อนไขที่เลือก
+                  <td colSpan={8} className="py-12 text-center text-slate-500 text-xs">
+                    {orders.length === 0 ? 'ยังไม่มีรายการสั่งซื้อเสื้อในระบบ' : 'ไม่พบรายการคำสั่งซื้อตามเงื่อนไขที่เลือก'}
                   </td>
                 </tr>
               )}

@@ -80,7 +80,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <EventProvider>
-        <AppContent />
+        <ErrorBoundary>
+          <AppContent />
+        </ErrorBoundary>
       </EventProvider>
     </ErrorBoundary>
   );

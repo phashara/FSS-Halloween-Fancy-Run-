@@ -30,7 +30,7 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
   const [searchError, setSearchError] = useState('');
 
   const species = currentCard
-    ? ghostSpeciesList.find((g) => g.id === currentCard.speciesId) || THAI_GHOSTS[currentCard.speciesId]
+    ? ghostSpeciesList.find((g) => g.id === currentCard.speciesId) || THAI_GHOSTS[currentCard.speciesId] || THAI_GHOSTS.pret
     : null;
   const ghostHeadline = species
     ? species.name.startsWith('ผี') || species.name.startsWith('นาง')
@@ -51,7 +51,7 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
         runners.some(
           (r) =>
             r.cardId === c.cardId &&
-            (r.phone.includes(q) || (r.bibNumber && r.bibNumber.toUpperCase() === q))
+            (r.phone.includes(q) || r.regId.toUpperCase() === q)
         )
     );
 
@@ -226,8 +226,8 @@ export const MyCardView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNa
                     <span className="font-bold text-slate-900">{currentRunner.fullName}</span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block">หมายเลข BIB:</span>
-                    <span className="font-bold text-[#DC2626] font-mono">{currentRunner.bibNumber || '-'}</span>
+                    <span className="text-slate-500 block">รหัสลงทะเบียน:</span>
+                    <span className="font-bold text-[#DC2626] font-mono">{currentRunner.regId}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block">ประเภท:</span>

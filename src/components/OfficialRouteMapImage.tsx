@@ -195,15 +195,9 @@ export const OfficialRouteMapImage: React.FC<Props> = ({
 
         {/* Top Badges Overlay */}
         <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2 z-10 pointer-events-none">
-          {customMapImage && viewMode === 'custom' && !imageLoadError ? (
-            <span className="px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-[11px] font-bold text-emerald-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
-              <Sparkles className="w-3 h-3 text-emerald-400" /> รูปแผนที่จริงของงาน (Cloud Synced)
-            </span>
-          ) : (
-            <span className="px-3 py-1 rounded-full bg-slate-950/85 border border-red-500/40 text-[11px] font-mono font-bold text-red-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
-              <Sparkles className="w-3 h-3" /> OFFICIAL ROUTE DESIGN
-            </span>
-          )}
+          <span className="px-3 py-1 rounded-full bg-slate-950/85 border border-red-500/40 text-[11px] font-mono font-bold text-red-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
+            <Sparkles className="w-3 h-3" /> OFFICIAL ROUTE MAP
+          </span>
 
           {isAdmin && (
             <span className="px-2.5 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-[11px] font-bold text-red-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
@@ -230,7 +224,7 @@ export const OfficialRouteMapImage: React.FC<Props> = ({
           </button>
 
           {/* Admin Upload Trigger (Only accessible by admin) */}
-          {allowUpload && isAdmin ? (
+          {allowUpload && isAdmin && (
             <>
               <input
                 ref={fileInputRef}
@@ -273,17 +267,7 @@ export const OfficialRouteMapImage: React.FC<Props> = ({
                 </button>
               )}
             </>
-          ) : allowUpload && !isAdmin ? (
-            <button
-              type="button"
-              onClick={() => setIsAdminModalOpen(true)}
-              className="p-2 px-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 backdrop-blur-sm transition-all shadow-md flex items-center gap-1.5 text-[11px] font-medium cursor-pointer"
-              title="เข้าสู่ระบบแอดมินเพื่อเปลี่ยนรูปภาพแผนที่"
-            >
-              <Lock className="w-3 h-3 text-slate-500" />
-              <span>แอดมินเปลี่ยนรูป</span>
-            </button>
-          ) : null}
+          )}
         </div>
       </div>
 

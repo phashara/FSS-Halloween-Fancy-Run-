@@ -86,9 +86,9 @@ export const RegisterView: React.FC<Props> = ({
   const [studentYear, setStudentYear] = useState<StudentYear>('1');
   const [studentId, setStudentId] = useState('');
   const [faculty, setFaculty] = useState('คณะแพทยศาสตร์');
-  const [staffDepartment, setStaffDepartment] = useState(
-    'กองกลาง (งานสารบรรณ, การประชุม, ยานพาหนะ, ประชาสัมพันธ์)'
-  );
+  const [customFaculty, setCustomFaculty] = useState('');
+  const [staffDepartment, setStaffDepartment] = useState('กองกลาง');
+  const [customStaffDepartment, setCustomStaffDepartment] = useState('');
 
   // Contacts
   const [phone, setPhone] = useState('');
@@ -106,6 +106,10 @@ export const RegisterView: React.FC<Props> = ({
   const [interestedInShirt, setInterestedInShirt] = useState<'yes' | 'no'>(
     regType === 'RUN_AND_SHIRT' || regType === 'SHIRT_ONLY' ? 'yes' : 'no'
   );
+
+  // Survey: 1. เคยมาร่วมงานหรือไม่, 2. วันงานจะแต่งตัวแบบไหน
+  const [hasAttendedBefore, setHasAttendedBefore] = useState<'yes' | 'no'>('no');
+  const [costumeStyle, setCostumeStyle] = useState<'sportswear' | 'ghost' | 'other'>('sportswear');
 
   const [medicalConditions, setMedicalConditions] = useState('');
   const [teamName, setTeamName] = useState('');
@@ -228,9 +232,17 @@ export const RegisterView: React.FC<Props> = ({
         setErrorMsg('กรุณาเลือกคณะ');
         return;
       }
+      if (faculty === 'อื่นๆ' && !customFaculty.trim()) {
+        setErrorMsg('กรุณาระบุชื่อคณะ/วิทยาลัย/หน่วยงานของคุณ');
+        return;
+      }
     } else if (participantCategory === 'staff') {
       if (!staffDepartment) {
         setErrorMsg('กรุณาเลือกสังกัด/หน่วยงานของบุคลากร');
+        return;
+      }
+      if (staffDepartment === 'อื่นๆ' && !customStaffDepartment.trim()) {
+        setErrorMsg('กรุณาระบุสังกัด/หน่วยงานของคุณ');
         return;
       }
     }
@@ -273,18 +285,25 @@ export const RegisterView: React.FC<Props> = ({
 
   const handleSubmitRegistration = () => {
     const birthDateFormatted = `${birthDay}/${birthMonth}/${birthYear}`;
-    const selectedFacultyGroup = FACULTY_GROUPS.find((g) =>
-      g.faculties.includes(faculty)
-    )?.groupName;
-    const selectedStaffGroup = STAFF_DEPARTMENT_GROUPS.find((g) =>
-      g.departments.includes(staffDepartment)
-    )?.groupName;
+    const effectiveFaculty =
+      faculty === 'อื่นๆ' ? (customFaculty.trim() || 'อื่นๆ') : faculty;
+    const effectiveStaffDepartment =
+      staffDepartment === 'อื่นๆ'
+        ? (customStaffDepartment.trim() || 'อื่นๆ')
+        : staffDepartment;
+
+    const selectedFacultyGroup =
+      FACULTY_GROUPS.find((g) => g.faculties.includes(faculty))?.groupName ||
+      (faculty === 'อื่นๆ' ? 'อื่นๆ' : undefined);
+    const selectedStaffGroup =
+      STAFF_DEPARTMENT_GROUPS.find((g) => g.departments.includes(staffDepartment))
+        ?.groupName || (staffDepartment === 'อื่นๆ' ? 'อื่นๆ' : undefined);
 
     const computedOrg =
       participantCategory === 'student' || participantCategory === 'alumni'
-        ? `${faculty} (มหาวิทยาลัยนเรศวร)`
+        ? `${effectiveFaculty} (มหาวิทยาลัยนเรศวร)`
         : participantCategory === 'staff'
-        ? staffDepartment
+        ? effectiveStaffDepartment
         : organization.trim() || 'บุคคลทั่วไป';
 
     const { runner, card } = registerParticipant({
@@ -311,12 +330,12 @@ export const RegisterView: React.FC<Props> = ({
           : undefined,
       faculty:
         participantCategory === 'student' || participantCategory === 'alumni'
-          ? faculty
+          ? effectiveFaculty
           : undefined,
       staffDepartmentGroup:
         participantCategory === 'staff' ? selectedStaffGroup : undefined,
       staffDepartment:
-        participantCategory === 'staff' ? staffDepartment : undefined,
+        participantCategory === 'staff' ? effectiveStaffDepartment : undefined,
       phone: phone.trim(),
       email: email.trim(),
       province: province.trim(),
@@ -326,6 +345,8 @@ export const RegisterView: React.FC<Props> = ({
       emergencyContactRelation: emergencyContactRelation.trim(),
       infoSource,
       interestedInShirt,
+      hasAttendedBefore,
+      costumeStyle,
       medicalConditions,
       teamName,
       displayNameType,
@@ -721,11 +742,31 @@ export const RegisterView: React.FC<Props> = ({
                         onChange={(e) => setFaculty(e.target.value)}
                         className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none"
                       >
-                        {FACULTY_GROUPS.flatMap((g) => g.faculties).map((f) => (
-                          <option key={f} value={f}>{f}</option>
+                        {FACULTY_GROUPS.map((group) => (
+                          <optgroup key={group.groupName} label={group.groupName}>
+                            {group.faculties.map((f) => (
+                              <option key={f} value={f}>{f}</option>
+                            ))}
+                          </optgroup>
                         ))}
                       </select>
                     </div>
+
+                    {faculty === 'อื่นๆ' && (
+                      <div className="sm:col-span-2">
+                        <label className="block font-bold text-slate-700 mb-1">
+                          โปรดระบุคณะ / วิทยาลัย / หน่วยงานของคุณ *
+                        </label>
+                        <input
+                          type="text"
+                          value={customFaculty}
+                          onChange={(e) => setCustomFaculty(e.target.value)}
+                          placeholder="เช่น คณะ... หรือ วิทยาลัย..."
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
+                        />
+                      </div>
+                    )}
+
                     {participantCategory === 'student' && (
                       <div>
                         <label className="block font-bold text-slate-700 mb-1">ชั้นปี *</label>
@@ -746,17 +787,38 @@ export const RegisterView: React.FC<Props> = ({
                 )}
 
                 {participantCategory === 'staff' && (
-                  <div className="sm:col-span-2">
-                    <label className="block font-bold text-slate-700 mb-1">สังกัด / หน่วยงาน *</label>
-                    <select
-                      value={staffDepartment}
-                      onChange={(e) => setStaffDepartment(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none"
-                    >
-                      {STAFF_DEPARTMENT_GROUPS.flatMap((g) => g.departments).map((d) => (
-                        <option key={d} value={d}>{d}</option>
-                      ))}
-                    </select>
+                  <div className="sm:col-span-2 space-y-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">สังกัด / หน่วยงาน *</label>
+                      <select
+                        value={staffDepartment}
+                        onChange={(e) => setStaffDepartment(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none"
+                      >
+                        {STAFF_DEPARTMENT_GROUPS.map((group) => (
+                          <optgroup key={group.groupName} label={group.groupName}>
+                            {group.departments.map((d) => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
+
+                    {staffDepartment === 'อื่นๆ' && (
+                      <div>
+                        <label className="block font-bold text-slate-700 mb-1">
+                          โปรดระบุสังกัด / หน่วยงานของคุณ *
+                        </label>
+                        <input
+                          type="text"
+                          value={customStaffDepartment}
+                          onChange={(e) => setCustomStaffDepartment(e.target.value)}
+                          placeholder="เช่น กอง... หรือ สังกัด..."
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -810,6 +872,80 @@ export const RegisterView: React.FC<Props> = ({
                     placeholder="08xxxxxxxx"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 focus:bg-white focus:outline-none"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Event Experience & Costume Survey */}
+            <div className="space-y-4 pt-2">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
+                <Sparkles className="w-4 h-4 text-[#DC2626]" /> ข้อมูลเพิ่มเติมสำหรับวันงาน
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                {/* 1. เคยมาร่วมงานหรือไม่ */}
+                <div className="space-y-2">
+                  <label className="block font-bold text-slate-700">
+                    9. เคยมาร่วมงานหรือไม่? *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHasAttendedBefore('yes')}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        hasAttendedBefore === 'yes'
+                          ? 'border-[#DC2626] bg-red-50 text-[#DC2626] ring-1 ring-[#DC2626]'
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Check className={`w-3.5 h-3.5 ${hasAttendedBefore === 'yes' ? 'opacity-100' : 'opacity-0'}`} />
+                      <span>เคย</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHasAttendedBefore('no')}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        hasAttendedBefore === 'no'
+                          ? 'border-[#DC2626] bg-red-50 text-[#DC2626] ring-1 ring-[#DC2626]'
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Check className={`w-3.5 h-3.5 ${hasAttendedBefore === 'no' ? 'opacity-100' : 'opacity-0'}`} />
+                      <span>ไม่เคย</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. วันงานจะแต่งตัวแบบไหน */}
+                <div className="space-y-2">
+                  <label className="block font-bold text-slate-700">
+                    10. วันงานจะแต่งตัวแบบไหน? *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCostumeStyle('sportswear')}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        costumeStyle === 'sportswear'
+                          ? 'border-[#DC2626] bg-red-50 text-[#DC2626] ring-1 ring-[#DC2626]'
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Check className={`w-3.5 h-3.5 ${costumeStyle === 'sportswear' ? 'opacity-100' : 'opacity-0'}`} />
+                      <span>ชุดกีฬา</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCostumeStyle('ghost')}
+                      className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                        costumeStyle === 'ghost'
+                          ? 'border-[#DC2626] bg-red-50 text-[#DC2626] ring-1 ring-[#DC2626]'
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Check className={`w-3.5 h-3.5 ${costumeStyle === 'ghost' ? 'opacity-100' : 'opacity-0'}`} />
+                      <span>ชุดผี</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

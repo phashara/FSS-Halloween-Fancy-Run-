@@ -8,8 +8,9 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { SiteContentSection, AdminUser } from '../types/cms';
+import { idbGet, idbSet, idbRemove } from '../lib/idbStorage';
 import { DEFAULT_SITE_CONTENT } from '../data/defaultSiteContent';
-import { GHOST_SPECIES_LIST, THAI_GHOSTS } from '../data/ghosts';
+import { GHOST_SPECIES_LIST, THAI_GHOSTS, OFFICIAL_12_GHOST_IDS } from '../data/ghosts';
 import {
   INITIAL_CARDS,
   INITIAL_RUNNERS,
@@ -61,6 +62,9 @@ interface RegisterParams {
   emergencyContactRelation?: string;
   infoSource?: string;
   interestedInShirt?: 'yes' | 'no';
+  hasAttendedBefore?: 'yes' | 'no';
+  costumeStyle?: 'sportswear' | 'ghost' | 'other';
+  costumeStyleNote?: string;
   medicalConditions?: string;
   teamName?: string;
   displayNameType: 'fullName' | 'nickname' | 'teamName' | 'anonymous';
@@ -147,6 +151,7 @@ interface EventContextType {
   updateGhostSpecies: (species: GhostSpecies) => Promise<void>;
   resetGhostSpecies: (speciesId: GhostSpeciesId) => Promise<void>;
   resetToDefaults: () => void;
+  clearSystemCache: () => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -192,6 +197,28 @@ const safeLocalStorage = {
 };
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Purge all legacy large base64 images from browser localStorage to keep it under 10KB
+  try {
+    const keysToPurge = [
+      'fss2026_demo_purged_v2',
+      STORAGE_KEYS.SHIRT_IMAGE,
+      STORAGE_KEYS.MEDAL_IMAGE,
+      STORAGE_KEYS.MAP_IMAGE,
+      STORAGE_KEYS.GHOST_SPECIES,
+    ];
+    keysToPurge.forEach((k) => safeLocalStorage.removeItem(k));
+
+    // Remove any fss_ghost_img_* from localStorage as well (now in IndexedDB)
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('fss_ghost_img_')) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (e) {
+    console.warn('Storage cleanup notice:', e);
+  }
+
   const [cards, setCards] = useState<GhostCard[]>(() => {
     try {
       const saved = safeLocalStorage.getItem(STORAGE_KEYS.CARDS);
@@ -230,9 +257,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [currentCardId, setCurrentCardId] = useState<string | null>(() => {
     try {
-      return safeLocalStorage.getItem(STORAGE_KEYS.CURRENT_CARD_ID) || 'FSS26-00872';
+      return safeLocalStorage.getItem(STORAGE_KEYS.CURRENT_CARD_ID) || null;
     } catch {
-      return 'FSS26-00872';
+      return null;
     }
   });
 
@@ -312,21 +339,73 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  // Ghost Species Dictionary
+  // Ghost Species Dictionary (Strictly 12 Official Thai Ghosts with Deep Defaults)
   const [ghostSpeciesMap, setGhostSpeciesMap] = useState<Record<GhostSpeciesId, GhostSpecies>>(() => {
     try {
       const saved = safeLocalStorage.getItem(STORAGE_KEYS.GHOST_SPECIES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-          return { ...THAI_GHOSTS, ...parsed };
+      const parsed = saved ? JSON.parse(saved) : {};
+      const cleaned: Record<string, GhostSpecies> = {};
+      OFFICIAL_12_GHOST_IDS.forEach((id) => {
+        const base = THAI_GHOSTS[id];
+        const p = parsed && typeof parsed === 'object' ? parsed[id] : null;
+        const perGhostImg = safeLocalStorage.getItem(`fss_ghost_img_${id}`);
+        if (base) {
+          cleaned[id] = {
+            ...base,
+            ...(p && typeof p === 'object' ? p : {}),
+            name: p?.name || base.name,
+            title: p?.title || base.title,
+            tagline: p?.tagline || base.tagline,
+            element: p?.element || base.element,
+            customImageUrl: perGhostImg || p?.customImageUrl || base.customImageUrl || undefined,
+            baseStats: {
+              ...base.baseStats,
+              ...(p?.baseStats || {}),
+            },
+          };
         }
-      }
+      });
+      return cleaned as Record<GhostSpeciesId, GhostSpecies>;
     } catch (err) {
       console.warn('LocalStorage ghost species load error:', err);
     }
     return THAI_GHOSTS;
   });
+
+  // Load persisted assets (12 ghosts, shirt, medal, map) from IndexedDB (huge capacity, no quota crash)
+  useEffect(() => {
+    const loadAllIDBAssets = async () => {
+      try {
+        const [shirtImg, medalImg, mapImg] = await Promise.all([
+          idbGet<string>('system_asset_shirt'),
+          idbGet<string>('system_asset_medal'),
+          idbGet<string>('system_asset_map'),
+        ]);
+        if (shirtImg) setCustomShirtImageState(shirtImg);
+        if (medalImg) setCustomMedalImageState(medalImg);
+        if (mapImg) setCustomMapImageState(mapImg);
+
+        for (const id of OFFICIAL_12_GHOST_IDS) {
+          const ghostImg = await idbGet<string>(`ghost_img_${id}`);
+          if (ghostImg) {
+            setGhostSpeciesMap((prev) => {
+              if (prev[id]?.customImageUrl === ghostImg) return prev;
+              return {
+                ...prev,
+                [id]: {
+                  ...prev[id],
+                  customImageUrl: ghostImg,
+                },
+              };
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('IDB asset load error:', err);
+      }
+    };
+    loadAllIDBAssets();
+  }, []);
 
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
 
@@ -382,26 +461,26 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (docSnap.id === 'asset_shirt' || data.sectionKey === 'asset_shirt') {
               if (data.imageUrl) {
                 setCustomShirtImageState(data.imageUrl);
-                safeLocalStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, data.imageUrl);
+                idbSet('system_asset_shirt', data.imageUrl);
               } else if (data.imageUrl === null) {
                 setCustomShirtImageState(null);
-                safeLocalStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
+                idbRemove('system_asset_shirt');
               }
             } else if (docSnap.id === 'asset_medal' || data.sectionKey === 'asset_medal') {
               if (data.imageUrl) {
                 setCustomMedalImageState(data.imageUrl);
-                safeLocalStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, data.imageUrl);
+                idbSet('system_asset_medal', data.imageUrl);
               } else if (data.imageUrl === null) {
                 setCustomMedalImageState(null);
-                safeLocalStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
+                idbRemove('system_asset_medal');
               }
             } else if (docSnap.id === 'asset_map' || data.sectionKey === 'asset_map') {
               if (data.imageUrl) {
                 setCustomMapImageState(data.imageUrl);
-                safeLocalStorage.setItem(STORAGE_KEYS.MAP_IMAGE, data.imageUrl);
+                idbSet('system_asset_map', data.imageUrl);
               } else if (data.imageUrl === null) {
                 setCustomMapImageState(null);
-                safeLocalStorage.removeItem(STORAGE_KEYS.MAP_IMAGE);
+                idbRemove('system_asset_map');
               }
             } else {
               remoteContent[docSnap.id] = data as SiteContentSection;
@@ -439,9 +518,41 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (!snap.empty) {
           const remoteGhosts: Record<GhostSpeciesId, GhostSpecies> = {} as any;
           snap.forEach((docSnap) => {
-            remoteGhosts[docSnap.id as GhostSpeciesId] = docSnap.data() as GhostSpecies;
+            const sid = docSnap.id as GhostSpeciesId;
+            if (OFFICIAL_12_GHOST_IDS.includes(sid)) {
+              const data = docSnap.data() as GhostSpecies;
+              remoteGhosts[sid] = data;
+              if (data.customImageUrl) {
+                idbSet(`ghost_img_${sid}`, data.customImageUrl);
+                safeLocalStorage.setItem(`fss_ghost_img_${sid}`, data.customImageUrl);
+              }
+            }
           });
-          setGhostSpeciesMap((prev) => ({ ...THAI_GHOSTS, ...prev, ...remoteGhosts }));
+          setGhostSpeciesMap((prev) => {
+            const merged = { ...prev, ...remoteGhosts };
+            const cleaned: Record<string, GhostSpecies> = {};
+            OFFICIAL_12_GHOST_IDS.forEach((id) => {
+              const base = THAI_GHOSTS[id];
+              const custom = merged[id];
+              const perGhostImg = safeLocalStorage.getItem(`fss_ghost_img_${id}`);
+              if (base) {
+                cleaned[id] = {
+                  ...base,
+                  ...(custom && typeof custom === 'object' ? custom : {}),
+                  name: custom?.name || base.name,
+                  title: custom?.title || base.title,
+                  tagline: custom?.tagline || base.tagline,
+                  element: custom?.element || base.element,
+                  customImageUrl: custom?.customImageUrl || perGhostImg || base.customImageUrl || undefined,
+                  baseStats: {
+                    ...base.baseStats,
+                    ...(custom?.baseStats || {}),
+                  },
+                };
+              }
+            });
+            return cleaned as Record<GhostSpeciesId, GhostSpecies>;
+          });
           setIsFirebaseConnected(true);
         }
       }, (err) => {
@@ -549,9 +660,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setCustomShirtImage = async (imgUrl: string | null) => {
     setCustomShirtImageState(imgUrl);
     if (imgUrl) {
-      safeLocalStorage.setItem(STORAGE_KEYS.SHIRT_IMAGE, imgUrl);
+      await idbSet('system_asset_shirt', imgUrl);
     } else {
-      safeLocalStorage.removeItem(STORAGE_KEYS.SHIRT_IMAGE);
+      await idbRemove('system_asset_shirt');
     }
 
     try {
@@ -573,9 +684,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setCustomMedalImage = async (imgUrl: string | null) => {
     setCustomMedalImageState(imgUrl);
     if (imgUrl) {
-      safeLocalStorage.setItem(STORAGE_KEYS.MEDAL_IMAGE, imgUrl);
+      await idbSet('system_asset_medal', imgUrl);
     } else {
-      safeLocalStorage.removeItem(STORAGE_KEYS.MEDAL_IMAGE);
+      await idbRemove('system_asset_medal');
     }
 
     try {
@@ -597,9 +708,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setCustomMapImage = async (imgUrl: string | null) => {
     setCustomMapImageState(imgUrl);
     if (imgUrl) {
-      safeLocalStorage.setItem(STORAGE_KEYS.MAP_IMAGE, imgUrl);
+      await idbSet('system_asset_map', imgUrl);
     } else {
-      safeLocalStorage.removeItem(STORAGE_KEYS.MAP_IMAGE);
+      await idbRemove('system_asset_map');
     }
 
     try {
@@ -626,19 +737,61 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
-  const ghostSpeciesList: GhostSpecies[] = Object.values(ghostSpeciesMap);
+  const ghostSpeciesList: GhostSpecies[] = OFFICIAL_12_GHOST_IDS.map((id) => {
+    const base = THAI_GHOSTS[id];
+    const custom = ghostSpeciesMap?.[id];
+    if (!base) return null as any;
+    return {
+      ...base,
+      ...(custom || {}),
+      name: custom?.name || base.name,
+      title: custom?.title || base.title,
+      tagline: custom?.tagline || base.tagline,
+      element: custom?.element || base.element,
+      description: custom?.description || base.description,
+      lore: custom?.lore || base.lore,
+      customImageUrl: custom?.customImageUrl || base.customImageUrl || undefined,
+      baseStats: {
+        ...base.baseStats,
+        ...(custom?.baseStats || {}),
+      },
+    };
+  }).filter(Boolean);
 
   const updateGhostSpecies = async (species: GhostSpecies) => {
-    setGhostSpeciesMap((prev) => {
-      const next = { ...prev, [species.id]: species };
-      try {
-        localStorage.setItem(STORAGE_KEYS.GHOST_SPECIES, JSON.stringify(next));
-      } catch (err) {
-        console.warn('LocalStorage save ghost species error:', err);
-      }
-      return next;
-    });
+    setGhostSpeciesMap((prev) => ({
+      ...prev,
+      [species.id]: species,
+    }));
 
+    if (species.customImageUrl) {
+      // Store full high-res image safely in IndexedDB (500MB+ quota)
+      await idbSet(`ghost_img_${species.id}`, species.customImageUrl);
+      safeLocalStorage.setItem(`fss_ghost_img_${species.id}`, species.customImageUrl);
+    } else {
+      await idbRemove(`ghost_img_${species.id}`);
+      safeLocalStorage.removeItem(`fss_ghost_img_${species.id}`);
+    }
+
+    // Save lightweight metadata to STORAGE_KEYS.GHOST_SPECIES
+    try {
+      const lightweightMap: Record<string, any> = {};
+      OFFICIAL_12_GHOST_IDS.forEach((id) => {
+        const item = id === species.id ? species : ghostSpeciesMap[id];
+        if (item) {
+          lightweightMap[id] = {
+            ...item,
+            // Keep lightweight, image is in IndexedDB & per-ghost key
+            customImageUrl: item.customImageUrl && item.customImageUrl.startsWith('http') ? item.customImageUrl : undefined,
+          };
+        }
+      });
+      safeLocalStorage.setItem(STORAGE_KEYS.GHOST_SPECIES, JSON.stringify(lightweightMap));
+    } catch (err) {
+      console.warn('LocalStorage save ghost species notice:', err);
+    }
+
+    // Persist to Cloud Firestore
     try {
       const docRef = doc(db, 'ghost_species', species.id);
       await setDoc(docRef, species, { merge: true });
@@ -649,9 +802,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const resetGhostSpecies = async (speciesId: GhostSpeciesId) => {
+    await idbRemove(`ghost_img_${speciesId}`);
+    safeLocalStorage.removeItem(`fss_ghost_img_${speciesId}`);
     const original = THAI_GHOSTS[speciesId];
     if (original) {
-      await updateGhostSpecies(original);
+      await updateGhostSpecies({ ...original, customImageUrl: undefined });
     }
   };
 
@@ -681,16 +836,17 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       newLevel = 2;
     }
 
-    const baseSpecies = THAI_GHOSTS[card.speciesId] || THAI_GHOSTS.krasue;
-    const stats: GhostCardStats = { ...card.stats };
+    const baseSpecies = THAI_GHOSTS[card.speciesId] || THAI_GHOSTS.pret;
+    const baseStats = baseSpecies.baseStats || { speed: 85, spookiness: 85, latentPower: 85, stealth: 85, hauntingAura: 85 };
+    const stats: GhostCardStats = { ...baseStats, ...(card.stats || {}) };
 
     if (hasPaidShirt) {
-      stats.speed = Math.min(100, Math.max(stats.speed, baseSpecies.baseStats.speed + 6));
-      stats.latentPower = Math.min(100, Math.max(stats.latentPower, baseSpecies.baseStats.latentPower + 6));
+      stats.speed = Math.min(100, Math.max(stats.speed, (baseStats.speed ?? 85) + 6));
+      stats.latentPower = Math.min(100, Math.max(stats.latentPower, (baseStats.latentPower ?? 85) + 6));
     }
     if (isCheckedIn) {
-      stats.spookiness = Math.min(100, Math.max(stats.spookiness, baseSpecies.baseStats.spookiness + 7));
-      stats.hauntingAura = Math.min(100, Math.max(stats.hauntingAura, baseSpecies.baseStats.hauntingAura + 7));
+      stats.spookiness = Math.min(100, Math.max(stats.spookiness, (baseStats.spookiness ?? 85) + 7));
+      stats.hauntingAura = Math.min(100, Math.max(stats.hauntingAura, (baseStats.hauntingAura ?? 85) + 7));
     }
 
     return {
@@ -727,20 +883,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       hauntingAura: 0,
     };
 
-    const ALL_SPECIES: GhostSpeciesId[] = [
-      'krasue',
-      'krahang',
-      'pop',
-      'tani',
-      'maenak',
-      'kuman',
-      'pret',
-      'kongkoi',
-      'headless',
-      'nangram',
-      'phiphong',
-      'phi_am',
-    ];
+    const ALL_SPECIES: GhostSpeciesId[] = OFFICIAL_12_GHOST_IDS;
 
     // True random assignment across all 12 Thai ghosts!
     const randomIndex = Math.floor(Math.random() * ALL_SPECIES.length);
@@ -767,15 +910,16 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const regId = `REG-${Math.floor(2000 + Math.random() * 8000)}`;
     const bibNumber = params.regType !== 'SHIRT_ONLY' ? `BIB-${Math.floor(100 + Math.random() * 900)}` : undefined;
 
-    const baseSpecies = THAI_GHOSTS[chosenSpeciesId] || THAI_GHOSTS.krasue;
+    const baseSpecies = THAI_GHOSTS[chosenSpeciesId] || THAI_GHOSTS.pret;
+    const baseStats = baseSpecies.baseStats || { speed: 85, spookiness: 85, latentPower: 85, stealth: 85, hauntingAura: 85 };
     const rarityBonus = rarity === 'Legendary' ? 8 : rarity === 'Epic' ? 5 : rarity === 'Rare' ? 3 : 0;
 
     const initialStats: GhostCardStats = {
-      spookiness: Math.min(100, baseSpecies.baseStats.spookiness + (accumulatedStatBoost.spookiness % 8) + rarityBonus),
-      speed: Math.min(100, baseSpecies.baseStats.speed + (accumulatedStatBoost.speed % 8) + rarityBonus),
-      latentPower: Math.min(100, baseSpecies.baseStats.latentPower + (accumulatedStatBoost.latentPower % 8) + rarityBonus),
-      stealth: Math.min(100, baseSpecies.baseStats.stealth + (accumulatedStatBoost.stealth % 8) + rarityBonus),
-      hauntingAura: Math.min(100, baseSpecies.baseStats.hauntingAura + (accumulatedStatBoost.hauntingAura % 8) + rarityBonus),
+      spookiness: Math.min(100, (baseStats.spookiness ?? 85) + (accumulatedStatBoost.spookiness % 8) + rarityBonus),
+      speed: Math.min(100, (baseStats.speed ?? 85) + (accumulatedStatBoost.speed % 8) + rarityBonus),
+      latentPower: Math.min(100, (baseStats.latentPower ?? 85) + (accumulatedStatBoost.latentPower % 8) + rarityBonus),
+      stealth: Math.min(100, (baseStats.stealth ?? 85) + (accumulatedStatBoost.stealth % 8) + rarityBonus),
+      hauntingAura: Math.min(100, (baseStats.hauntingAura ?? 85) + (accumulatedStatBoost.hauntingAura % 8) + rarityBonus),
     };
 
     const newCard: GhostCard = {
@@ -790,6 +934,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       qrPayload: `${cardId}-RUNNER-${params.nickname.slice(0, 3).toUpperCase()}-${rarity.toUpperCase()}`,
       createdAt: new Date().toISOString(),
       customQuote: baseSpecies.tagline,
+      customImageUrl: ghostSpeciesMap[chosenSpeciesId]?.customImageUrl || undefined,
     };
 
     let shirtOrderId: string | undefined;
@@ -850,6 +995,9 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       emergencyContactRelation: params.emergencyContactRelation,
       infoSource: params.infoSource,
       interestedInShirt: params.interestedInShirt,
+      hasAttendedBefore: params.hasAttendedBefore || 'no',
+      costumeStyle: params.costumeStyle || 'sportswear',
+      costumeStyleNote: params.costumeStyleNote,
       medicalConditions: params.medicalConditions,
       teamName: params.teamName,
       displayNameType: params.displayNameType,
@@ -1105,12 +1253,31 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
+  const clearSystemCache = async () => {
+    try {
+      localStorage.clear();
+      for (const id of OFFICIAL_12_GHOST_IDS) {
+        await idbRemove(`ghost_img_${id}`);
+      }
+      await idbRemove('system_asset_shirt');
+      await idbRemove('system_asset_medal');
+      await idbRemove('system_asset_map');
+      window.location.reload();
+    } catch (e) {
+      console.warn('Clear cache notice:', e);
+      window.location.reload();
+    }
+  };
+
   const resetToDefaults = () => {
-    setCards(INITIAL_CARDS);
-    setRunners(INITIAL_RUNNERS);
-    setOrders(INITIAL_SHIRT_ORDERS);
-    setCurrentCardId('FSS26-00872');
-    localStorage.clear();
+    setCards([]);
+    setRunners([]);
+    setOrders([]);
+    setCurrentCardId(null);
+    safeLocalStorage.removeItem(STORAGE_KEYS.CARDS);
+    safeLocalStorage.removeItem(STORAGE_KEYS.RUNNERS);
+    safeLocalStorage.removeItem(STORAGE_KEYS.ORDERS);
+    safeLocalStorage.removeItem(STORAGE_KEYS.CURRENT_CARD_ID);
   };
 
   return (
@@ -1155,6 +1322,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateGhostSpecies,
         resetGhostSpecies,
         resetToDefaults,
+        clearSystemCache,
       }}
     >
       {children}

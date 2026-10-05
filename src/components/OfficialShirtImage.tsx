@@ -10,6 +10,7 @@ import {
   Loader2,
   Lock,
   ShieldCheck,
+  RotateCcw,
 } from 'lucide-react';
 import officialShirtAsset from '../assets/official_shirt.svg';
 import { useEventContext } from '../context/EventContext';
@@ -101,6 +102,12 @@ export const OfficialShirtImage: React.FC<Props> = ({
     setErrorMessage('ไม่สามารถแสดงผลรูปภาพที่อัปโหลดได้ ระบบได้แสดงภาพแบบเสื้อแทนแล้ว');
   };
 
+  const handleResetToDefault = () => {
+    setCustomShirtImage(null);
+    setViewMode('original');
+    setImageLoadError(false);
+  };
+
   return (
     <div className={`w-full flex flex-col items-center select-none ${className}`}>
       {/* Real Image Container Frame */}
@@ -146,15 +153,9 @@ export const OfficialShirtImage: React.FC<Props> = ({
 
         {/* Top Badges */}
         <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2 z-10">
-          {customShirtImage && viewMode === 'custom' && !imageLoadError ? (
-            <span className="px-3 py-1 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-[11px] font-bold text-emerald-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
-              <Sparkles className="w-3 h-3 text-emerald-400" /> รูปเสื้อจริงของงาน
-            </span>
-          ) : (
-            <span className="px-3 py-1 rounded-full bg-slate-950/85 border border-red-500/40 text-[11px] font-mono font-bold text-red-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
-              <Sparkles className="w-3 h-3" /> OFFICIAL DESIGN
-            </span>
-          )}
+          <span className="px-3 py-1 rounded-full bg-slate-950/85 border border-red-500/40 text-[11px] font-mono font-bold text-red-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
+            <Sparkles className="w-3 h-3" /> OFFICIAL SHIRT
+          </span>
 
           {isAdmin && (
             <span className="px-2.5 py-1 rounded-full bg-red-500/20 border border-red-500/40 text-[11px] font-bold text-red-300 backdrop-blur-sm flex items-center gap-1 shadow-md">
@@ -180,8 +181,8 @@ export const OfficialShirtImage: React.FC<Props> = ({
             <span className="hidden sm:inline">ขยายดูภาพ</span>
           </button>
 
-          {/* Admin Upload Trigger (Only accessible by admin) */}
-          {allowUpload && isAdmin ? (
+          {/* Admin Upload Trigger (Only visible to admin) */}
+          {allowUpload && isAdmin && (
             <>
               <input
                 ref={fileInputRef}
@@ -213,57 +214,45 @@ export const OfficialShirtImage: React.FC<Props> = ({
                 )}
               </button>
             </>
-          ) : allowUpload && !isAdmin ? (
-            <button
-              type="button"
-              onClick={() => setIsAdminModalOpen(true)}
-              className="p-2 px-2.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 backdrop-blur-sm transition-all shadow-md flex items-center gap-1.5 text-[11px] font-medium cursor-pointer"
-              title="เข้าสู่ระบบผู้ดูแลระบบเพื่อเปลี่ยนรูป"
-            >
-              <Lock className="w-3.5 h-3.5 text-slate-400" />
-              <span className="hidden sm:inline">แอดมินแก้ไขได้เท่านั้น</span>
-            </button>
-          ) : null}
+          )}
         </div>
       </div>
 
-      {/* Action Toolbar Below Image */}
-      {allowUpload && (
+      {/* Action Toolbar Below Image (Only visible to admin) */}
+      {allowUpload && isAdmin && (
         <div className="mt-3 w-full flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-white border border-slate-200 shadow-sm">
           <div className="flex items-center gap-2">
-            {isAdmin ? (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isProcessing}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>{uploadSuccess ? 'บันทึกเรียบร้อย!' : 'เปลี่ยนรูปภาพใหม่ (Admin)'}</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsAdminModalOpen(true)}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer"
-                title="เข้าสู่ระบบแอดมินเพื่อแก้ไขรูป"
-              >
-                <Lock className="w-3.5 h-3.5 text-slate-500" />
-                <span>เปลี่ยนรูปภาพใหม่ (แอดมินแก้ไขได้เท่านั้น)</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{uploadSuccess ? 'บันทึกเรียบร้อย!' : 'เปลี่ยนรูปภาพใหม่ (Admin)'}</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setIsZoomed(true)}
-              className="p-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-              title="ขยายดูภาพเต็ม"
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-all flex items-center gap-1 cursor-pointer"
             >
-              <ZoomIn className="w-3.5 h-3.5" />
-              <span>ขยายดูภาพ</span>
+              <ZoomIn className="w-3.5 h-3.5 text-slate-500" />
+              <span>ขยายดูรูปเต็ม</span>
             </button>
+            {customShirtImage && (
+              <button
+                type="button"
+                onClick={handleResetToDefault}
+                className="px-3 py-2 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 text-xs font-semibold rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                title="คืนค่ารูปภาพตั้งต้น"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">รีเซ็ต</span>
+              </button>
+            )}
           </div>
         </div>
       )}

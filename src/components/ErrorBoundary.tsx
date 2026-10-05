@@ -34,6 +34,11 @@ export class ErrorBoundary extends Component<Props, State> {
       localStorage.removeItem('fss_custom_shirt_image');
       localStorage.removeItem('fss_custom_medal_image');
       localStorage.removeItem('fss2026_site_content');
+      localStorage.removeItem('fss2026_ghost_species');
+      localStorage.removeItem('fss2026_cards');
+      localStorage.removeItem('fss2026_runners');
+      localStorage.removeItem('fss2026_orders');
+      localStorage.removeItem('fss2026_current_card_id');
     } catch (e) {
       console.warn('Cache clear error:', e);
     }

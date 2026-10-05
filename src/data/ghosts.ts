@@ -89,12 +89,12 @@ export const THAI_GHOSTS: Record<GhostSpeciesId, GhostSpecies> = {
     lore: 'ผีปอบกินตับในตำนานพื้นบ้านไทย เกิดจากของเข้าตัวผู้เล่นไสยศาสตร์มนต์ดำ มักเข้าสิงและกลืนกินเครื่องในเหยื่อ',
   },
 
-  // 5. ผีกองกอง
+  // 5. ผีกองกอย
   kongkoi: {
     id: 'kongkoi',
-    name: 'ผีกองกอง',
+    name: 'ผีกองกอย',
     title: 'ภูตไพรขาเดียว กระโดดโหยงสะเทือนพงหญ้า',
-    tagline: 'กองกอง กองกอง เสียงก้องไพร ขาเดียวกระโดดไวไม่มีใครเกิน',
+    tagline: 'กองกอย กองกอย เสียงก้องไพร ขาเดียวกระโดดไวไม่มีใครเกิน',
     description: 'ผีป่าตัวเล็กขาเดียว มีปากเหมือนท่อ ดูดเลือดที่นิ้วเท้าคนนอนหลับ กระโดดตะลุยป่าด้วยความเร็วและทักษะการทรงตัวเหนือมนุษย์',
     primaryColor: '#14b8a6',
     accentColor: '#2dd4bf',
@@ -108,7 +108,7 @@ export const THAI_GHOSTS: Record<GhostSpeciesId, GhostSpecies> = {
       hauntingAura: 83,
     },
     avatarSvg: 'kongkoi',
-    lore: 'ผีป่าแห่งเทือกเขาและดงดิบ มีขาข้างเดียว กระโดดโหยงๆ ร้อง กองกอง กองกอง ชอบดูดกินเลือดจากปลายเท้าของผู้เดินทางกลางป่า',
+    lore: 'ผีป่าแห่งเทือกเขาและดงดิบ มีขาข้างเดียว กระโดดโหยงๆ ร้อง กองกอย กองกอย ชอบดูดกินเลือดจากปลายเท้าของผู้เดินทางกลางป่า',
   },
 
   // 6. ผีตาโขน
@@ -264,120 +264,25 @@ export const THAI_GHOSTS: Record<GhostSpeciesId, GhostSpecies> = {
     avatarSvg: 'sihuhata',
     lore: 'พระอินทร์จำแลงกายเป็นสัตว์ประหลาดสี่หูห้าตา เพื่อทดลองใจชาวบ้าน กินถ่านไฟร้อนระอุและถ่ายออกมาเป็นทองคำ ให้โชคลาภแก่ผู้มีจิตใจดีงาม',
   },
-
-  // Legacy mappings for backwards-compatibility with existing runner test cards
-  tani: {
-    id: 'tani',
-    name: 'นางตานี',
-    title: 'แม่ย่านางดงกล้วย ออร่าธรรมชาติสุดสดชื่น',
-    tagline: 'นุ่งสไบเขียว แจกกล้วยหอมเพิ่มโพแทสเซียมให้นักวิ่งทุกคน',
-    description: 'วิญญาณสาวสวยแห่งดงกล้วยตานี นุ่มนวล สง่างาม คอยซัพพอร์ตเพื่อนนักวิ่ง',
-    primaryColor: '#10b981',
-    accentColor: '#34d399',
-    glowColor: 'rgba(16, 185, 129, 0.4)',
-    element: 'พฤกษาพราย',
-    baseStats: { spookiness: 72, speed: 82, latentPower: 95, stealth: 88, hauntingAura: 80 },
-    avatarSvg: 'tani',
-    lore: 'สิงสถิตในต้นกล้วยตานี ช่วยเติมพลังใจให้นักวิ่งที่เหนื่อยล้าไม่ท้อถอย',
-  },
-  maenak: {
-    id: 'maenak',
-    name: 'แม่นากพระโขนง',
-    title: 'ตำนานรักมั่นคง แขนยื่นคว้าเส้นชัย',
-    tagline: 'พี่มากขา... วิ่งช้าหนูรอ แต่ถ้าก้าวขาไม่ออกหนูยืดแขนลากไป',
-    description: 'เจ้าแม่แห่งทุ่งพระโขนง ความรักอมตะและพลังแขนกลยืดยาว',
-    primaryColor: '#f43f5e',
-    accentColor: '#fb7185',
-    glowColor: 'rgba(244, 63, 94, 0.4)',
-    element: 'เสน่หารัตติกาล',
-    baseStats: { spookiness: 95, speed: 80, latentPower: 96, stealth: 82, hauntingAura: 94 },
-    avatarSvg: 'maenak',
-    lore: 'ตำนานรักอมตะริมคลองพระโขนง ความรักมั่นคงตราบสิ้นลมหายใจ',
-  },
-  kuman: {
-    id: 'kuman',
-    name: 'กุมารทอง',
-    title: 'หนูน้อยพลังล้น บูสต์สปีดคูณสอง',
-    tagline: 'กินน้ำแดงเพิ่มไกลโคเจน ซนจัดจนคนอื่นวิ่งตามไม่ทัน',
-    description: 'วิญญาณเด็กน้อยผมจุกผู้เปี่ยมด้วยพลังกายและแรงขับเคลื่อนสูง',
-    primaryColor: '#eab308',
-    accentColor: '#facc15',
-    glowColor: 'rgba(234, 179, 8, 0.4)',
-    element: 'จิตอาคมทองคำ',
-    baseStats: { spookiness: 65, speed: 96, latentPower: 88, stealth: 92, hauntingAura: 75 },
-    avatarSvg: 'kuman',
-    lore: 'วิญญาณเด็กนำโชคตามคติไทย นำความมั่งคั่งและพลังงานล้นเหลือ',
-  },
-  headless: {
-    id: 'headless',
-    name: 'ผีหัวขาด',
-    title: 'ขุนพลไร้เศียร วิ่งชนทุกสิ่ง',
-    tagline: 'ไม่มีหัวให้คิดมาก วิ่งตรงไปข้างหน้าอย่างเดียว',
-    description: 'นักรบโบราณผู้ไร้เศียรแต่เปี่ยมด้วยจิตวิญญาณนักรบ',
-    primaryColor: '#f97316',
-    accentColor: '#ea580c',
-    glowColor: 'rgba(249, 115, 22, 0.4)',
-    element: 'เพลิงสงคราม',
-    baseStats: { spookiness: 92, speed: 88, latentPower: 92, stealth: 50, hauntingAura: 90 },
-    avatarSvg: 'headless',
-    lore: 'นักรบผู้พลีชีพในสนามรบ ร่างกายยังคงมุ่งไปข้างหน้าไม่ยอมหยุดนิ่ง',
-  },
-  nangram: {
-    id: 'nangram',
-    name: 'นางรำ',
-    title: 'นาฏยศาลาต้องสาป ร่ายรำล่อลวงใจ',
-    tagline: 'สวมชฎาร่ายรำลอยตัวบนอากาศ เสียงดนตรีไทยดังแว่วตามสายลม',
-    description: 'นางรำผู้ร่ายรำอย่างอ่อนช้อยแต่แฝงไว้ด้วยมนตราสะกดวิญญาณ',
-    primaryColor: '#a855f7',
-    accentColor: '#c084fc',
-    glowColor: 'rgba(168, 85, 247, 0.4)',
-    element: 'มนตราสังคีต',
-    baseStats: { spookiness: 97, speed: 78, latentPower: 94, stealth: 85, hauntingAura: 98 },
-    avatarSvg: 'nangram',
-    lore: 'เสียงซออู้และฉิ่งฉับดังกังวานกลางดึก หากหันไปมองจะเห็นเธอยิ้มหวานและกวักมือเรียก',
-  },
-  phiphong: {
-    id: 'phiphong',
-    name: 'ผีโพง',
-    title: 'ไฟฉายรูจมูก ดวงประทีปแห่งหนองน้ำ',
-    tagline: 'ไม่ต้องพกไฟฉายคาดหัว รูจมูกปล่อยลำแสงส่องทางวิ่ง 5 กิโลเมตร',
-    description: 'ผีผู้มีดวงไฟสว่างวาบพุ่งออกจากรูจมูก ชอบหากินกบเขียดยามฝนพรำ',
-    primaryColor: '#84cc16',
-    accentColor: '#65a30d',
-    glowColor: 'rgba(132, 204, 22, 0.4)',
-    element: 'แสงพรายหนองน้ำ',
-    baseStats: { spookiness: 82, speed: 86, latentPower: 88, stealth: 80, hauntingAura: 84 },
-    avatarSvg: 'phiphong',
-    lore: 'มนุษย์ว่านผู้กลายร่างยามค่ำ ปล่อยแสงสีขาวนวลจากจมูก',
-  },
-  phi_am: {
-    id: 'phi_am',
-    name: 'ผีอำ',
-    title: 'เงานิลทับอก สะกดทุกก้าวให้หยุดนิ่ง',
-    tagline: 'นอนไม่หลับขยับตัวไม่ได้ อย่าปล่อยให้ความมืดกดทับ',
-    description: 'เงามืดไร้รูปพรรณที่คอยกดทับอกยามนิทรา มอบพลังความนิ่งเงียบเยือกเย็น',
-    primaryColor: '#6366f1',
-    accentColor: '#4f46e5',
-    glowColor: 'rgba(99, 102, 241, 0.45)',
-    element: 'เงามืดรัตติกาล',
-    baseStats: { spookiness: 95, speed: 84, latentPower: 98, stealth: 96, hauntingAura: 95 },
-    avatarSvg: 'phi_am',
-    lore: 'เงามืดในมิติทับซ้อนที่ปรากฏตัวยามครึ่งหลับครึ่งตื่น กายหนักอึ้งดั่งหินผา',
-  },
 };
 
-// The 12 Official Thai Ghosts in exact order requested by the user
-export const GHOST_SPECIES_LIST: GhostSpecies[] = [
-  THAI_GHOSTS.pret,          // 1. ผีเปรต
-  THAI_GHOSTS.krasue,        // 2. ผีกระสือ
-  THAI_GHOSTS.krahang,       // 3. ผีกระหัง
-  THAI_GHOSTS.pop,           // 4. ผีปอบ
-  THAI_GHOSTS.kongkoi,       // 5. ผีกองกอง
-  THAI_GHOSTS.pitakhon,      // 6. ผีตาโขน
-  THAI_GHOSTS.pusom,         // 7. ปู่โสมเฝ้าทรัพย์
-  THAI_GHOSTS.mabong,        // 8. ผีม้าบ้อง
-  THAI_GHOSTS.taithongklom,  // 9. ผีตายท้องกลม
-  THAI_GHOSTS.sueasaming,    // 10. เสือสมิง
-  THAI_GHOSTS.phraumma,      // 11. พระอุ้มหมาชีอุ้มแมว
-  THAI_GHOSTS.sihuhata,      // 12. แมงสี่หูห้าตา
+// The 12 Official Thai Ghost IDs in exact order
+export const OFFICIAL_12_GHOST_IDS: GhostSpeciesId[] = [
+  'pret',          // 1. ผีเปรต
+  'krasue',        // 2. ผีกระสือ
+  'krahang',       // 3. ผีกระหัง
+  'pop',           // 4. ผีปอบ
+  'kongkoi',       // 5. ผีกองกอย
+  'pitakhon',      // 6. ผีตาโขน
+  'pusom',         // 7. ปู่โสมเฝ้าทรัพย์
+  'mabong',        // 8. ผีม้าบ้อง
+  'taithongklom',  // 9. ผีตายท้องกลม
+  'sueasaming',    // 10. เสือสมิง
+  'phraumma',      // 11. พระอุ้มหมาชีอุ้มแมว
+  'sihuhata',      // 12. แมงสี่หูห้าตา
 ];
+
+// The 12 Official Thai Ghosts in exact order requested by the user
+export const GHOST_SPECIES_LIST: GhostSpecies[] = OFFICIAL_12_GHOST_IDS.map(
+  (id) => THAI_GHOSTS[id]
+).filter(Boolean);

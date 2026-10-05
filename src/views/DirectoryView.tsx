@@ -242,7 +242,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
           <table className="w-full text-xs sm:text-sm text-left text-slate-700">
             <thead className="bg-slate-50 text-slate-700 uppercase font-mono border-b border-slate-200 text-xs font-bold">
               <tr>
-                <th className="py-3.5 px-4">BIB / รหัส</th>
+                <th className="py-3.5 px-4">รหัสลงทะเบียน</th>
                 <th className="py-3.5 px-4">ชื่อนักวิ่ง</th>
                 <th className="py-3.5 px-4">ผีประจำตัว</th>
                 <th className="py-3.5 px-4">Card ID</th>
@@ -256,15 +256,13 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
               {filteredRunners.length > 0 ? (
                 filteredRunners.map((runner) => {
                   const card = cards.find((c) => c.cardId === runner.cardId);
-                  const species = card ? THAI_GHOSTS[card.speciesId] : null;
+                  const species = card ? (THAI_GHOSTS[card.speciesId] || THAI_GHOSTS.pret) : null;
                   const order = getRunnerOrder(runner);
 
                   return (
                     <tr key={runner.regId} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-[#DC2626] whitespace-nowrap">
-                        {runner.bibNumber || (
-                          <span className="text-slate-400 font-normal">ซื้อเสื้อ</span>
-                        )}
+                        {runner.regId}
                       </td>
                       <td className="py-3.5 px-4">
                         <button
@@ -407,8 +405,15 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400 text-xs">
-                    ไม่พบข้อมูลผู้สมัครที่ตรงกับเงื่อนไขการค้นหา
+                  <td colSpan={8} className="py-12 text-center text-slate-500 text-xs">
+                    {runners.length === 0 ? (
+                      <div className="space-y-1.5">
+                        <p className="font-bold text-slate-700 text-sm">ยังไม่มีข้อมูลผู้สมัครในระบบ</p>
+                        <p className="text-slate-400">เมื่อมีผู้สมัครวิ่งหรือสั่งซื้อเสื้อ รายชื่อจะปรากฏที่นี่ทันทีแบบ Real-time</p>
+                      </div>
+                    ) : (
+                      'ไม่พบข้อมูลผู้สมัครที่ตรงกับเงื่อนไขการค้นหา'
+                    )}
                   </td>
                 </tr>
               )}
@@ -511,7 +516,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                   {previewRunner.fullName}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  BIB: <b className="text-[#DC2626] font-mono">{previewRunner.bibNumber || '-'}</b> &middot; Card ID: <b className="font-mono">{previewRunner.cardId}</b>
+                  รหัสลงทะเบียน: <b className="text-[#DC2626] font-mono">{previewRunner.regId}</b> &middot; Card ID: <b className="font-mono">{previewRunner.cardId}</b>
                 </p>
               </div>
               <button
@@ -541,6 +546,18 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                   <span className="text-slate-500 block text-xs">สถานะเช็กอิน:</span>
                   <span className={`font-bold ${previewRunner.checkedIn ? 'text-[#00B67A]' : 'text-slate-500'}`}>
                     {previewRunner.checkedIn ? '✓ เช็กอินแล้ว' : 'ยังไม่เช็กอิน'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-xs">เคยร่วมงาน:</span>
+                  <span className="font-semibold text-slate-800">
+                    {previewRunner.hasAttendedBefore === 'yes' ? 'เคยร่วมงาน' : 'ครั้งแรก (ไม่เคย)'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block text-xs">สไตล์การแต่งกาย:</span>
+                  <span className="font-semibold text-slate-800">
+                    {previewRunner.costumeStyle === 'ghost' ? 'ชุดผี (แฟนซี)' : 'ชุดกีฬา'}
                   </span>
                 </div>
               </div>

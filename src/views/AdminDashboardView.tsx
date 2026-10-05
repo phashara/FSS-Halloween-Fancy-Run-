@@ -41,6 +41,7 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     checkInRunner,
     claimMedal,
     resetToDefaults,
+    clearSystemCache,
     adminUser,
     logoutAdmin,
   } = useEventContext();
@@ -115,6 +116,19 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
               <option value="OFFICER_FINANCE">💰 จุดการเงิน & ตรวจสอบสลิป</option>
             </select>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('ต้องการล้างแคชหน่วยความจำเบราว์เซอร์ทั้งหมดและโหลดใหม่ใช่หรือไม่?')) {
+                clearSystemCache();
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold transition-colors border border-amber-200"
+            title="ล้างแคช LocalStorage และ IndexedDB ทั้งหมด"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-600" /> ล้างแคชเบราว์เซอร์
+          </button>
 
           <button
             type="button"
@@ -258,7 +272,7 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                     <span className="font-bold block">{scanResult.message}</span>
                     {scanResult.runner && (
                       <span className="text-xs text-slate-600 mt-1 block">
-                        ผู้สมัคร: {scanResult.runner.fullName} (BIB: {scanResult.runner.bibNumber || '-'}) | ติดต่อ: {scanResult.runner.phone}
+                        ผู้สมัคร: {scanResult.runner.fullName} (รหัส: {scanResult.runner.regId}) | ติดต่อ: {scanResult.runner.phone}
                       </span>
                     )}
                   </div>
@@ -289,53 +303,59 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
               </h3>
 
               <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-                {runners.map((r) => {
-                  const card = cards.find((c) => c.cardId === r.cardId);
-                  const order = orders.find((o) => o.orderId === r.shirtOrderId || o.cardId === r.cardId);
+                {runners.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 text-xs">
+                    ยังไม่มีข้อมูลผู้สมัครในระบบ
+                  </div>
+                ) : (
+                  runners.map((r) => {
+                    const card = cards.find((c) => c.cardId === r.cardId);
+                    const order = orders.find((o) => o.orderId === r.shirtOrderId || o.cardId === r.cardId);
 
-                  return (
-                    <div
-                      key={r.regId}
-                      className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs"
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-900">{r.fullName}</span>
-                          <span className="text-[11px] font-mono text-slate-500">({r.cardId})</span>
+                    return (
+                      <div
+                        key={r.regId}
+                        className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-900">{r.fullName}</span>
+                            <span className="text-[11px] font-mono text-slate-500">({r.cardId})</span>
+                          </div>
+                          <p className="text-slate-500 text-[11px] mt-0.5">
+                            รหัส: {r.regId} &middot; {r.phone}
+                          </p>
                         </div>
-                        <p className="text-slate-500 text-[11px] mt-0.5">
-                          BIB: {r.bibNumber || '-'} &middot; {r.phone}
-                        </p>
-                      </div>
 
-                      <div className="flex items-center gap-1.5">
-                        {r.checkedIn ? (
-                          <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                            ✓ เช็กอินแล้ว
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => checkInRunner(r.cardId, officerName)}
-                            className="px-3 py-1 rounded-md bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[11px] font-bold shadow-sm"
-                          >
-                            กดเช็กอิน
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {r.checkedIn ? (
+                            <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[11px] font-bold">
+                              ✓ เช็กอินแล้ว
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => checkInRunner(r.cardId, officerName)}
+                              className="px-3 py-1 rounded-md bg-[#DC2626] hover:bg-[#B91C1C] text-white text-[11px] font-bold shadow-sm"
+                            >
+                              กดเช็กอิน
+                            </button>
+                          )}
 
-                        {order && order.status === 'paid' && (
-                          <button
-                            type="button"
-                            onClick={() => markShirtClaimed(order.orderId)}
-                            className="px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 hover:bg-amber-200 text-[11px] font-bold"
-                          >
-                            จ่ายเสื้อ ({order.size})
-                          </button>
-                        )}
+                          {order && order.status === 'paid' && (
+                            <button
+                              type="button"
+                              onClick={() => markShirtClaimed(order.orderId)}
+                              className="px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 hover:bg-amber-200 text-[11px] font-bold"
+                            >
+                              จ่ายเสื้อ ({order.size})
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -367,8 +387,15 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {orders.map((ord) => (
-                    <tr key={ord.orderId} className="hover:bg-slate-50">
+                  {orders.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
+                        ยังไม่มีรายการสั่งซื้อเสื้อในระบบ
+                      </td>
+                    </tr>
+                  ) : (
+                    orders.map((ord) => (
+                      <tr key={ord.orderId} className="hover:bg-slate-50">
                       <td className="py-3 px-3 font-mono font-bold text-[#DC2626]">{ord.orderId}</td>
                       <td className="py-3 px-3 font-bold text-slate-900">
                         {ord.customerName}
@@ -435,7 +462,7 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                         )}
                       </td>
                     </tr>
-                  ))}
+                  )))}
                 </tbody>
               </table>
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useEventContext } from '../context/EventContext';
 import { GhostSpecies, GhostSpeciesId } from '../types';
+import { THAI_GHOSTS } from '../data/ghosts';
 import { GhostAvatarSvg } from '../components/GhostAvatarSvg';
 import { RealisticGhostPortrait, REALISTIC_GHOST_ASSETS } from '../components/RealisticGhostPortrait';
 import { AdminLoginModal } from '../components/AdminLoginModal';
@@ -60,24 +61,28 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
   
   // Lightbox Zoom Modal
   const [zoomedImage, setZoomedImage] = useState<{ src: string; name: string; title: string } | null>(null);
+  // Image Fit Mode: 'contain' ensures full vertical card image is 100% visible without cropping!
+  const [imageFitMode, setImageFitMode] = useState<'contain' | 'cover'>('contain');
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeGhostForUpload = useRef<GhostSpecies | null>(null);
 
   const selectedGhost =
-    ghostSpeciesList.find((g) => g.id === selectedGhostId) || ghostSpeciesList[0];
+    ghostSpeciesList.find((g) => g?.id === selectedGhostId) || ghostSpeciesList[0] || (THAI_GHOSTS as any).pret;
 
-  const elements = Array.from(new Set(ghostSpeciesList.map((g) => g.element)));
+  const elements = Array.from(new Set(ghostSpeciesList.map((g) => g?.element).filter(Boolean)));
 
-  const filteredGhosts = ghostSpeciesList.filter((g) => {
+  const filteredGhosts = (ghostSpeciesList || []).filter((g) => {
+    if (!g) return false;
     if (filterElement !== 'all' && g.element !== filterElement) return false;
-    if (
-      searchQuery.trim() &&
-      !g.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !g.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !g.tagline.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
-      return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const n = (g.name || '').toLowerCase();
+      const t = (g.title || '').toLowerCase();
+      const tag = (g.tagline || '').toLowerCase();
+      if (!n.includes(q) && !t.includes(q) && !tag.includes(q)) {
+        return false;
+      }
     }
     return true;
   });
@@ -110,8 +115,8 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
         throw new Error('ขนาดไฟล์ใหญ่เกิน 25MB กรุณาเลือกภาพที่มีขนาดเล็กลง');
       }
 
-      // Compress and optimize down to crisp 1200x1600 portrait resolution (~150KB)
-      const compressedDataUrl = await compressImage(file, 1200, 1600, 0.88);
+      // Compress and optimize down to crisp 900x1350 vertical portrait resolution (~75KB)
+      const compressedDataUrl = await compressImage(file, 900, 1350, 0.82);
 
       const updated: GhostSpecies = {
         ...ghost,
@@ -201,27 +206,19 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
             คลังการ์ด 12 ผีไทยในงานวิ่ง
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            เปิดตำนาน 12 วิญญาณไทยประจำงานวิ่ง FSS 2026 เรียงตามลำดับทางการ พร้อมระบบอัปโหลดรูปภาพการ์ดจริง บันทึกและซิงค์ขึ้น Cloud ให้ทุกคนเปิดดูได้จากทุกที่
+            เปิดตำนาน 12 ผีไทยประจำงานวิ่ง FSS Halloween Fancy Run 2026 ศึกษาข้อมูล ประวัติความเป็นมา และค่าพลังผีแต่ละตนที่คุณอาจได้รับในการ์ดประจำตัว
           </p>
 
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">
-              มีรูปภาพจริงแล้ว: <b className="text-emerald-600">{customImageCount}</b> / 12 ตน
-            </span>
-            {adminUser ? (
+          {adminUser && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold">
+                มีรูปภาพจริงแล้ว: <b className="text-emerald-600">{customImageCount}</b> / 12 ตน
+              </span>
               <span className="px-3 py-1 rounded-xl bg-red-50 text-red-700 text-xs font-bold border border-red-200 flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-red-600" /> โหมดแอดมิน: สามารถคลิกอัปโหลดรูปการ์ดได้ทันที
               </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsAdminModalOpen(true)}
-                className="px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium border border-slate-200 flex items-center gap-1 transition-colors"
-              >
-                <Lock className="w-3 h-3 text-slate-500" /> เข้าสู่ระบบแอดมินเพื่ออัปโหลดรูป
-              </button>
-            )}
-          </div>
+            </div>
+          )}
 
           {saveSuccessNotice && (
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs sm:text-sm flex items-center gap-2 mt-2 animate-in fade-in">
@@ -258,33 +255,64 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Filter Chips by Element */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        <button
-          type="button"
-          onClick={() => setFilterElement('all')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-            filterElement === 'all'
-              ? 'bg-[#DC2626] text-white shadow-sm'
-              : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          ทั้งหมด (12 ผีไทย)
-        </button>
-        {elements.map((el) => (
+      {/* Filter Chips by Element & Vertical Scale Mode Toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
-            key={el}
             type="button"
-            onClick={() => setFilterElement(el)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-              filterElement === el
+            onClick={() => setFilterElement('all')}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+              filterElement === 'all'
                 ? 'bg-[#DC2626] text-white shadow-sm'
                 : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
             }`}
           >
-            {el}
+            ทั้งหมด (12 ผีไทย)
           </button>
-        ))}
+          {elements.map((el) => (
+            <button
+              key={el}
+              type="button"
+              onClick={() => setFilterElement(el)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                filterElement === el
+                  ? 'bg-[#DC2626] text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              {el}
+            </button>
+          ))}
+        </div>
+
+        {/* Vertical Scale Aspect Ratio Mode Switcher */}
+        <div className="flex items-center gap-1.5 self-end sm:self-auto bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+          <span className="text-[11px] font-bold text-slate-500 px-2">สัดส่วนแนวตั้ง 2:3:</span>
+          <button
+            type="button"
+            onClick={() => setImageFitMode('contain')}
+            className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+              imageFitMode === 'contain'
+                ? 'bg-white text-red-600 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="แสดงภาพแนวตั้งครบทั้งภาพ ไม่ตัดขอบ (แนะนำสำหรับภาพการ์ด)"
+          >
+            พอดีภาพ (Fit)
+          </button>
+          <button
+            type="button"
+            onClick={() => setImageFitMode('cover')}
+            className={`px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer ${
+              imageFitMode === 'cover'
+                ? 'bg-white text-red-600 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="แสดงภาพเต็มกรอบแนวตั้ง"
+          >
+            เต็มกรอบ (Fill)
+          </button>
+        </div>
       </div>
 
       {/* Main Grid of 12 Thai Ghosts (Clean 2D Modern Cards) */}
@@ -327,22 +355,24 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
                   )}
                 </div>
 
-                {/* 2D Clean Image Frame */}
-                <div className="relative w-full aspect-[4/5] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner group/img mb-3.5">
+                {/* 2D Clean Image Frame: Vertical 2:3 Card Ratio */}
+                <div className="relative w-full aspect-[2/3] rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner group/img mb-3.5 flex items-center justify-center p-1.5">
                   {/* Loading Spinner during upload */}
                   {isUploadingThis && (
-                    <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-red-400">
+                    <div className="absolute inset-0 z-30 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-center gap-2 text-red-400">
                       <Loader2 className="w-8 h-8 animate-spin" />
                       <span className="text-xs font-bold">กำลังอัปโหลด...</span>
                     </div>
                   )}
 
-                  {/* Ghost Image Artwork */}
+                  {/* Ghost Image Artwork - True Vertical Proportion */}
                   <img
                     src={activeImage}
                     alt={ghost.name}
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-105"
+                    className={`w-full h-full rounded-xl transition-transform duration-500 group-hover/img:scale-[1.02] ${
+                      imageFitMode === 'cover' ? 'object-cover' : 'object-contain'
+                    }`}
                   />
 
                   {/* Gradient bottom shadow */}
@@ -387,11 +417,11 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
                 <div className="mt-3 pt-2.5 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs font-mono">
                   <div className="flex items-center justify-between text-slate-700 bg-slate-50 px-2 py-1 rounded-lg">
                     <span className="text-slate-500 text-[11px]">ความเร็ว:</span>
-                    <span className="text-[#DC2626] font-bold">{ghost.baseStats.speed}</span>
+                    <span className="text-[#DC2626] font-bold">{ghost?.baseStats?.speed ?? 90}</span>
                   </div>
                   <div className="flex items-center justify-between text-slate-700 bg-slate-50 px-2 py-1 rounded-lg">
                     <span className="text-slate-500 text-[11px]">ความหลอน:</span>
-                    <span className="text-purple-600 font-bold">{ghost.baseStats.spookiness}</span>
+                    <span className="text-purple-600 font-bold">{ghost?.baseStats?.spookiness ?? 90}</span>
                   </div>
                 </div>
               </div>
@@ -399,48 +429,64 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
               {/* Action Buttons Row */}
               <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  {/* Upload Image Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleTriggerUpload(ghost);
-                    }}
-                    disabled={isUploadingThis}
-                    className="flex-1 py-2 px-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                    title="อัปโหลดรูปภาพการ์ดนี้"
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>{ghost.customImageUrl ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}</span>
-                  </button>
+                  {adminUser ? (
+                    <>
+                      {/* Upload Image Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTriggerUpload(ghost);
+                        }}
+                        disabled={isUploadingThis}
+                        className="flex-1 py-2 px-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                        title="อัปโหลดรูปภาพการ์ดนี้"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>{ghost.customImageUrl ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}</span>
+                      </button>
 
-                  {/* Reset Image if custom exists */}
-                  {ghost.customImageUrl && adminUser && (
+                      {/* Reset Image if custom exists */}
+                      {ghost.customImageUrl && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleResetImage(ghost);
+                          }}
+                          className="p-2 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl text-xs transition-colors cursor-pointer"
+                          title="คืนค่ารูปภาพตั้งต้น"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+
+                      {/* View Details / MyCard Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedGhostId(ghost.id);
+                        }}
+                        className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs transition-colors cursor-pointer"
+                        title="ดูรายละเอียดเพิ่มเติม"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleResetImage(ghost);
+                        setSelectedGhostId(ghost.id);
                       }}
-                      className="p-2 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl text-xs transition-colors cursor-pointer"
-                      title="คืนค่ารูปภาพตั้งต้น"
+                      className="w-full py-2.5 px-3 bg-slate-900 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
+                      <Eye className="w-4 h-4 text-amber-400" />
+                      <span>ดูตำนาน & ค่าพลังผี</span>
                     </button>
                   )}
-
-                  {/* View Details / MyCard Button */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedGhostId(ghost.id);
-                    }}
-                    className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs transition-colors cursor-pointer"
-                    title="ดูรายละเอียดเพิ่มเติม"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               </div>
             </div>
@@ -452,14 +498,16 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
       {selectedGhost && (
         <div className="rounded-3xl p-6 sm:p-10 bg-white border border-slate-200 shadow-sm relative overflow-hidden">
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8">
-            {/* Visual Portrait Card */}
-            <div className="w-full sm:w-80 lg:w-96 shrink-0 flex flex-col items-center">
-              <div className="relative w-full aspect-[4/5] rounded-3xl overflow-hidden border border-slate-200 shadow-lg bg-slate-950 group">
+            {/* Visual Portrait Card: Vertical 2:3 Proportion */}
+            <div className="w-full sm:w-80 lg:w-88 shrink-0 flex flex-col items-center">
+              <div className="relative w-full aspect-[2/3] rounded-3xl overflow-hidden border border-slate-700/80 shadow-2xl bg-slate-950 group flex items-center justify-center p-2">
                 <img
                   src={selectedGhost.customImageUrl || REALISTIC_GHOST_ASSETS[selectedGhost.id]?.photoUrl}
                   alt={selectedGhost.name}
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  className={`w-full h-full rounded-2xl transition-transform duration-500 group-hover:scale-[1.02] ${
+                    imageFitMode === 'cover' ? 'object-cover' : 'object-contain'
+                  }`}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
 
@@ -485,29 +533,29 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
                 </div>
               </div>
 
-              {/* Action buttons below portrait */}
-              <div className="mt-4 flex items-center gap-2 w-full">
-                <button
-                  type="button"
-                  onClick={() => handleTriggerUpload(selectedGhost)}
-                  className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Upload className="w-4 h-4" />
-                  <span>{selectedGhost.customImageUrl ? 'เปลี่ยนรูปภาพใหม่' : 'อัปโหลดรูปภาพการ์ด'}</span>
-                </button>
-
-                {selectedGhost.customImageUrl && adminUser && (
+              {/* Action buttons below portrait (Admin only) */}
+              {adminUser && (
+                <div className="mt-4 flex items-center gap-2 w-full">
                   <button
                     type="button"
-                    onClick={() => handleResetImage(selectedGhost)}
-                    className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
-                    title="คืนค่าภาพตั้งต้น"
+                    onClick={() => handleTriggerUpload(selectedGhost)}
+                    className="flex-1 py-2.5 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs sm:text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <RotateCcw className="w-4 h-4" />
+                    <Upload className="w-4 h-4" />
+                    <span>{selectedGhost.customImageUrl ? 'เปลี่ยนรูปภาพใหม่' : 'อัปโหลดรูปภาพการ์ด'}</span>
                   </button>
-                )}
 
-                {adminUser && (
+                  {selectedGhost.customImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => handleResetImage(selectedGhost)}
+                      className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
+                      title="คืนค่าภาพตั้งต้น"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => handleStartEdit(selectedGhost)}
@@ -517,8 +565,8 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
                     <Edit3 className="w-4 h-4" />
                     <span>แก้ไข</span>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Lore and Details */}
@@ -542,40 +590,40 @@ export const GhostCollectionView: React.FC<Props> = ({ onNavigate }) => {
                   <div>
                     <div className="flex justify-between mb-1 font-medium">
                       <span className="text-slate-600">ความเร็วในการวิ่ง (Speed)</span>
-                      <span className="font-mono font-bold text-[#DC2626]">{selectedGhost.baseStats.speed} / 100</span>
+                      <span className="font-mono font-bold text-[#DC2626]">{selectedGhost?.baseStats?.speed ?? 90} / 100</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                      <div className="h-full bg-[#DC2626] rounded-full" style={{ width: `${selectedGhost.baseStats.speed}%` }} />
+                      <div className="h-full bg-[#DC2626] rounded-full" style={{ width: `${selectedGhost?.baseStats?.speed ?? 90}%` }} />
                     </div>
                   </div>
 
                   <div>
                     <div className="flex justify-between mb-1 font-medium">
                       <span className="text-slate-600">ระดับความหลอน (Spookiness)</span>
-                      <span className="font-mono font-bold text-purple-600">{selectedGhost.baseStats.spookiness} / 100</span>
+                      <span className="font-mono font-bold text-purple-600">{selectedGhost?.baseStats?.spookiness ?? 90} / 100</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                      <div className="h-full bg-purple-600 rounded-full" style={{ width: `${selectedGhost.baseStats.spookiness}%` }} />
+                      <div className="h-full bg-purple-600 rounded-full" style={{ width: `${selectedGhost?.baseStats?.spookiness ?? 90}%` }} />
                     </div>
                   </div>
 
                   <div>
                     <div className="flex justify-between mb-1 font-medium">
                       <span className="text-slate-600">พลังแฝงลี้ลับ (Latent Power)</span>
-                      <span className="font-mono font-bold text-amber-600">{selectedGhost.baseStats.latentPower} / 100</span>
+                      <span className="font-mono font-bold text-amber-600">{selectedGhost?.baseStats?.latentPower ?? 90} / 100</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                      <div className="h-full bg-amber-500 rounded-full" style={{ width: `${selectedGhost.baseStats.latentPower}%` }} />
+                      <div className="h-full bg-amber-500 rounded-full" style={{ width: `${selectedGhost?.baseStats?.latentPower ?? 90}%` }} />
                     </div>
                   </div>
 
                   <div>
                     <div className="flex justify-between mb-1 font-medium">
                       <span className="text-slate-600">ออร่าความเฮี้ยน (Haunting Aura)</span>
-                      <span className="font-mono font-bold text-emerald-600">{selectedGhost.baseStats.hauntingAura} / 100</span>
+                      <span className="font-mono font-bold text-emerald-600">{selectedGhost?.baseStats?.hauntingAura ?? 90} / 100</span>
                     </div>
                     <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${selectedGhost.baseStats.hauntingAura}%` }} />
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${selectedGhost?.baseStats?.hauntingAura ?? 90}%` }} />
                     </div>
                   </div>
                 </div>
