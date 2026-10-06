@@ -38,6 +38,8 @@ import { csvRow } from '../lib/csv';
 import { ShirtDashboard } from '../components/ShirtDashboard';
 import { RunnerEditModal } from '../components/RunnerEditModal';
 import { RunnerDeleteModal } from '../components/RunnerDeleteModal';
+import { ShirtOrderEditModal } from '../components/ShirtOrderEditModal';
+import { ShirtOrderDeleteModal } from '../components/ShirtOrderDeleteModal';
 
 export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> = ({
   onNavigate,
@@ -65,6 +67,8 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     exportLocalBackup,
     updateRunnerFull,
     deleteRunner,
+    updateShirtOrderFull,
+    deleteShirtOrder,
   } = useEventContext();
 
   // Admin Dashboard on-demand subscription for runners & orders
@@ -95,6 +99,8 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
   const [selectedOrder, setSelectedOrder] = useState<ShirtOrder | null>(null);
   const [editingRunner, setEditingRunner] = useState<RunnerRegistration | null>(null);
   const [deletingRunner, setDeletingRunner] = useState<RunnerRegistration | null>(null);
+  const [editingOrder, setEditingOrder] = useState<ShirtOrder | null>(null);
+  const [deletingOrder, setDeletingOrder] = useState<ShirtOrder | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Statistics calculation
@@ -917,46 +923,69 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                           </span>
                         </td>
                         <td className="py-3 px-3.5 text-center">
-                          {ord.status === 'pending_verification' ? (
-                            <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                            {ord.status === 'pending_verification' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => approveShirtPayment(ord.orderId)}
+                                  className="px-2 py-1 bg-[#00B67A] hover:bg-emerald-600 text-white rounded text-[11px] font-bold shadow-xs cursor-pointer"
+                                  title="อนุมัติสลิป"
+                                >
+                                  อนุมัติ
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => rejectShirtPayment(ord.orderId)}
+                                  className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-bold shadow-xs cursor-pointer"
+                                  title="ปฏิเสธสลิป"
+                                >
+                                  ปฏิเสธ
+                                </button>
+                              </>
+                            )}
+
+                            {ord.status === 'paid' && (
                               <button
                                 type="button"
-                                onClick={() => approveShirtPayment(ord.orderId)}
-                                className="px-2.5 py-1 bg-[#00B67A] hover:bg-emerald-600 text-white rounded text-[11px] font-bold shadow-sm"
+                                onClick={() => markShirtClaimed(ord.orderId)}
+                                className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold cursor-pointer"
+                                title="บันทึกว่ารับเสื้อแล้ว"
                               >
-                                อนุมัติ
+                                มอบเสื้อแล้ว
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => rejectShirtPayment(ord.orderId)}
-                                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-bold shadow-sm"
-                              >
-                                ปฏิเสธ
-                              </button>
-                            </div>
-                          ) : ord.status === 'paid' ? (
+                            )}
+
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                markShirtClaimed(ord.orderId);
-                              }}
-                              className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold"
+                              onClick={() => setSelectedOrder(ord)}
+                              className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                              title="ดูรายละเอียดออเดอร์"
                             >
-                              มอบเสื้อแล้ว
+                              <Eye className="w-3.5 h-3.5 text-slate-600" />
+                              <span className="hidden sm:inline">ดู</span>
                             </button>
-                          ) : (
+
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedOrder(ord);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
+                              onClick={() => setEditingOrder(ord)}
+                              className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              title="แก้ไขคำสั่งซื้อและสลิปโอนเงิน"
                             >
-                              ดูข้อมูล
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">แก้ไข</span>
                             </button>
-                          )}
+
+                            <button
+                              type="button"
+                              onClick={() => setDeletingOrder(ord)}
+                              className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              title="ลบคำสั่งซื้อ (ต้องใช้รหัส 07011985)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">ลบ</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1084,7 +1113,12 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
       {/* ======================================================== */}
       {activeTab === 'shirt_dashboard' && (
         <div className="space-y-6">
-          <ShirtDashboard orders={orders} />
+          <ShirtDashboard
+            orders={orders}
+            onOrderClick={(ord) => setSelectedOrder(ord)}
+            onEditOrder={(ord) => setEditingOrder(ord)}
+            onDeleteOrder={(ord) => setDeletingOrder(ord)}
+          />
         </div>
       )}
 
@@ -1413,6 +1447,31 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                 </div>
               )}
 
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ord = selectedOrder;
+                    setSelectedOrder(null);
+                    setEditingOrder(ord);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5" /> แก้ไขคำสั่งซื้อ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ord = selectedOrder;
+                    setSelectedOrder(null);
+                    setDeletingOrder(ord);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> ลบคำสั่งซื้อนี้
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
@@ -1481,6 +1540,30 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
         onConfirmDelete={async (regId, passcode) => {
           const res = await deleteRunner(regId, passcode);
           setActionFeedback({ type: 'success', message: res.message || 'ลบข้อมูลผู้สมัครเรียบร้อยแล้ว' });
+          setTimeout(() => setActionFeedback(null), 4000);
+        }}
+      />
+
+      {/* Shirt Order Edit Modal */}
+      <ShirtOrderEditModal
+        isOpen={Boolean(editingOrder)}
+        order={editingOrder}
+        onClose={() => setEditingOrder(null)}
+        onSave={async (updatedOrder) => {
+          const res = await updateShirtOrderFull(updatedOrder);
+          setActionFeedback({ type: 'success', message: res.message || 'บันทึกการแก้ไขคำสั่งซื้อสำเร็จ' });
+          setTimeout(() => setActionFeedback(null), 4000);
+        }}
+      />
+
+      {/* Shirt Order Delete Modal */}
+      <ShirtOrderDeleteModal
+        isOpen={Boolean(deletingOrder)}
+        order={deletingOrder}
+        onClose={() => setDeletingOrder(null)}
+        onConfirmDelete={async (orderId, passcode) => {
+          const res = await deleteShirtOrder(orderId, passcode);
+          setActionFeedback({ type: 'success', message: res.message || 'ลบคำสั่งซื้อเสื้อเรียบร้อยแล้ว' });
           setTimeout(() => setActionFeedback(null), 4000);
         }}
       />

@@ -232,6 +232,13 @@ export interface EventContextType {
     regId: string,
     passcode: string
   ) => Promise<{ success: boolean; message: string }>;
+  updateShirtOrderFull: (
+    order: ShirtOrder
+  ) => Promise<{ success: boolean; message: string }>;
+  deleteShirtOrder: (
+    orderId: string,
+    passcode: string
+  ) => Promise<{ success: boolean; message: string }>;
   updateCardCustomImage: (cardId: string, imageUrl: string | null) => Promise<void>;
   // 12 Thai Ghost Collection
   ghostSpeciesList: GhostSpecies[];
@@ -2095,6 +2102,107 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const updateShirtOrderFull = async (
+    order: ShirtOrder
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const batch = writeBatch(db);
+      const orderRef = doc(db, 'orders', order.orderId);
+      batch.set(orderRef, cleanForFirestore(order), { merge: true });
+
+      // If order is claimed, also update linked runner if any
+      if (order.status === 'claimed') {
+        const linkedRunner = runners.find(
+          (r) => r.shirtOrderId === order.orderId || r.cardId === order.cardId
+        );
+        if (linkedRunner && !linkedRunner.shirtClaimed) {
+          batch.set(
+            doc(db, 'runners', linkedRunner.regId),
+            cleanForFirestore({ shirtClaimed: true }),
+            { merge: true }
+          );
+        }
+      }
+
+      await batch.commit();
+
+      // Update state
+      const updatedOrders = orders.map((o) => (o.orderId === order.orderId ? order : o));
+      setOrders(updatedOrders);
+
+      if (order.status === 'claimed') {
+        setRunners((prev) =>
+          prev.map((r) =>
+            r.shirtOrderId === order.orderId || r.cardId === order.cardId
+              ? { ...r, shirtClaimed: true }
+              : r
+          )
+        );
+      }
+      if (order.cardId) {
+        setCards((prev) =>
+          prev.map((c) =>
+            c.cardId === order.cardId
+              ? recomputeCardLevel(c, updatedOrders, runners)
+              : c
+          )
+        );
+      }
+
+      return { success: true, message: 'บันทึกการแก้ไขคำสั่งซื้อสำเร็จ' };
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('ไม่สามารถบันทึกคำสั่งซื้อไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
+    }
+  };
+
+  const deleteShirtOrder = async (
+    orderId: string,
+    passcode: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (passcode.trim() !== '07011985') {
+      throw new Error('รหัสผ่านไม่ถูกต้อง (กรุณากรอกรหัส 07011985 เพื่อยืนยันการลบ)');
+    }
+
+    const order = orders.find((o) => o.orderId === orderId);
+    if (!order) {
+      throw new Error('ไม่พบคำสั่งซื้อที่ต้องการลบ');
+    }
+
+    try {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'orders', orderId));
+
+      // If linked runner exists, clear shirtOrderId
+      const linkedRunner = runners.find((r) => r.shirtOrderId === orderId);
+      if (linkedRunner) {
+        batch.set(
+          doc(db, 'runners', linkedRunner.regId),
+          cleanForFirestore({ shirtOrderId: null, shirtClaimed: false }),
+          { merge: true }
+        );
+      }
+
+      await batch.commit();
+
+      setOrders((prev) => prev.filter((o) => o.orderId !== orderId));
+      if (linkedRunner) {
+        setRunners((prev) =>
+          prev.map((r) =>
+            r.regId === linkedRunner.regId
+              ? { ...r, shirtOrderId: undefined, shirtClaimed: false }
+              : r
+          )
+        );
+      }
+
+      return { success: true, message: `ลบคำสั่งซื้อ ${orderId} เรียบร้อยแล้ว` };
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('ไม่สามารถลบคำสั่งซื้อจาก Cloud ได้: ' + ((err as Error)?.message || ''));
+    }
+  };
+
   const clearSystemCache = async () => {
     try {
       localStorage.clear();
@@ -2182,6 +2290,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         claimMedal,
         updateRunnerFull,
         deleteRunner,
+        updateShirtOrderFull,
+        deleteShirtOrder,
         updateCardCustomImage,
         ghostSpeciesList,
         updateGhostSpecies,

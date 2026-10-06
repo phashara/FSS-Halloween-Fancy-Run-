@@ -15,6 +15,8 @@ import {
   Eye,
   FileText,
   UserCheck,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { ShirtOrder, ShirtSize } from '../types';
 import { OFFICIAL_SHIRT_SIZES } from '../data/shirtSizes';
@@ -23,12 +25,16 @@ interface Props {
   orders: ShirtOrder[];
   onOrderClick?: (order: ShirtOrder) => void;
   onNavigateToOrderForm?: () => void;
+  onEditOrder?: (order: ShirtOrder) => void;
+  onDeleteOrder?: (order: ShirtOrder) => void;
 }
 
 export const ShirtDashboard: React.FC<Props> = ({
   orders = [],
   onOrderClick,
   onNavigateToOrderForm,
+  onEditOrder,
+  onDeleteOrder,
 }) => {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const [searchTerm, setSearchTerm] = useState('');
@@ -477,6 +483,7 @@ export const ShirtDashboard: React.FC<Props> = ({
                 <th className="py-3 px-4">การจัดส่ง</th>
                 <th className="py-3 px-4 text-center">สถานะ</th>
                 <th className="py-3 px-4 text-center">สลิป</th>
+                <th className="py-3 px-4 text-center">การจัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -545,7 +552,7 @@ export const ShirtDashboard: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setSelectedSlip(ord.slipImage || null)}
-                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-medium transition-colors inline-flex items-center gap-1"
+                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-medium transition-colors inline-flex items-center gap-1 cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>ดูสลิป</span>
@@ -554,11 +561,48 @@ export const ShirtDashboard: React.FC<Props> = ({
                         <span className="text-[11px] text-slate-600">-</span>
                       )}
                     </td>
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {onOrderClick && (
+                          <button
+                            type="button"
+                            onClick={() => onOrderClick(ord)}
+                            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            title="ดูรายละเอียดออเดอร์"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">ดู</span>
+                          </button>
+                        )}
+                        {onEditOrder && (
+                          <button
+                            type="button"
+                            onClick={() => onEditOrder(ord)}
+                            className="px-2 py-1 rounded-lg bg-blue-950/70 hover:bg-blue-600 text-blue-300 hover:text-white border border-blue-800/60 text-[11px] font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            title="แก้ไขคำสั่งซื้อและสลิป"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">แก้ไข</span>
+                          </button>
+                        )}
+                        {onDeleteOrder && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteOrder(ord)}
+                            className="px-2 py-1 rounded-lg bg-rose-950/70 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-800/60 text-[11px] font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            title="ลบคำสั่งซื้อ (ต้องใช้รหัส 07011985)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">ลบ</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-500 text-xs">
+                  <td colSpan={9} className="py-12 text-center text-slate-500 text-xs">
                     {orders.length === 0 ? 'ยังไม่มีรายการสั่งซื้อเสื้อในระบบ' : 'ไม่พบรายการคำสั่งซื้อตามเงื่อนไขที่เลือก'}
                   </td>
                 </tr>
