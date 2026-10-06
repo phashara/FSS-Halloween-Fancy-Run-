@@ -72,6 +72,18 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
   const [previewRunner, setPreviewRunner] = useState<RunnerRegistration | null>(null);
   const [isDownloadingCard, setIsDownloadingCard] = useState<boolean>(false);
 
+  // Drop private previews and invalidate in-flight requests when identity changes.
+  useEffect(() => {
+    ++requestIdRef.current;
+    setDirectoryRunners([]);
+    setDirectoryOrders([]);
+    setDirectoryCards([]);
+    setPreviewRunner(null);
+    setPreviewOrder(null);
+    setPreviewCard(null);
+    setCursorStack([]);
+  }, [adminUser?.username]);
+
   // Load a directory page from Cloud with request generation guard
   const fetchPageData = useCallback(
     async (pageNum: number, lastDocCursor?: any) => {
@@ -159,7 +171,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
         clearTimeout(timer);
       };
     }
-  }, [searchTerm, fetchPageData, searchRunnersRemote]);
+  }, [searchTerm, fetchPageData, searchRunnersRemote, adminUser?.username]);
 
   const handleNextPage = () => {
     if (!hasMorePages || directoryLoading) return;
