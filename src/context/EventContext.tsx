@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
-import { db } from '../lib/firebase';
+import { db, auth, ensureParticipantIdentity } from '../lib/firebase';
+import { GoogleAuthProvider, browserSessionPersistence, onAuthStateChanged, setPersistence, signInWithPopup, signOut } from 'firebase/auth';
+import { isApprovedAdmin } from '../lib/adminPolicy';
+import { publicDirectoryPage, publicDirectorySearch } from '../lib/publicDirectory';
 import {
   collection,
   doc,
@@ -19,11 +22,6 @@ import { SiteContentSection, AdminUser } from '../types/cms';
 import { idbGet, idbSet, idbRemove } from '../lib/idbStorage';
 import { DEFAULT_SITE_CONTENT } from '../data/defaultSiteContent';
 import { THAI_GHOSTS, OFFICIAL_12_GHOST_IDS } from '../data/ghosts';
-import {
-  INITIAL_CARDS,
-  INITIAL_RUNNERS,
-  INITIAL_SHIRT_ORDERS,
-} from '../data/initialData';
 import {
   CardLevel,
   GhostCard,
@@ -173,7 +171,7 @@ export interface EventContextType {
 
   // Admin Authentication (phasharak / 07011985)
   adminUser: AdminUser | null;
-  loginAdmin: (user: string, pass: string) => boolean;
+  loginAdmin: () => Promise<boolean>;
   logoutAdmin: () => void;
 
   // Official Shirt & Medal Images
@@ -356,41 +354,11 @@ export function createOrderFingerprint(params: OrderShirtParams): string {
 }
 
 export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cards, setCards] = useState<GhostCard[]>(() => {
-    try {
-      const saved = safeLocalStorage.getItem(STORAGE_KEYS.CARDS);
-      const parsedCards = saved ? JSON.parse(saved) : INITIAL_CARDS;
-      if (Array.isArray(parsedCards) && parsedCards.length > 0) {
-        return parsedCards.map((c) => ({
-          ...c,
-          level: (c && typeof c.level === 'number' && c.level > 2 ? 2 : (c?.level || 1)) as CardLevel,
-        }));
-      }
-      return INITIAL_CARDS;
-    } catch {
-      return INITIAL_CARDS;
-    }
-  });
+  const [cards, setCards] = useState<GhostCard[]>([]);
 
-  const [runners, setRunners] = useState<RunnerRegistration[]>(() => {
-    try {
-      const saved = safeLocalStorage.getItem(STORAGE_KEYS.RUNNERS);
-      const parsed = saved ? JSON.parse(saved) : INITIAL_RUNNERS;
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_RUNNERS;
-    } catch {
-      return INITIAL_RUNNERS;
-    }
-  });
-
-  const [orders, setOrders] = useState<ShirtOrder[]>(() => {
-    try {
-      const saved = safeLocalStorage.getItem(STORAGE_KEYS.ORDERS);
-      const parsed = saved ? JSON.parse(saved) : INITIAL_SHIRT_ORDERS;
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SHIRT_ORDERS;
-    } catch {
-      return INITIAL_SHIRT_ORDERS;
-    }
-  });
+  // Sensitive records stay in memory; never restore or persist full admin datasets.
+  const [runners, setRunners] = useState<RunnerRegistration[]>([]);
+  const [orders, setOrders] = useState<ShirtOrder[]>([]);
 
   const [currentCardId, setCurrentCardId] = useState<string | null>(() => {
     try {
@@ -410,15 +378,22 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  // Admin Auth session
-  const [adminUser, setAdminUser] = useState<AdminUser | null>(() => {
-    try {
-      const saved = safeLocalStorage.getItem(STORAGE_KEYS.ADMIN_SESSION);
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Firebase verifies the identity; localStorage cannot grant admin privileges.
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
+  const authGenerationRef = useRef(0);
+  useEffect(() => {
+    [STORAGE_KEYS.ADMIN_SESSION, STORAGE_KEYS.RUNNERS, STORAGE_KEYS.ORDERS, STORAGE_KEYS.CARDS].forEach(safeLocalStorage.removeItem);
+    return onAuthStateChanged(auth, (user) => {
+      authGenerationRef.current++;
+      setRunners([]);
+      setOrders([]);
+      setCards([]);
+      setAdminUser(isApprovedAdmin(user) ? {
+        username: user!.email!, role: 'SUPER_ADMIN', isLoggedIn: true,
+        loginTimestamp: new Date().toISOString(),
+      } : null);
+    });
+  }, []);
 
   // Live Edit CMS mode
   const [isLiveEditMode, setIsLiveEditMode] = useState<boolean>(() => {
@@ -550,17 +525,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   // Sync to localStorage
-  useEffect(() => {
-    safeLocalStorage.setItem(STORAGE_KEYS.CARDS, JSON.stringify(cards));
-  }, [cards]);
 
-  useEffect(() => {
-    safeLocalStorage.setItem(STORAGE_KEYS.RUNNERS, JSON.stringify(runners));
-  }, [runners]);
-
-  useEffect(() => {
-    safeLocalStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-  }, [orders]);
 
   useEffect(() => {
     if (currentCardId) {
@@ -574,13 +539,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     safeLocalStorage.setItem(STORAGE_KEYS.OFFICER_ROLE, activeOfficerRole);
   }, [activeOfficerRole]);
 
-  useEffect(() => {
-    if (adminUser) {
-      safeLocalStorage.setItem(STORAGE_KEYS.ADMIN_SESSION, JSON.stringify(adminUser));
-    } else {
-      safeLocalStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
-    }
-  }, [adminUser]);
+
 
   useEffect(() => {
     safeLocalStorage.setItem(STORAGE_KEYS.LIVE_EDIT, String(isLiveEditMode));
@@ -659,7 +618,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ];
 
           // STRICT ADMIN CHECK: only fetch runners/orders/cards if adminUser is actually authenticated!
-          const isAdminAuthenticated = Boolean(adminUser?.isLoggedIn);
+          const isAdminAuthenticated = isApprovedAdmin(auth.currentUser);
+          const authGeneration = authGenerationRef.current;
           if (options?.forceAdminSync && isAdminAuthenticated) {
             promises.push(
               getDocs(collection(db, 'runners')),
@@ -800,7 +760,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           }
 
           // 4. Process Runners / Orders / Cards with AUTHORITATIVE REPLACEMENT (no stale row pollution)
-          if (runnersSnap) {
+          if (runnersSnap && authGeneration === authGenerationRef.current && isApprovedAdmin(auth.currentUser)) {
             const remoteRunners: RunnerRegistration[] = [];
             runnersSnap.forEach((docSnap: any) => {
               remoteRunners.push(docSnap.data() as RunnerRegistration);
@@ -809,7 +769,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setRunners(remoteRunners);
           }
 
-          if (ordersSnap) {
+          if (ordersSnap && authGeneration === authGenerationRef.current && isApprovedAdmin(auth.currentUser)) {
             const remoteOrders: ShirtOrder[] = [];
             ordersSnap.forEach((docSnap: any) => {
               remoteOrders.push(docSnap.data() as ShirtOrder);
@@ -818,7 +778,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             setOrders(remoteOrders);
           }
 
-          if (cardsSnap) {
+          if (cardsSnap && authGeneration === authGenerationRef.current && isApprovedAdmin(auth.currentUser)) {
             const remoteCards: GhostCard[] = [];
             cardsSnap.forEach((docSnap: any) => {
               remoteCards.push(docSnap.data() as GhostCard);
@@ -945,6 +905,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Cloud-backed Paginated Directory Loader (reads orderBy documentId with limit & startAfter cursor)
   const loadDirectoryPage = useCallback(
     async (options?: LoadDirectoryPageOptions): Promise<DirectoryPageResult> => {
+      if (!isApprovedAdmin(auth.currentUser)) return publicDirectoryPage(options);
       const pageSize = options?.pageSize || 20;
       if (Date.now() < quotaCooldownUntilRef.current) {
         const err = new Error('โควตาการอ่าน Cloud รายวันเต็มอยู่ในขณะนี้ กรุณาลองใหม่อีกครั้ง');
@@ -1029,6 +990,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Targeted remote search for Directory & Home (returns separate result payload without polluting global state)
   const searchRunnersRemote = useCallback(
     async (queryStr: string): Promise<SearchResultPayload> => {
+      if (!isApprovedAdmin(auth.currentUser)) return publicDirectorySearch(queryStr.trim());
       const rawStr = queryStr.trim();
       const upperStr = rawStr.toUpperCase();
       if (!rawStr) return { runners: [], cards: [], orders: [] };
@@ -1150,6 +1112,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Admin Dashboard on-demand subscription: AUTHORITATIVE REPLACEMENT (no stale row pollution)
   const subscribeAdminData = useCallback(() => {
+    if (!isApprovedAdmin(auth.currentUser)) return () => {};
+    const authGeneration = authGenerationRef.current;
     if (Date.now() < quotaCooldownUntilRef.current) {
       console.warn('Admin subscription paused due to quota cooldown.');
       return () => {};
@@ -1163,6 +1127,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubRunners = onSnapshot(
         collection(db, 'runners'),
         (snap) => {
+          if (authGeneration !== authGenerationRef.current || !isApprovedAdmin(auth.currentUser)) return;
           const remoteRunners: RunnerRegistration[] = [];
           snap.forEach((docSnap) => {
             remoteRunners.push(docSnap.data() as RunnerRegistration);
@@ -1179,6 +1144,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubOrders = onSnapshot(
         collection(db, 'orders'),
         (snap) => {
+          if (authGeneration !== authGenerationRef.current || !isApprovedAdmin(auth.currentUser)) return;
           const remoteOrders: ShirtOrder[] = [];
           snap.forEach((docSnap) => {
             remoteOrders.push(docSnap.data() as ShirtOrder);
@@ -1195,6 +1161,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       unsubCards = onSnapshot(
         collection(db, 'cards'),
         (snap) => {
+          if (authGeneration !== authGenerationRef.current || !isApprovedAdmin(auth.currentUser)) return;
           const remoteCards: GhostCard[] = [];
           snap.forEach((docSnap) => {
             remoteCards.push(docSnap.data() as GhostCard);
@@ -1242,25 +1209,24 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: true, filename };
   };
 
-  const loginAdmin = (usernameInput: string, passwordInput: string): boolean => {
-    const trimmedUser = usernameInput.trim();
-    const trimmedPass = passwordInput.trim();
-    if (trimmedUser === 'phasharak' && trimmedPass === '07011985') {
-      const user: AdminUser = {
-        username: 'phasharak',
-        role: 'SUPER_ADMIN',
-        isLoggedIn: true,
-        loginTimestamp: new Date().toISOString(),
-      };
-      setAdminUser(user);
-      return true;
+  const loginAdmin = async (): Promise<boolean> => {
+    await setPersistence(auth, browserSessionPersistence);
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    if (!isApprovedAdmin(result.user)) {
+      await signOut(auth);
+      throw new Error('บัญชี Google นี้ไม่มีสิทธิ์ผู้ดูแลระบบ');
     }
-    return false;
+    return true;
   };
 
-  const logoutAdmin = () => {
+  const logoutAdmin = async () => {
+    authGenerationRef.current++;
     setAdminUser(null);
-    safeLocalStorage.removeItem(STORAGE_KEYS.ADMIN_SESSION);
+    setRunners([]);
+    setOrders([]);
+    setCards([]);
+    [STORAGE_KEYS.ADMIN_SESSION, STORAGE_KEYS.RUNNERS, STORAGE_KEYS.ORDERS, STORAGE_KEYS.CARDS].forEach(safeLocalStorage.removeItem);
+    await signOut(auth);
   };
 
   const updateSiteContent = async (section: SiteContentSection) => {
@@ -1643,10 +1609,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       const batch = writeBatch(db);
-      batch.set(doc(db, 'runners', newRunner.regId), cleanForFirestore(newRunner), { merge: true });
-      batch.set(doc(db, 'cards', newCard.cardId), cleanForFirestore(newCard), { merge: true });
+      const ownerUid = await ensureParticipantIdentity();
+      batch.set(doc(db, 'runners', newRunner.regId), cleanForFirestore({ ...newRunner, ownerUid }), { merge: true });
+      batch.set(doc(db, 'cards', newCard.cardId), cleanForFirestore({ ...newCard, ownerUid }), { merge: true });
       if (createdOrder) {
-        batch.set(doc(db, 'orders', createdOrder.orderId), cleanForFirestore(createdOrder), { merge: true });
+        batch.set(doc(db, 'orders', createdOrder.orderId), cleanForFirestore({ ...createdOrder, ownerUid }), { merge: true });
       }
 
       await batch.commit();
@@ -1755,7 +1722,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       const batch = writeBatch(db);
-      batch.set(doc(db, 'orders', newOrder.orderId), cleanForFirestore(newOrder), { merge: true });
+      const ownerUid = await ensureParticipantIdentity();
+      batch.set(doc(db, 'orders', newOrder.orderId), cleanForFirestore({ ...newOrder, ownerUid }), { merge: true });
       if (targetRunner) {
         batch.set(
           doc(db, 'runners', targetRunner.regId),
@@ -2032,6 +2000,7 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCards([]);
     setRunners([]);
     setOrders([]);
+    setCards([]);
     setCurrentCardId(null);
     setJustRevealedCard(null);
     safeLocalStorage.removeItem(STORAGE_KEYS.CARDS);
