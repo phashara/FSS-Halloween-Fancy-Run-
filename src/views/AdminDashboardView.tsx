@@ -32,6 +32,7 @@ import {
 import { useEventContext } from '../context/EventContext';
 import { OfficerRole, ShirtOrder, RunnerRegistration, GhostCard } from '../types';
 import { THAI_GHOSTS } from '../data/ghosts';
+import { csvRow } from '../lib/csv';
 import { ShirtDashboard } from '../components/ShirtDashboard';
 
 export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> = ({
@@ -206,29 +207,29 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
           ? 'วิ่ง + สั่งเสื้อ'
           : 'ซื้อเสื้ออย่างเดียว';
 
-      return [
-        `"${r.regId}"`,
-        `"${r.bibNumber || '-'}"`,
-        `"${r.cardId}"`,
-        `"${r.fullName}"`,
-        `"${r.nickname || '-'}"`,
-        `"${r.phone}"`,
-        `"${r.gender || '-'}"`,
-        `"${catLabel}"`,
-        `"${r.studentYear || '-'}"`,
-        `"${(r.organization || '-').replace(/"/g, '""')}"`,
-        `"${typeLabel}"`,
-        `"${shirtSizeStr}"`,
-        `"${(r.medicalConditions || '-').replace(/"/g, '""')}"`,
-        `"${(r.emergencyContactName || '-').replace(/"/g, '""')}"`,
-        `"${r.emergencyContactPhone || '-'}"`,
-        `"${r.checkedIn ? 'เช็กอินแล้ว' : 'ยังไม่เช็กอิน'}"`,
-        `"${r.checkedInAt ? new Date(r.checkedInAt).toLocaleString('th-TH') : '-'}"`,
-        `"${new Date(r.registeredAt).toLocaleString('th-TH')}"`,
-      ].join(',');
+      return csvRow([
+        r.regId,
+        r.bibNumber || '-',
+        r.cardId,
+        r.fullName,
+        r.nickname || '-',
+        r.phone,
+        r.gender || '-',
+        catLabel,
+        r.studentYear || '-',
+        (r.organization || '-'),
+        typeLabel,
+        shirtSizeStr,
+        (r.medicalConditions || '-'),
+        (r.emergencyContactName || '-'),
+        r.emergencyContactPhone || '-',
+        r.checkedIn ? 'เช็กอินแล้ว' : 'ยังไม่เช็กอิน',
+        r.checkedInAt ? new Date(r.checkedInAt).toLocaleString('th-TH') : '-',
+        new Date(r.registeredAt).toLocaleString('th-TH'),
+      ]);
     });
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const csvContent = '\uFEFF' + [csvRow(headers), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -237,6 +238,7 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // CSV Export for Shirt Orders
@@ -275,24 +277,24 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
       const deliveryLabel = o.deliveryMethod === 'pickup_event' ? 'รับหน้างาน' : 'จัดส่งไปรษณีย์';
       const sizesStr = o.sizes && o.sizes.length > 0 ? o.sizes.join(', ') : o.size || '-';
 
-      return [
-        `"${o.orderId}"`,
-        `"${o.cardId || '-'}"`,
-        `"${o.customerName}"`,
-        `"${o.phone}"`,
-        `"${o.email || '-'}"`,
-        `"${o.quantity || 1}"`,
-        `"${sizesStr}"`,
-        `"${o.totalAmount}"`,
-        `"${deliveryLabel}"`,
-        `"${(o.shippingAddress || '-').replace(/"/g, '""')}"`,
-        `"${statusLabel}"`,
-        `"${o.slipImage ? 'มี' : 'ไม่มี'}"`,
-        `"${new Date(o.paymentTimestamp || Date.now()).toLocaleString('th-TH')}"`,
-      ].join(',');
+      return csvRow([
+        o.orderId,
+        o.cardId || '-',
+        o.customerName,
+        o.phone,
+        o.email || '-',
+        o.quantity || 1,
+        sizesStr,
+        o.totalAmount,
+        deliveryLabel,
+        (o.shippingAddress || '-'),
+        statusLabel,
+        o.slipImage ? 'มี' : 'ไม่มี',
+        new Date(o.paymentTimestamp || Date.now()).toLocaleString('th-TH'),
+      ]);
     });
 
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
+    const csvContent = '\uFEFF' + [csvRow(headers), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -301,6 +303,7 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (

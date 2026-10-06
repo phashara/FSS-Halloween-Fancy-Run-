@@ -1,0 +1,5 @@
+{
+  "functions": [{ "source": "functions", "codebase": "directory-security" }],
+  "firestore": [{ "database": "ai-studio-fsshalloweenfanc-3137dab4-29d6-492e-b607-01b4ace7e671", "rules": "firestore.rules" }],
+  "emulators": { "firestore": { "port": 8080 }, "auth": { "port": 9099 }, "singleProjectMode": true }
+}

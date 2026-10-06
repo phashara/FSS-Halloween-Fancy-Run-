@@ -20,7 +20,7 @@ const AppContent: React.FC = () => {
   const [registrationPreselectedType, setRegistrationPreselectedType] = useState<
     'RUN_FREE' | 'RUN_AND_SHIRT' | 'SHIRT_ONLY'
   >('RUN_FREE');
-  const { justRevealedCard, setJustRevealedCard } = useEventContext();
+  const { justRevealedCard, setJustRevealedCard, adminUser } = useEventContext();
 
   const handleNavigate = (view: AppView) => {
     setCurrentView(view);
@@ -57,7 +57,9 @@ const AppContent: React.FC = () => {
         {currentView === 'mycard' && <MyCardView onNavigate={handleNavigate} />}
         {currentView === 'directory' && <DirectoryView onNavigate={handleNavigate} />}
         {currentView === 'contact' && <FaqContactView />}
-        {currentView === 'admin' && <AdminDashboardView onNavigate={handleNavigate} />}
+        {currentView === 'admin' && (adminUser?.isLoggedIn
+          ? <AdminDashboardView onNavigate={handleNavigate} />
+          : <p className="p-6 text-center">กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลกิจกรรม</p>)}
       </main>
 
       {/* Footer */}

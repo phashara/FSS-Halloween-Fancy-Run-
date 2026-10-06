@@ -1,49 +1,76 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isAuthenticated() {
-      return request.auth != null;
+    function admin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email == 'phasharak@gmail.com'
+        && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
-
-    // Public readable collections
-    match /cards/{cardId} {
-      allow read: if true;
-      allow write: if true;
+    function owned() {
+      return request.auth != null && resource.data.ownerUid == request.auth.uid;
     }
-
-    match /runners/{regId} {
-      allow read: if true;
-      allow write: if true;
+    function newOwner() {
+      return request.auth != null && request.resource.data.ownerUid == request.auth.uid;
     }
-
-    match /orders/{orderId} {
-      allow read: if true;
-      allow write: if true;
+    function validText(value, maximum) { return value is string && value.size() <= maximum; }
+    function validName(value) { return validText(value, 200) && value.size() >= 2; }
+    function validPhone(value) { return value is string && value.matches('^[0-9+ ()-]{8,20}$'); }
+    match /runners/{id} {
+      allow read: if admin() || owned();
+      allow create: if admin() || (newOwner()
+        && request.resource.data.keys().hasOnly(['ownerUid','regId','bibNumber','regType','nameThai','nameEng','fullName','nickname','gender','age','birthDate','birthDay','birthMonth','birthYear','participantCategory','studentYear','studentId','facultyGroup','faculty','staffDepartmentGroup','staffDepartment','phone','email','province','organization','emergencyContactName','emergencyContactPhone','emergencyContactRelation','infoSource','interestedInShirt','hasAttendedBefore','costumeStyle','costumeStyleNote','medicalConditions','teamName','displayNameType','isMinor','guardianName','guardianPhone','agreedTerms','agreedPhotoRelease','agreedDataPolicy','cardId','shirtOrderId','registeredAt','checkedIn','medalClaimed','shirtClaimed'])
+        && request.resource.data.regId == id
+        && request.resource.data.regType in ['RUN_FREE','RUN_AND_SHIRT','SHIRT_ONLY']
+        && validName(request.resource.data.fullName)
+        && validPhone(request.resource.data.phone)
+        && request.resource.data.age is number && request.resource.data.age >= 0 && request.resource.data.age <= 120
+        && request.resource.data.agreedTerms == true && request.resource.data.agreedDataPolicy == true
+        && request.resource.data.checkedIn == false && request.resource.data.medalClaimed == false && request.resource.data.shirtClaimed == false);
+      // Self-service may only link the applicant's own shirt order; staff flags stay protected.
+      allow update: if admin() || (owned()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shirtOrderId'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['shirtOrderId'])
+          || getAfter(/databases/$(database)/documents/orders/$(request.resource.data.shirtOrderId)).data.ownerUid == request.auth.uid));
+      allow delete: if admin();
     }
-
-    match /stories/{storyId} {
-      allow read: if true;
-      allow write: if true;
+    match /orders/{id} {
+      allow read: if admin() || owned();
+      allow create: if admin() || (newOwner()
+        && request.resource.data.keys().hasOnly(['ownerUid','orderId','cardId','customerName','phone','email','size','sizes','quantity','unitPrice','totalAmount','deliveryMethod','shippingAddress','status','slipImage','paymentTimestamp'])
+        && request.resource.data.orderId == id
+        && validName(request.resource.data.customerName) && validPhone(request.resource.data.phone)
+        && request.resource.data.quantity is int && request.resource.data.quantity >= 1 && request.resource.data.quantity <= 100
+        && request.resource.data.unitPrice == 300
+        && request.resource.data.totalAmount == request.resource.data.quantity * 300
+        && request.resource.data.status in ['unpaid','pending_verification']
+        && (!('slipImage' in request.resource.data) || validText(request.resource.data.slipImage, 700000)));
+      allow update: if admin() || (owned()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['slipImage','paymentTimestamp','status'])
+        && resource.data.status in ['unpaid','pending_verification','rejected']
+        && request.resource.data.status in ['unpaid','pending_verification']
+        && (!('slipImage' in request.resource.data) || validText(request.resource.data.slipImage, 700000)));
+      allow delete: if admin();
     }
-
-    match /site_content/{sectionKey} {
-      allow read: if true;
-      allow write: if true;
+    match /cards/{id} {
+      // Cards are deliberately public; private registration/order documents are not.
+      allow get: if true;
+      allow list: if admin();
+      allow create: if admin() || (newOwner()
+        && request.resource.data.keys().hasOnly(['ownerUid','cardId','speciesId','nickname','fullName','rarity','level','stats','badges','qrPayload','createdAt','customQuote','customImageUrl'])
+        && request.resource.data.cardId == id
+        && validName(request.resource.data.fullName)
+        && request.resource.data.level == 1 && request.resource.data.badges == []);
+      allow update: if admin() || (owned()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customImageUrl','customQuote'])
+        && (!('customImageUrl' in request.resource.data) || request.resource.data.customImageUrl == null || validText(request.resource.data.customImageUrl, 700000))
+        && (!('customQuote' in request.resource.data) || validText(request.resource.data.customQuote, 500)));
+      allow delete: if admin();
     }
-
-    match /ghost_species/{speciesId} {
-      allow read: if true;
-      allow write: if true;
-    }
-
-    match /system_assets/{assetId} {
-      allow read: if true;
-      allow write: if true;
-    }
-
-    match /test/{docId} {
-      allow read, write: if true;
-    }
+    match /site_content/{id} { allow read: if true; allow write: if admin(); }
+    match /system_assets/{id} { allow read: if true; allow write: if admin(); }
+    match /ghost_species/{id} { allow read: if true; allow write: if admin(); }
+    match /stories/{id} { allow read: if true; allow write: if admin(); }
+    match /{document=**} { allow read, write: if false; }
   }
 }
