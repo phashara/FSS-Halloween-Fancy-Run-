@@ -4,6 +4,20 @@ import { renderHook, act } from '@testing-library/react';
 import { EventProvider, useEventContext, RegisterParams } from '../context/EventContext';
 import { RunnerRegistration } from '../types';
 
+const security = vi.hoisted(() => ({
+  approved: true,
+  publicSearch: vi.fn(),
+  publicPage: vi.fn(),
+}));
+vi.mock('../lib/adminPolicy', () => ({ isApprovedAdmin: () => security.approved }));
+vi.mock('../lib/publicDirectory', () => ({ publicDirectorySearch: (...args: any[]) => security.publicSearch(...args), publicDirectoryPage: (...args: any[]) => security.publicPage(...args) }));
+vi.mock('firebase/auth', () => ({
+  GoogleAuthProvider: class {}, browserSessionPersistence: {},
+  onAuthStateChanged: (_auth: any, callback: any) => { callback({email: 'admin@example.invalid'}); return vi.fn(); },
+  setPersistence: vi.fn().mockResolvedValue(undefined),
+  signInWithPopup: vi.fn().mockResolvedValue({user: {email: 'admin@example.invalid'}}),
+  signOut: vi.fn().mockResolvedValue(undefined),
+}));
 // MOCK FIREBASE/FIRESTORE AT MODULE LEVEL
 const mockBatchSet = vi.fn();
 const mockBatchCommit = vi.fn().mockResolvedValue(undefined);
@@ -37,7 +51,8 @@ vi.mock('firebase/firestore', () => {
 });
 
 vi.mock('../lib/firebase', () => ({
-  db: {},
+  db: {}, auth: {currentUser: {uid: 'synthetic-owner', email: 'admin@example.invalid'}},
+  ensureParticipantIdentity: vi.fn().mockResolvedValue('synthetic-owner'),
 }));
 
 const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -47,6 +62,10 @@ const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 describe('Production EventProvider & Context Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    security.approved = true;
+    security.publicSearch.mockResolvedValue({ runners: [], cards: [], orders: [] });
+    security.publicPage.mockResolvedValue({ runners: [], cards: [], orders: [], hasMore: false, lastDoc: null });
     mockBatchCommit.mockResolvedValue(undefined);
     mockSetDoc.mockResolvedValue(undefined);
     mockGetDocs.mockResolvedValue({ empty: true, forEach: vi.fn() });
@@ -225,4 +244,45 @@ describe('Production EventProvider & Context Integration Tests', () => {
 
     expect(result.current.connectionStatus).toBe('connected');
   });
+  it('7. public directory delegates to projection without querying private collections', async () => {
+    security.approved = false;
+    const { result } = renderHook(() => useEventContext(), { wrapper });
+    await act(async () => { await result.current.syncFromCloud(); });
+    mockGetDocs.mockClear();
+    await act(async () => {
+      await result.current.searchRunnersRemote('Synthetic Name');
+      await result.current.loadDirectoryPage();
+    });
+    expect(security.publicSearch).toHaveBeenCalledWith('Synthetic Name');
+    expect(security.publicPage).toHaveBeenCalled();
+    expect(mockGetDocs).not.toHaveBeenCalled();
+  });
+
+  it('8. forged stored admin session cannot grant access and legacy private caches are removed', async () => {
+    security.approved = false;
+    localStorage.setItem('fss2026_admin_session', JSON.stringify({isLoggedIn: true, role: 'SUPER_ADMIN'}));
+    localStorage.setItem('fss2026_runners', JSON.stringify([{fullName: 'PRIVATE'}]));
+    localStorage.setItem('fss2026_orders', JSON.stringify([{slipImage: 'PRIVATE'}]));
+    const { result } = renderHook(() => useEventContext(), { wrapper });
+    expect(result.current.adminUser).toBeNull();
+    expect(result.current.runners).toEqual([]);
+    expect(result.current.orders).toEqual([]);
+    expect(localStorage.getItem('fss2026_admin_session')).toBeNull();
+    expect(localStorage.getItem('fss2026_runners')).toBeNull();
+    expect(localStorage.getItem('fss2026_orders')).toBeNull();
+  });
+
+  it('9. successful registrations carry authenticated ownership and do not persist bulk private records', async () => {
+    const { result } = renderHook(() => useEventContext(), { wrapper });
+    await act(async () => { await result.current.registerParticipant(sampleRegisterParams); });
+    for (const [ref, data] of mockBatchSet.mock.calls) {
+      if (['runners','orders','cards'].includes(ref.col)) expect(data.ownerUid).toBe('synthetic-owner');
+    }
+    expect(localStorage.getItem('fss2026_runners')).toBeNull();
+    expect(localStorage.getItem('fss2026_orders')).toBeNull();
+    await act(async () => { await result.current.logoutAdmin(); });
+    expect(result.current.runners).toEqual([]);
+    expect(result.current.orders).toEqual([]);
+  });
+
 });
