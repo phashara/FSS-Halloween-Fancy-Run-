@@ -30,15 +30,48 @@ export const publicDirectory = onCall({
   let hasMore = false;
   let lastDoc = null;
   if (input.search) {
-    const text = input.search;
+    const text = input.search.trim();
     const upper = text.toUpperCase();
-    const runnerQueries = ['regId', 'cardId', 'bibNumber'].map((key) => db.collection('runners').where(key, '==', upper).limit(10));
-    for (const key of ['fullName', 'nameThai', 'nameEng', 'nickname']) runnerQueries.push(db.collection('runners').where(key, '==', text).limit(10));
-    const orderQueries = [db.collection('orders').where('orderId', '==', upper).limit(10), db.collection('orders').where('customerName', '==', text).limit(10)];
+    const cleanTitles = ['นาย ', 'นาย', 'นางสาว ', 'นางสาว', 'นาง ', 'นาง', 'ด.ช. ', 'ด.ญ. ', 'Mr. ', 'Ms. ', 'Mrs. '];
+    let strippedText = text;
+    for (const title of cleanTitles) {
+      if (strippedText.startsWith(title)) {
+        strippedText = strippedText.slice(title.length).trim();
+        break;
+      }
+    }
+    const textVariants = Array.from(new Set([
+      text,
+      strippedText,
+      `นาย ${strippedText}`,
+      `นาย${strippedText}`,
+      `นางสาว ${strippedText}`,
+      `นางสาว${strippedText}`,
+      `นาง ${strippedText}`,
+      `นาง${strippedText}`,
+    ].filter(Boolean)));
+
+    const runnerQueries = [];
+    const orderQueries = [];
+
+    // Prefix range queries for identifiers
+    for (const idKey of ['regId', 'cardId', 'bibNumber']) {
+      runnerQueries.push(db.collection('runners').where(idKey, '>=', upper).where(idKey, '<=', upper + '\uf8ff').limit(15));
+    }
+    orderQueries.push(db.collection('orders').where('orderId', '>=', upper).where('orderId', '<=', upper + '\uf8ff').limit(15));
+
+    // Prefix range queries for names
+    for (const variant of textVariants) {
+      for (const nameKey of ['fullName', 'nameThai', 'nameEng', 'nickname']) {
+        runnerQueries.push(db.collection('runners').where(nameKey, '>=', variant).where(nameKey, '<=', variant + '\uf8ff').limit(15));
+      }
+      orderQueries.push(db.collection('orders').where('customerName', '>=', variant).where('customerName', '<=', variant + '\uf8ff').limit(15));
+    }
+
     const phone = text.replace(/\D/g, '');
-    if (/^[\d\s()+-]+$/.test(text) && phone.length >= 8 && phone.length <= 15) {
-      runnerQueries.push(db.collection('runners').where('phone', '==', phone).limit(10));
-      orderQueries.push(db.collection('orders').where('phone', '==', phone).limit(10));
+    if (phone.length >= 6 && phone.length <= 15) {
+      runnerQueries.push(db.collection('runners').where('phone', '>=', phone).where('phone', '<=', phone + '\uf8ff').limit(15));
+      orderQueries.push(db.collection('orders').where('phone', '>=', phone).where('phone', '<=', phone + '\uf8ff').limit(15));
     }
     const [runnerSnaps, orderSnaps] = await Promise.all([Promise.all(runnerQueries.map((q) => q.get())), Promise.all(orderQueries.map((q) => q.get()))]);
     for (const snap of runnerSnaps) for (const document of snap.docs) runners.set(document.id, document.data());

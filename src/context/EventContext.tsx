@@ -1029,29 +1029,46 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const runnersRef = collection(db, 'runners');
         const ordersRef = collection(db, 'orders');
 
-        // Exact match queries across runner name fields, IDs, and phone
-        const runnerQueries: any[] = [
-          query(runnersRef, where('regId', '==', upperStr), limit(10)),
-          query(runnersRef, where('cardId', '==', upperStr), limit(10)),
-          query(runnersRef, where('bibNumber', '==', upperStr), limit(10)),
-          query(runnersRef, where('fullName', '==', rawStr), limit(10)),
-          query(runnersRef, where('nameThai', '==', rawStr), limit(10)),
-          query(runnersRef, where('nameEng', '==', rawStr), limit(10)),
-          query(runnersRef, where('nickname', '==', rawStr), limit(10)),
-        ];
+        const cleanTitles = ['นาย ', 'นาย', 'นางสาว ', 'นางสาว', 'นาง ', 'นาง', 'ด.ช. ', 'ด.ญ. ', 'Mr. ', 'Ms. ', 'Mrs. '];
+        let strippedText = rawStr;
+        for (const title of cleanTitles) {
+          if (strippedText.startsWith(title)) {
+            strippedText = strippedText.slice(title.length).trim();
+            break;
+          }
+        }
+        const textVariants = Array.from(new Set([
+          rawStr,
+          strippedText,
+          `นาย ${strippedText}`,
+          `นาย${strippedText}`,
+          `นางสาว ${strippedText}`,
+          `นางสาว${strippedText}`,
+          `นาง ${strippedText}`,
+          `นาง${strippedText}`,
+        ].filter(Boolean)));
 
-        const cleanPhone = rawStr.replace(/\D/g, '');
-        if (cleanPhone.length >= 8) {
-          runnerQueries.push(query(runnersRef, where('phone', '==', cleanPhone), limit(10)));
+        const runnerQueries: any[] = [];
+        const orderQueries: any[] = [];
+
+        // Exact match & prefix match for IDs
+        for (const idKey of ['regId', 'cardId', 'bibNumber']) {
+          runnerQueries.push(query(runnersRef, where(idKey, '>=', upperStr), where(idKey, '<=', upperStr + '\uf8ff'), limit(15)));
+        }
+        orderQueries.push(query(ordersRef, where('orderId', '>=', upperStr), where('orderId', '<=', upperStr + '\uf8ff'), limit(15)));
+
+        // Prefix range queries across name fields
+        for (const variant of textVariants) {
+          for (const nameKey of ['fullName', 'nameThai', 'nameEng', 'nickname']) {
+            runnerQueries.push(query(runnersRef, where(nameKey, '>=', variant), where(nameKey, '<=', variant + '\uf8ff'), limit(15)));
+          }
+          orderQueries.push(query(ordersRef, where('customerName', '>=', variant), where('customerName', '<=', variant + '\uf8ff'), limit(15)));
         }
 
-        // Direct orders query (supporting ORD-... exact or phone/name)
-        const orderQueries: any[] = [
-          query(ordersRef, where('orderId', '==', upperStr), limit(10)),
-          query(ordersRef, where('customerName', '==', rawStr), limit(10)),
-        ];
-        if (cleanPhone.length >= 8) {
-          orderQueries.push(query(ordersRef, where('phone', '==', cleanPhone), limit(10)));
+        const cleanPhone = rawStr.replace(/\D/g, '');
+        if (cleanPhone.length >= 6) {
+          runnerQueries.push(query(runnersRef, where('phone', '>=', cleanPhone), where('phone', '<=', cleanPhone + '\uf8ff'), limit(15)));
+          orderQueries.push(query(ordersRef, where('phone', '>=', cleanPhone), where('phone', '<=', cleanPhone + '\uf8ff'), limit(15)));
         }
 
         const runnerSnaps = await Promise.all(runnerQueries.map((q) => getDocs(q)));
