@@ -3,6 +3,10 @@
 Prepared against GitHub commit `d40b37d743f24e361fe2e9ac3c3df4ed3d296b1c`.
 No production applicant documents were read, written, migrated, or deleted while preparing this change.
 
+Configuration verified on 2026-10-06: Google and Anonymous providers enabled, `phashara.github.io` authorized, and the dedicated runtime account granted only conditional `roles/datastore.viewer` on the event database. Anonymous was explicitly authorized for this shared project; other applications should not treat an arbitrary authenticated identity as an administrator. Auto cleanup of anonymous accounts was not enabled.
+
+Cloud Build required additional infrastructure permissions on its default build identity: read access only under the `publicDirectory/` source archive prefix, write access only to the regional `gcf-artifacts` repository, Logs Writer, and Service Usage Consumer. No database role was granted to the build identity. These are separate from the read-only function runtime identity.
+
 ## What changes
 
 - Google sign-in restricted to the verified Google account `phasharak@gmail.com`; browser-stored flags and the former hardcoded password cannot grant admin access.
