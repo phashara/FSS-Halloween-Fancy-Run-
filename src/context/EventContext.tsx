@@ -224,6 +224,14 @@ export interface EventContextType {
     card?: GhostCard;
   }>;
   claimMedal: (regId: string) => void;
+  updateRunnerFull: (
+    runner: RunnerRegistration,
+    updatedOrder?: Partial<ShirtOrder> | null
+  ) => Promise<{ success: boolean; message: string }>;
+  deleteRunner: (
+    regId: string,
+    passcode: string
+  ) => Promise<{ success: boolean; message: string }>;
   updateCardCustomImage: (cardId: string, imageUrl: string | null) => Promise<void>;
   // 12 Thai Ghost Collection
   ghostSpeciesList: GhostSpecies[];
@@ -1979,6 +1987,114 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
+  const updateRunnerFull = async (
+    updatedRunner: RunnerRegistration,
+    updatedOrder?: Partial<ShirtOrder> | null
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const batch = writeBatch(db);
+      // 1. Update runner document in Firestore
+      const runnerRef = doc(db, 'runners', updatedRunner.regId);
+      batch.set(runnerRef, cleanForFirestore(updatedRunner), { merge: true });
+
+      // 2. If order update or slip upload is provided, update order document
+      let newOrders = orders;
+      const orderId = updatedOrder?.orderId || updatedRunner.shirtOrderId;
+      if (orderId) {
+        const existingOrder = orders.find((o) => o.orderId === orderId);
+        if (existingOrder) {
+          const mergedOrder: ShirtOrder = {
+            ...existingOrder,
+            ...(updatedOrder || {}),
+            customerName: updatedRunner.fullName || existingOrder.customerName,
+            phone: updatedRunner.phone || existingOrder.phone,
+            email: updatedRunner.email || existingOrder.email,
+          };
+          batch.set(doc(db, 'orders', orderId), cleanForFirestore(mergedOrder), { merge: true });
+          newOrders = orders.map((o) => (o.orderId === orderId ? mergedOrder : o));
+        } else if (updatedOrder) {
+          const freshOrder = updatedOrder as ShirtOrder;
+          batch.set(doc(db, 'orders', orderId), cleanForFirestore(freshOrder), { merge: true });
+          newOrders = [...orders, freshOrder];
+        }
+      }
+
+      // 3. Keep card name & nickname in sync
+      if (updatedRunner.cardId) {
+        batch.set(
+          doc(db, 'cards', updatedRunner.cardId),
+          cleanForFirestore({
+            fullName: updatedRunner.fullName,
+            nickname: updatedRunner.nickname || updatedRunner.fullName,
+          }),
+          { merge: true }
+        );
+      }
+
+      await batch.commit();
+
+      // Update local state
+      setRunners((prev) => prev.map((r) => (r.regId === updatedRunner.regId ? updatedRunner : r)));
+      if (newOrders !== orders) {
+        setOrders(newOrders);
+      }
+      setCards((prev) =>
+        prev.map((c) =>
+          c.cardId === updatedRunner.cardId
+            ? {
+                ...c,
+                fullName: updatedRunner.fullName,
+                nickname: updatedRunner.nickname || updatedRunner.fullName,
+              }
+            : c
+        )
+      );
+
+      return { success: true, message: 'บันทึกการแก้ไขข้อมูลผู้สมัครสำเร็จ' };
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('ไม่สามารถบันทึกการแก้ไขไปยัง Cloud ได้: ' + ((err as Error)?.message || ''));
+    }
+  };
+
+  const deleteRunner = async (
+    regId: string,
+    passcode: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (passcode.trim() !== '07011985') {
+      throw new Error('รหัสผ่านไม่ถูกต้อง (กรุณากรอกรหัส 07011985 เพื่อยืนยันการลบ)');
+    }
+
+    const runner = runners.find((r) => r.regId === regId);
+    if (!runner) {
+      throw new Error('ไม่พบข้อมูลผู้สมัครที่ต้องการลบ');
+    }
+
+    try {
+      const batch = writeBatch(db);
+      // Delete runner document
+      batch.delete(doc(db, 'runners', regId));
+
+      // If there is an associated order, delete the order document as well
+      if (runner.shirtOrderId) {
+        batch.delete(doc(db, 'orders', runner.shirtOrderId));
+      }
+
+      await batch.commit();
+
+      // Update local state
+      setRunners((prev) => prev.filter((r) => r.regId !== regId));
+      if (runner.shirtOrderId) {
+        setOrders((prev) => prev.filter((o) => o.orderId !== runner.shirtOrderId));
+      }
+
+      return { success: true, message: `ลบข้อมูลผู้สมัคร ${runner.fullName} (${runner.regId}) เรียบร้อยแล้ว` };
+    } catch (err) {
+      handleQuotaBreaker(err);
+      throw new Error('ไม่สามารถลบข้อมูลจาก Cloud ได้: ' + ((err as Error)?.message || ''));
+    }
+  };
+
   const clearSystemCache = async () => {
     try {
       localStorage.clear();
@@ -2064,6 +2180,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         refundShirtOrder,
         checkInRunner,
         claimMedal,
+        updateRunnerFull,
+        deleteRunner,
         updateCardCustomImage,
         ghostSpeciesList,
         updateGhostSpecies,

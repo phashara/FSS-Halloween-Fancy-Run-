@@ -28,12 +28,16 @@ import {
   Mail,
   MapPin,
   Package,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { OfficerRole, ShirtOrder, RunnerRegistration, GhostCard } from '../types';
 import { THAI_GHOSTS } from '../data/ghosts';
 import { csvRow } from '../lib/csv';
 import { ShirtDashboard } from '../components/ShirtDashboard';
+import { RunnerEditModal } from '../components/RunnerEditModal';
+import { RunnerDeleteModal } from '../components/RunnerDeleteModal';
 
 export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> = ({
   onNavigate,
@@ -59,6 +63,8 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     quotaErrorMessage,
     subscribeAdminData,
     exportLocalBackup,
+    updateRunnerFull,
+    deleteRunner,
   } = useEventContext();
 
   // Admin Dashboard on-demand subscription for runners & orders
@@ -87,6 +93,9 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
   const [viewingSlip, setViewingSlip] = useState<string | null>(null);
   const [selectedRunner, setSelectedRunner] = useState<RunnerRegistration | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<ShirtOrder | null>(null);
+  const [editingRunner, setEditingRunner] = useState<RunnerRegistration | null>(null);
+  const [deletingRunner, setDeletingRunner] = useState<RunnerRegistration | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Statistics calculation
   const safeRunners = Array.isArray(runners) ? runners : [];
@@ -708,16 +717,35 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                             )}
                           </td>
                           <td className="py-3 px-3.5 text-center">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedRunner(r);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-[#DC2626] text-slate-700 hover:text-white text-xs font-semibold transition-colors inline-flex items-center gap-1"
-                            >
-                              <Eye className="w-3 h-3" /> ดูข้อมูล
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedRunner(r)}
+                                className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                title="ดูรายละเอียดข้อมูลผู้สมัคร"
+                              >
+                                <Eye className="w-3.5 h-3.5 text-slate-600" />
+                                <span className="hidden sm:inline">ดู</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingRunner(r)}
+                                className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-xs font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                title="แก้ไขข้อมูลทั้งหมดของผู้สมัครและสลิปโอนเงิน"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">แก้ไข</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeletingRunner(r)}
+                                className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 text-xs font-semibold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                title="ลบรายชื่อผู้สมัคร (ต้องใช้รหัส 07011985)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">ลบ</span>
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1247,7 +1275,32 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
               )}
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const r = selectedRunner;
+                    setSelectedRunner(null);
+                    setEditingRunner(r);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                >
+                  <Pencil className="w-3.5 h-3.5" /> แก้ไขข้อมูลทั้งหมด
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const r = selectedRunner;
+                    setSelectedRunner(null);
+                    setDeletingRunner(r);
+                  }}
+                  className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> ลบผู้สมัครนี้
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setSelectedRunner(null)}
@@ -1371,6 +1424,66 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
           </div>
         </div>
       )}
+
+      {/* Toast Feedback */}
+      {actionFeedback && (
+        <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-5">
+          <div
+            className={`px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 text-xs font-bold ${
+              actionFeedback.type === 'success'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-rose-600 text-white'
+            }`}
+          >
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-white" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-white" />
+            )}
+            <span>{actionFeedback.message}</span>
+            <button
+              type="button"
+              onClick={() => setActionFeedback(null)}
+              className="ml-2 hover:opacity-75"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Runner Edit Modal */}
+      <RunnerEditModal
+        isOpen={Boolean(editingRunner)}
+        runner={editingRunner}
+        linkedOrder={
+          editingRunner
+            ? safeOrders.find(
+                (o) =>
+                  (editingRunner.shirtOrderId && o.orderId === editingRunner.shirtOrderId) ||
+                  o.cardId === editingRunner.cardId
+              ) || null
+            : null
+        }
+        onClose={() => setEditingRunner(null)}
+        onSave={async (updatedRunner, updatedOrder) => {
+          const res = await updateRunnerFull(updatedRunner, updatedOrder);
+          setActionFeedback({ type: 'success', message: res.message || 'บันทึกข้อมูลเรียบร้อยแล้ว' });
+          setTimeout(() => setActionFeedback(null), 4000);
+        }}
+      />
+
+      {/* Runner Delete Modal */}
+      <RunnerDeleteModal
+        isOpen={Boolean(deletingRunner)}
+        runner={deletingRunner}
+        onClose={() => setDeletingRunner(null)}
+        onConfirmDelete={async (regId, passcode) => {
+          const res = await deleteRunner(regId, passcode);
+          setActionFeedback({ type: 'success', message: res.message || 'ลบข้อมูลผู้สมัครเรียบร้อยแล้ว' });
+          setTimeout(() => setActionFeedback(null), 4000);
+        }}
+      />
     </div>
   );
 };
