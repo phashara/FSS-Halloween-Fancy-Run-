@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { db, auth, ensureParticipantIdentity } from '../lib/firebase';
 import { GoogleAuthProvider, browserSessionPersistence, onAuthStateChanged, setPersistence, signInWithPopup, signOut } from 'firebase/auth';
-import { isApprovedAdmin } from '../lib/adminPolicy';
+import { isApprovedAdmin, getAdminRoleForEmail } from '../lib/adminPolicy';
 import { publicDirectoryPage, publicDirectorySearch } from '../lib/publicDirectory';
 import {
   collection,
@@ -403,10 +403,15 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setRunners([]);
       setOrders([]);
       setCards([]);
-      setAdminUser(isApprovedAdmin(user) ? {
-        username: user!.email!, role: 'SUPER_ADMIN', isLoggedIn: true,
+      const approved = isApprovedAdmin(user);
+      const role = getAdminRoleForEmail(user?.email || null) || 'SUPER_ADMIN';
+      setAdminUser(approved ? {
+        username: user!.email!, role, isLoggedIn: true,
         loginTimestamp: new Date().toISOString(),
       } : null);
+      if (approved && role === 'OFFICER_FINANCE') {
+        setActiveOfficerRole('OFFICER_FINANCE');
+      }
     });
   }, []);
 

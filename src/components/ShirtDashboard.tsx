@@ -17,6 +17,7 @@ import {
   UserCheck,
   Pencil,
   Trash2,
+  X,
 } from 'lucide-react';
 import { ShirtOrder, ShirtSize } from '../types';
 import { OFFICIAL_SHIRT_SIZES } from '../data/shirtSizes';
@@ -105,7 +106,8 @@ export const ShirtDashboard: React.FC<Props> = ({
       ord.orderId.toLowerCase().includes(q) ||
       ord.customerName.toLowerCase().includes(q) ||
       ord.cardId.toLowerCase().includes(q) ||
-      ord.phone.includes(q);
+      ord.phone.includes(q) ||
+      (ord.email || '').toLowerCase().includes(q);
 
     const matchSize = filterSize === 'all' || ord.size === filterSize;
     const matchStatus = filterStatus === 'all' || ord.status === filterStatus;
@@ -423,9 +425,19 @@ export const ShirtDashboard: React.FC<Props> = ({
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="ค้นหา Order ID, ชื่อ, เบอร์..."
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+              placeholder="ค้นหา Order ID, ชื่อ, เบอร์, อีเมล..."
+              className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
+                title="ล้างคำค้นหา"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div>

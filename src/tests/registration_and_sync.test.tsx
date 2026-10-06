@@ -9,7 +9,10 @@ const security = vi.hoisted(() => ({
   publicSearch: vi.fn(),
   publicPage: vi.fn(),
 }));
-vi.mock('../lib/adminPolicy', () => ({ isApprovedAdmin: () => security.approved }));
+vi.mock('../lib/adminPolicy', () => ({
+  isApprovedAdmin: () => security.approved,
+  getAdminRoleForEmail: () => 'SUPER_ADMIN',
+}));
 vi.mock('../lib/publicDirectory', () => ({ publicDirectorySearch: (...args: any[]) => security.publicSearch(...args), publicDirectoryPage: (...args: any[]) => security.publicPage(...args) }));
 vi.mock('firebase/auth', () => ({
   GoogleAuthProvider: class {}, browserSessionPersistence: {},

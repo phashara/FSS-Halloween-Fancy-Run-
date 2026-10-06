@@ -93,6 +93,9 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [orderDeliveryFilter, setOrderDeliveryFilter] = useState('all');
 
+  const [financeSearch, setFinanceSearch] = useState('');
+  const [financeStatusFilter, setFinanceStatusFilter] = useState('all');
+
   // Modals
   const [viewingSlip, setViewingSlip] = useState<string | null>(null);
   const [selectedRunner, setSelectedRunner] = useState<RunnerRegistration | null>(null);
@@ -123,13 +126,31 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     const q = runnerSearch.trim().toLowerCase();
     if (q) {
       const matchName = (r.fullName || '').toLowerCase().includes(q);
+      const matchThai = (r.nameThai || '').toLowerCase().includes(q);
+      const matchEng = (r.nameEng || '').toLowerCase().includes(q);
       const matchNick = (r.nickname || '').toLowerCase().includes(q);
       const matchPhone = (r.phone || '').includes(q);
+      const matchEmail = (r.email || '').toLowerCase().includes(q);
+      const matchStudentId = (r.studentId || '').toLowerCase().includes(q);
       const matchReg = (r.regId || '').toLowerCase().includes(q);
       const matchBib = (r.bibNumber || '').toLowerCase().includes(q);
       const matchCard = (r.cardId || '').toLowerCase().includes(q);
       const matchOrg = (r.organization || '').toLowerCase().includes(q);
-      if (!matchName && !matchNick && !matchPhone && !matchReg && !matchBib && !matchCard && !matchOrg) {
+      const matchFaculty = (r.faculty || '').toLowerCase().includes(q);
+      if (
+        !matchName &&
+        !matchThai &&
+        !matchEng &&
+        !matchNick &&
+        !matchPhone &&
+        !matchEmail &&
+        !matchStudentId &&
+        !matchReg &&
+        !matchBib &&
+        !matchCard &&
+        !matchOrg &&
+        !matchFaculty
+      ) {
         return false;
       }
     }
@@ -155,7 +176,8 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
       const matchOrderId = (o.orderId || '').toLowerCase().includes(q);
       const matchCard = (o.cardId || '').toLowerCase().includes(q);
       const matchEmail = (o.email || '').toLowerCase().includes(q);
-      if (!matchCust && !matchPhone && !matchOrderId && !matchCard && !matchEmail) {
+      const matchAddress = (o.shippingAddress || '').toLowerCase().includes(q);
+      if (!matchCust && !matchPhone && !matchOrderId && !matchCard && !matchEmail && !matchAddress) {
         return false;
       }
     }
@@ -164,6 +186,28 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
       return false;
     }
     if (orderDeliveryFilter !== 'all' && o.deliveryMethod !== orderDeliveryFilter) {
+      return false;
+    }
+
+    return true;
+  });
+
+  // Filtered Finance Orders
+  const filteredFinanceOrders = safeOrders.filter((o) => {
+    const q = financeSearch.trim().toLowerCase();
+    if (q) {
+      const matchCust = (o.customerName || '').toLowerCase().includes(q);
+      const matchPhone = (o.phone || '').includes(q);
+      const matchOrderId = (o.orderId || '').toLowerCase().includes(q);
+      const matchCard = (o.cardId || '').toLowerCase().includes(q);
+      const matchEmail = (o.email || '').toLowerCase().includes(q);
+      const matchAddress = (o.shippingAddress || '').toLowerCase().includes(q);
+      if (!matchCust && !matchPhone && !matchOrderId && !matchCard && !matchEmail && !matchAddress) {
+        return false;
+      }
+    }
+
+    if (financeStatusFilter !== 'all' && o.status !== financeStatusFilter) {
       return false;
     }
 
@@ -548,9 +592,19 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                   type="text"
                   value={runnerSearch}
                   onChange={(e) => setRunnerSearch(e.target.value)}
-                  placeholder="ค้นหาชื่อ, เบอร์โทร, BIB, Card ID, สังกัด/คณะ..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
+                  placeholder="ค้นหาชื่อ-นามสกุล, ชื่อเล่น, เบอร์โทร, รหัสนิสิต, BIB, Card ID, คณะ/สังกัด..."
+                  className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
                 />
+                {runnerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setRunnerSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
+                    title="ล้างคำค้นหา"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -597,6 +651,28 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                 </button>
               </div>
             </div>
+
+            {/* Quick Filter Info & Reset */}
+            {(runnerSearch || runnerCategoryFilter !== 'all' || runnerRegTypeFilter !== 'all' || runnerCheckinFilter !== 'all') && (
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                <span className="text-slate-600">
+                  กำลังแสดงผลการค้นหา: <b className="text-slate-900">{filteredRunners.length}</b> จาก {totalRunners} คน
+                  {runnerSearch && <span className="ml-1 text-[#DC2626] font-medium">("{runnerSearch}")</span>}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRunnerSearch('');
+                    setRunnerCategoryFilter('all');
+                    setRunnerRegTypeFilter('all');
+                    setRunnerCheckinFilter('all');
+                  }}
+                  className="text-xs text-[#DC2626] hover:underline font-bold cursor-pointer"
+                >
+                  ล้างตัวกรองทั้งหมด
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Runners Table */}
@@ -778,9 +854,19 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                   type="text"
                   value={orderSearch}
                   onChange={(e) => setOrderSearch(e.target.value)}
-                  placeholder="ค้นหาชื่อผู้สั่งซื้อ, เบอร์โทร, Order ID, Card ID, อีเมล..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
+                  placeholder="ค้นหาชื่อผู้สั่งซื้อ, เบอร์โทร, Order ID, Card ID, อีเมล, ที่อยู่..."
+                  className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
                 />
+                {orderSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setOrderSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
+                    title="ล้างคำค้นหา"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -816,6 +902,27 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
                 </button>
               </div>
             </div>
+
+            {/* Quick Filter Info & Reset */}
+            {(orderSearch || orderStatusFilter !== 'all' || orderDeliveryFilter !== 'all') && (
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                <span className="text-slate-600">
+                  กำลังแสดงผลการค้นหา: <b className="text-slate-900">{filteredOrders.length}</b> จาก {totalOrders} ออเดอร์
+                  {orderSearch && <span className="ml-1 text-[#DC2626] font-medium">("{orderSearch}")</span>}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrderSearch('');
+                    setOrderStatusFilter('all');
+                    setOrderDeliveryFilter('all');
+                  }}
+                  className="text-xs text-[#DC2626] hover:underline font-bold cursor-pointer"
+                >
+                  ล้างตัวกรองทั้งหมด
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Orders Table */}
@@ -1002,101 +1109,322 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
       {/* ======================================================== */}
       {activeTab === 'finance' && (
         <div className="space-y-4">
-          <div className="fastwork-card p-6 bg-white space-y-3">
-            <h3 className="text-base font-bold text-slate-900 flex items-center justify-between">
-              <span>รายการสั่งซื้อเสื้อทั้งหมด ({orders.length} รายการ)</span>
-              <span className="text-xs text-[#DC2626] font-bold">
-                รอตรวจสอบ: {pendingOrders.length} รายการ
+          {/* Controls Bar for Finance */}
+          <div className="fastwork-card p-4 bg-white space-y-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={financeSearch}
+                  onChange={(e) => setFinanceSearch(e.target.value)}
+                  placeholder="ค้นหาชื่อผู้สั่งซื้อ, เบอร์โทร, Order ID, Card ID, อีเมล, ที่อยู่จัดส่ง..."
+                  className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
+                />
+                {financeSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setFinanceSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
+                    title="ล้างคำค้นหา"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={financeStatusFilter}
+                  onChange={(e) => setFinanceStatusFilter(e.target.value)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-800 font-medium focus:bg-white focus:outline-none cursor-pointer"
+                >
+                  <option value="all">สถานะคำสั่งซื้อทั้งหมด</option>
+                  <option value="pending_verification">⏳ รอตรวจสอบสลิป</option>
+                  <option value="paid">✓ ชำระเงินแล้ว</option>
+                  <option value="claimed">🎁 มอบเสื้อแล้ว</option>
+                  <option value="unpaid">ยังไม่ชำระ</option>
+                  <option value="rejected">ปฏิเสธสลิป</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={exportOrdersCSV}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  title="ดาวน์โหลดไฟล์ Excel/CSV รายการสั่งซื้อเสื้อสำหรับฝ่ายการเงิน"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" /> ส่งออก Excel/CSV
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Status Filter Pills */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setFinanceStatusFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  financeStatusFilter === 'all'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                ทั้งหมด ({safeOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinanceStatusFilter('pending_verification')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  financeStatusFilter === 'pending_verification'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                ⏳ รอตรวจสอบสลิป ({pendingOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinanceStatusFilter('paid')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  financeStatusFilter === 'paid'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                }`}
+              >
+                ✓ ชำระแล้ว ({safeOrders.filter((o) => o.status === 'paid').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinanceStatusFilter('claimed')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  financeStatusFilter === 'claimed'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-blue-50 text-blue-800 hover:bg-blue-100'
+                }`}
+              >
+                🎁 มอบเสื้อแล้ว ({safeOrders.filter((o) => o.status === 'claimed').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinanceStatusFilter('unpaid')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  financeStatusFilter === 'unpaid'
+                    ? 'bg-slate-600 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                ยังไม่ชำระ ({safeOrders.filter((o) => o.status === 'unpaid').length})
+              </button>
+            </div>
+
+            {/* Quick Filter Info & Reset */}
+            {(financeSearch || financeStatusFilter !== 'all') && (
+              <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100">
+                <span className="text-slate-600">
+                  กำลังแสดงผลการค้นหา: <b className="text-slate-900">{filteredFinanceOrders.length}</b> จาก {safeOrders.length} รายการ
+                  {financeSearch && <span className="ml-1 text-[#DC2626] font-medium">("{financeSearch}")</span>}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFinanceSearch('');
+                    setFinanceStatusFilter('all');
+                  }}
+                  className="text-xs text-[#DC2626] hover:underline font-bold cursor-pointer"
+                >
+                  ล้างตัวกรองทั้งหมด
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Finance Table */}
+          <div className="fastwork-card overflow-hidden bg-white">
+            <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-emerald-600" /> ตรวจสอบสลิปและจัดการคำสั่งซื้อ ({filteredFinanceOrders.length} / {safeOrders.length} รายการ)
+              </h3>
+              <span className="text-xs text-slate-500">
+                {pendingOrders.length > 0 ? (
+                  <span className="text-amber-600 font-bold">รอตรวจสอบ {pendingOrders.length} รายการ</span>
+                ) : (
+                  'ตรวจสอบครบทุกรายการแล้ว'
+                )}
               </span>
-            </h3>
+            </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left text-slate-700">
-                <thead className="bg-slate-50 text-slate-700 uppercase font-mono border-b border-slate-200 font-bold">
+                <thead className="bg-slate-50 text-slate-700 uppercase font-mono border-b border-slate-200 font-bold text-[11px]">
                   <tr>
-                    <th className="py-2.5 px-3">Order ID</th>
-                    <th className="py-2.5 px-3">ผู้สั่งซื้อ</th>
-                    <th className="py-2.5 px-3">จำนวน/ไซซ์</th>
-                    <th className="py-2.5 px-3">ยอดรวม</th>
-                    <th className="py-2.5 px-3">สลิป</th>
-                    <th className="py-2.5 px-3">สถานะ</th>
-                    <th className="py-2.5 px-3 text-center">การจัดการ</th>
+                    <th className="py-3 px-3.5">Order ID</th>
+                    <th className="py-3 px-3.5">ผู้สั่งซื้อ</th>
+                    <th className="py-3 px-3.5">จำนวน / ไซซ์เสื้อ</th>
+                    <th className="py-3 px-3.5">การจัดส่ง</th>
+                    <th className="py-3 px-3.5">ยอดรวม</th>
+                    <th className="py-3 px-3.5 text-center">สลิปโอนเงิน</th>
+                    <th className="py-3 px-3.5 text-center">สถานะ</th>
+                    <th className="py-3 px-3.5 text-center">การจัดการ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {orders.length === 0 ? (
+                  {filteredFinanceOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-12 text-center text-slate-400 text-xs">
-                        ยังไม่มีรายการสั่งซื้อเสื้อในระบบ
+                      <td colSpan={8} className="py-12 text-center text-slate-400 text-xs">
+                        {safeOrders.length === 0 ? (
+                          'ยังไม่มีรายการสั่งซื้อเสื้อในระบบ'
+                        ) : (
+                          <div className="space-y-2">
+                            <div>ไม่พบรายการสั่งซื้อที่ตรงกับเงื่อนไขการค้นหา</div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setFinanceSearch('');
+                                setFinanceStatusFilter('all');
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer"
+                            >
+                              ล้างคำค้นหา
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ) : (
-                    orders.map((ord) => (
-                      <tr key={ord.orderId} className="hover:bg-slate-50">
-                        <td className="py-3 px-3 font-mono font-bold text-[#DC2626]">{ord.orderId}</td>
-                        <td className="py-3 px-3 font-bold text-slate-900">
-                          {ord.customerName}
-                          <span className="text-slate-400 block font-normal text-[11px]">{ord.phone}</span>
+                    filteredFinanceOrders.map((ord) => (
+                      <tr
+                        key={ord.orderId}
+                        onClick={() => setSelectedOrder(ord)}
+                        className="hover:bg-slate-50 transition-colors cursor-pointer"
+                      >
+                        <td className="py-3 px-3.5 font-mono">
+                          <span className="font-bold text-[#DC2626] block">{ord.orderId}</span>
+                          <span className="text-[10px] text-slate-400">{ord.cardId}</span>
                         </td>
-                        <td className="py-3 px-3">
-                          {ord.quantity} ตัว ({ord.sizes?.join(', ') || ord.size})
+                        <td className="py-3 px-3.5 font-medium text-slate-900">
+                          <div className="font-bold text-slate-900">{ord.customerName}</div>
+                          <div className="text-[11px] text-slate-500 font-mono mt-0.5">{ord.phone || '-'}</div>
+                          {ord.email && <div className="text-[10px] text-slate-400">{ord.email}</div>}
                         </td>
-                        <td className="py-3 px-3 font-mono font-bold text-[#DC2626]">฿{ord.totalAmount}</td>
-                        <td className="py-3 px-3">
+                        <td className="py-3 px-3.5">
+                          <span className="font-mono font-bold text-slate-800">
+                            {ord.quantity} ตัว
+                          </span>
+                          <span className="text-slate-500 text-[11px] block mt-0.5">
+                            ({ord.sizes && ord.sizes.length > 0 ? ord.sizes.join(', ') : ord.size || '-'})
+                          </span>
+                        </td>
+                        <td className="py-3 px-3.5">
+                          {ord.deliveryMethod === 'pickup_event' ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 inline-block">
+                              รับหน้างาน
+                            </span>
+                          ) : (
+                            <div>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 inline-block">
+                                ไปรษณีย์
+                              </span>
+                              {ord.shippingAddress && (
+                                <span className="text-[10px] text-slate-400 block mt-0.5 max-w-[140px] truncate" title={ord.shippingAddress}>
+                                  {ord.shippingAddress}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3.5 font-mono font-bold text-emerald-700 whitespace-nowrap text-sm">
+                          ฿{ord.totalAmount?.toLocaleString() || 300}
+                        </td>
+                        <td className="py-3 px-3.5 text-center">
                           {ord.slipImage ? (
                             <button
                               type="button"
-                              onClick={() => setViewingSlip(ord.slipImage || null)}
-                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold flex items-center gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewingSlip(ord.slipImage || null);
+                              }}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                             >
-                              <Eye className="w-3 h-3" /> ดูสลิป
+                              <Eye className="w-3.5 h-3.5" /> ดูสลิป
                             </button>
                           ) : (
-                            <span className="text-slate-400 text-[11px]">ไม่มีสลิป</span>
+                            <span className="text-slate-400 text-xs">ไม่มีสลิป</span>
                           )}
                         </td>
-                        <td className="py-3 px-3">
+                        <td className="py-3 px-3.5 text-center whitespace-nowrap">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                               ord.status === 'paid'
-                                ? 'bg-emerald-100 text-emerald-800'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 : ord.status === 'claimed'
-                                ? 'bg-red-100 text-red-800'
+                                ? 'bg-blue-100 text-blue-800 border border-blue-300'
                                 : ord.status === 'pending_verification'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-600'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200'
                             }`}
                           >
                             {ord.status === 'paid'
-                              ? 'ชำระแล้ว'
+                              ? '✓ ชำระแล้ว'
                               : ord.status === 'claimed'
-                              ? 'รับเสื้อแล้ว'
+                              ? '🎁 มอบเสื้อแล้ว'
                               : ord.status === 'pending_verification'
-                              ? 'รอตรวจสลิป'
+                              ? '⏳ รอตรวจสลิป'
                               : 'รอชำระ'}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-center">
-                          {ord.status === 'pending_verification' ? (
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => approveShirtPayment(ord.orderId)}
-                                className="px-2.5 py-1 bg-[#00B67A] hover:bg-emerald-600 text-white rounded text-[11px] font-bold shadow-sm"
-                              >
-                                อนุมัติ
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => rejectShirtPayment(ord.orderId)}
-                                className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[11px] font-bold shadow-sm"
-                              >
-                                ปฏิเสธ
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 text-[11px]">ดำเนินการแล้ว</span>
-                          )}
+                        <td className="py-3 px-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                            {ord.status === 'pending_verification' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => approveShirtPayment(ord.orderId)}
+                                  className="px-2 py-1 bg-[#00B67A] hover:bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                                  title="อนุมัติสลิป"
+                                >
+                                  อนุมัติ
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => rejectShirtPayment(ord.orderId)}
+                                  className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                                  title="ปฏิเสธสลิป"
+                                >
+                                  ปฏิเสธ
+                                </button>
+                              </>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrder(ord)}
+                              className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
+                              title="ดูรายละเอียดออเดอร์"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-slate-600" />
+                              <span className="hidden sm:inline">ดู</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setEditingOrder(ord)}
+                              className="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              title="แก้ไขคำสั่งซื้อและสลิปโอนเงิน"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">แก้ไข</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setDeletingOrder(ord)}
+                              className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-700 text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              title="ลบคำสั่งซื้อ (ต้องใช้รหัส 07011985)"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">ลบ</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

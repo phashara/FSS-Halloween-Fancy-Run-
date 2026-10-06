@@ -4,7 +4,7 @@ service cloud.firestore {
     function admin() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email == 'phasharak@gmail.com'
+        && request.auth.token.email in ['phasharak@gmail.com', 'pattarasiri.tiyanan2012@gmail.com', 'primratayy14@gmail.com']
         && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
     function owned() {

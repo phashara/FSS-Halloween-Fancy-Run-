@@ -276,13 +276,25 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="ค้นหาด้วย ชื่อ-นามสกุลจริง, BIB, Card ID (FSS26-xxxx), รหัสออเดอร์ (ORD-xxxx) หรือเบอร์โทรศัพท์..."
-            className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
+            className="w-full pl-12 pr-28 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#DC2626]"
           />
-          {directoryLoading && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#DC2626] flex items-center gap-1">
-              <span className="animate-spin">🔄</span> กำลังโหลด...
-            </div>
-          )}
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
+                title="ล้างคำค้นหา"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            {directoryLoading && (
+              <div className="text-xs font-bold text-[#DC2626] flex items-center gap-1">
+                <span className="animate-spin">🔄</span> กำลังโหลด...
+              </div>
+            )}
+          </div>
         </div>
 
         {searchTerm.trim().length === 1 ? (
