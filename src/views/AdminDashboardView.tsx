@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ShieldAlert,
   Users,
@@ -30,6 +30,7 @@ import {
   Package,
   Pencil,
   Trash2,
+  Layers,
 } from 'lucide-react';
 import { useEventContext } from '../context/EventContext';
 import { OfficerRole, ShirtOrder, RunnerRegistration, GhostCard } from '../types';
@@ -69,6 +70,8 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     deleteRunner,
     updateShirtOrderFull,
     deleteShirtOrder,
+    isShirtPreorderClosed,
+    toggleShirtPreorder,
   } = useEventContext();
 
   // Admin Dashboard on-demand subscription for runners & orders
@@ -92,6 +95,7 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
   const [orderSearch, setOrderSearch] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('all');
   const [orderDeliveryFilter, setOrderDeliveryFilter] = useState('all');
+  const [orderQtyFilter, setOrderQtyFilter] = useState<'all' | 'single' | 'multi' | 'duplicates'>('all');
 
   const [financeSearch, setFinanceSearch] = useState('');
   const [financeStatusFilter, setFinanceStatusFilter] = useState('all');
@@ -105,6 +109,35 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
   const [editingOrder, setEditingOrder] = useState<ShirtOrder | null>(null);
   const [deletingOrder, setDeletingOrder] = useState<ShirtOrder | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isTogglingPreorder, setIsTogglingPreorder] = useState(false);
+
+  const handleTogglePreorder = async () => {
+    const nextState = !isShirtPreorderClosed;
+    const confirmMessage = nextState
+      ? 'ยืนยันปิดระบบสั่งซื้อเสื้อที่ระลึกรอบ Pre-Order ใช่หรือไม่?\n\n- ผู้สมัครใหม่จะสามารถสมัครได้เฉพาะ "วิ่งฟรี 100%" (0 บาท) เท่านั้น\n- ข้อมูลออเดอร์เดิมทั้งหมด (90 ออเดอร์ / 92 ตัว) ปลอดภัย 100% ไม่ถูกลบหรือแก้ไข\n- คุณสามารถกดเปิดระบบใหม่ได้ทุกเมื่อที่ต้องการ (รวมถึงนำไปใช้จัดงานต่อในปีถัดไป)'
+      : 'ยืนยันเปิดระบบรับสั่งซื้อเสื้อที่ระลึก ใช่หรือไม่?\n\n- ผู้สมัครจะสามารถเลือกสั่งซื้อเสื้อที่ระลึก 300 บาท และอัปเกรดการ์ดผีได้ตามปกติ';
+
+    if (window.confirm(confirmMessage)) {
+      setIsTogglingPreorder(true);
+      try {
+        await toggleShirtPreorder(nextState);
+        setActionFeedback({
+          type: 'success',
+          message: nextState
+            ? '✅ บันทึกแล้ว: ปิดรับสั่งซื้อเสื้อรอบ Pre-Order เรียบร้อยแล้ว (ระบบยังคงเปิดรับสมัครวิ่งฟรีตามปกติ)'
+            : '✅ บันทึกแล้ว: เปิดรับสั่งซื้อเสื้อรอบ Pre-Order เรียบร้อยแล้ว',
+        });
+        setTimeout(() => setActionFeedback(null), 5000);
+      } catch (err: any) {
+        setActionFeedback({
+          type: 'error',
+          message: 'เกิดข้อผิดพลาดในการปรับสถานะระบบ: ' + (err?.message || 'โปรดลองใหม่อีกครั้ง'),
+        });
+      } finally {
+        setIsTogglingPreorder(false);
+      }
+    }
+  };
 
   // Statistics calculation
   const safeRunners = Array.isArray(runners) ? runners : [];
@@ -120,6 +153,55 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
   const pendingOrders = safeOrders.filter((o) => o.status === 'pending_verification');
   const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
   const totalShirtsCount = safeOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
+
+  // Single vs Multi-shirt order breakdown
+  const singleShirtOrders = useMemo(
+    () => safeOrders.filter((o) => (o.quantity || 1) === 1),
+    [safeOrders]
+  );
+  const multiShirtOrders = useMemo(
+    () => safeOrders.filter((o) => (o.quantity || 1) > 1),
+    [safeOrders]
+  );
+  const multiShirtsTotalQty = useMemo(
+    () => multiShirtOrders.reduce((sum, o) => sum + (o.quantity || 1), 0),
+    [multiShirtOrders]
+  );
+
+  // Detect potential duplicate orders (matching cleaned phone or customerName)
+  const potentialDuplicates = useMemo(() => {
+    const phoneMap = new Map<string, ShirtOrder[]>();
+    const nameMap = new Map<string, ShirtOrder[]>();
+
+    safeOrders.forEach((o) => {
+      const cleanPhone = (o.phone || '').replace(/\D/g, '');
+      if (cleanPhone.length >= 8) {
+        const list = phoneMap.get(cleanPhone) || [];
+        list.push(o);
+        phoneMap.set(cleanPhone, list);
+      }
+      const cleanName = (o.customerName || '').trim().toLowerCase();
+      if (cleanName.length >= 3) {
+        const list = nameMap.get(cleanName) || [];
+        list.push(o);
+        nameMap.set(cleanName, list);
+      }
+    });
+
+    const duplicateOrderIds = new Set<string>();
+    phoneMap.forEach((list) => {
+      if (list.length > 1) {
+        list.forEach((o) => duplicateOrderIds.add(o.orderId));
+      }
+    });
+    nameMap.forEach((list) => {
+      if (list.length > 1) {
+        list.forEach((o) => duplicateOrderIds.add(o.orderId));
+      }
+    });
+
+    return duplicateOrderIds;
+  }, [safeOrders]);
 
   // Filtered Runners
   const filteredRunners = safeRunners.filter((r) => {
@@ -185,9 +267,15 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
     if (orderStatusFilter !== 'all' && o.status !== orderStatusFilter) {
       return false;
     }
-    if (orderDeliveryFilter !== 'all' && o.deliveryMethod !== orderDeliveryFilter) {
-      return false;
+    if (orderDeliveryFilter !== 'all') {
+      const isPostal = orderDeliveryFilter === 'delivery_postal' || orderDeliveryFilter === 'shipping';
+      if (isPostal && o.deliveryMethod !== 'shipping' && (o.deliveryMethod as any) !== 'delivery_postal') return false;
+      if (!isPostal && o.deliveryMethod !== orderDeliveryFilter) return false;
     }
+
+    if (orderQtyFilter === 'single' && (o.quantity || 1) !== 1) return false;
+    if (orderQtyFilter === 'multi' && (o.quantity || 1) <= 1) return false;
+    if (orderQtyFilter === 'duplicates' && !potentialDuplicates.has(o.orderId)) return false;
 
     return true;
   });
@@ -475,6 +563,106 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
         </div>
       )}
 
+      {/* Action Feedback Banner */}
+      {actionFeedback && (
+        <div
+          className={`p-4 rounded-2xl border text-xs sm:text-sm font-medium flex items-center justify-between gap-3 shadow-xs animate-in fade-in ${
+            actionFeedback.type === 'success'
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-950'
+              : 'bg-rose-50 border-rose-300 text-rose-950'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {actionFeedback.type === 'success' ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            )}
+            <span>{actionFeedback.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionFeedback(null)}
+            className="p-1 rounded-lg hover:bg-black/5 text-slate-500 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Pre-order Status Control Banner */}
+      <div
+        className={`p-4 sm:p-5 rounded-2xl border-2 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm ${
+          isShirtPreorderClosed
+            ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-amber-300'
+            : 'bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-emerald-300'
+        }`}
+      >
+        <div className="flex items-start gap-3.5">
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-lg shadow-xs ${
+              isShirtPreorderClosed
+                ? 'bg-amber-500 text-white'
+                : 'bg-emerald-500 text-white'
+            }`}
+          >
+            {isShirtPreorderClosed ? '🔒' : '👕'}
+          </div>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`px-2.5 py-0.5 rounded-md font-bold text-xs uppercase tracking-wider ${
+                  isShirtPreorderClosed
+                    ? 'bg-amber-200 text-amber-900'
+                    : 'bg-emerald-200 text-emerald-900'
+                }`}
+              >
+                {isShirtPreorderClosed ? '🔴 ปิดรับสั่งเสื้อรอบ Pre-Order แล้ว' : '🟢 เปิดรับสั่งเสื้อตามปกติ'}
+              </span>
+              <span className="text-xs text-slate-600 font-medium">
+                (การรับสมัครวิ่งฟรี 100%: <b>เปิดรับสมัครตลอด 24 ชม.</b>)
+              </span>
+            </div>
+            <p className="text-xs text-slate-700 leading-relaxed">
+              {isShirtPreorderClosed
+                ? 'ระบบปิดฟอร์มสั่งเสื้อเพื่อสรุปยอดส่งตัดเย็บให้ทันวันงาน 31 ต.ค. 2569 (ผู้สมัครใหม่จะเลือกได้เฉพาะ "วิ่งฟรี 100%")'
+                : 'ระบบเปิดให้ผู้สมัครเลือกสั่งเสื้อที่ระลึก 300 บาท หรือสั่งเสื้ออย่างเดียวได้ตามปกติ'}
+            </p>
+            <div className="text-[11px] text-slate-600 flex flex-wrap items-center gap-2 pt-0.5">
+              <span>ยอดออเดอร์ปัจจุบัน: <b>{totalOrders} ออเดอร์</b> (รวมเสื้อทั้งหมด <b>{totalShirtsCount} ตัว</b>)</span>
+              {multiShirtOrders.length > 0 && (
+                <span className="text-amber-900 bg-amber-100 border border-amber-300/60 px-2 py-0.5 rounded text-[10px] font-semibold">
+                  มี {multiShirtOrders.length} ออเดอร์ที่สั่ง 2 ตัวขึ้นไป (ยอดเสื้อ {totalShirtsCount} ตัว ถูกต้องสมบูรณ์)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleTogglePreorder}
+          disabled={isTogglingPreorder}
+          className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 shadow-sm cursor-pointer ${
+            isShirtPreorderClosed
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-md'
+              : 'bg-amber-600 hover:bg-amber-700 text-white hover:shadow-md'
+          } ${isTogglingPreorder ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          {isShirtPreorderClosed ? (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              <span>เปิดระบบสั่งเสื้อ (สำหรับปีหน้า/รอบเก็บตก)</span>
+            </>
+          ) : (
+            <>
+              <AlertTriangle className="w-4 h-4" />
+              <span>ปิดระบบสั่งเสื้อ (ตัดยอดส่งผลิต)</span>
+            </>
+          )}
+        </button>
+      </div>
+
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-1">
@@ -490,7 +678,9 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
             <Shirt className="w-3.5 h-3.5 text-blue-600" /> ยอดสั่งซื้อเสื้อ
           </span>
           <p className="text-2xl font-black text-slate-900 font-mono">{totalOrders} <span className="text-xs font-normal text-slate-500">ออเดอร์</span></p>
-          <span className="text-[11px] text-blue-600 font-bold block">รวม {totalShirtsCount} ตัว</span>
+          <span className="text-[11px] text-blue-600 font-bold block">
+            รวม {totalShirtsCount} ตัว {multiShirtOrders.length > 0 ? `(มีสั่ง ≥2 ตัว ${multiShirtOrders.length} ออเดอร์)` : ''}
+          </span>
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-1">
@@ -1446,6 +1636,8 @@ export const AdminDashboardView: React.FC<{ onNavigate: (view: any) => void }> =
             onOrderClick={(ord) => setSelectedOrder(ord)}
             onEditOrder={(ord) => setEditingOrder(ord)}
             onDeleteOrder={(ord) => setDeletingOrder(ord)}
+            isShirtPreorderClosed={isShirtPreorderClosed}
+            onTogglePreorder={handleTogglePreorder}
           />
         </div>
       )}

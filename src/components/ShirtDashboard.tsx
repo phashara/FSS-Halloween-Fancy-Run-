@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Shirt,
   DollarSign,
@@ -18,6 +18,8 @@ import {
   Pencil,
   Trash2,
   X,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 import { ShirtOrder, ShirtSize } from '../types';
 import { OFFICIAL_SHIRT_SIZES } from '../data/shirtSizes';
@@ -28,6 +30,8 @@ interface Props {
   onNavigateToOrderForm?: () => void;
   onEditOrder?: (order: ShirtOrder) => void;
   onDeleteOrder?: (order: ShirtOrder) => void;
+  isShirtPreorderClosed?: boolean;
+  onTogglePreorder?: () => void;
 }
 
 export const ShirtDashboard: React.FC<Props> = ({
@@ -36,17 +40,64 @@ export const ShirtDashboard: React.FC<Props> = ({
   onNavigateToOrderForm,
   onEditOrder,
   onDeleteOrder,
+  isShirtPreorderClosed,
+  onTogglePreorder,
 }) => {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSize, setFilterSize] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDelivery, setFilterDelivery] = useState<string>('all');
+  const [filterQty, setFilterQty] = useState<'all' | 'single' | 'multi' | 'duplicates'>('all');
   const [selectedSlip, setSelectedSlip] = useState<string | null>(null);
 
   // Aggregations
   const totalShirts = safeOrders.reduce((sum, ord) => sum + (ord.quantity || 1), 0);
   const totalRevenue = safeOrders.reduce((sum, ord) => sum + (ord.totalAmount || 0), 0);
+
+  // Single vs Multi-shirt order breakdown
+  const singleShirtOrders = useMemo(
+    () => safeOrders.filter((o) => (o.quantity || 1) === 1),
+    [safeOrders]
+  );
+  const multiShirtOrders = useMemo(
+    () => safeOrders.filter((o) => (o.quantity || 1) > 1),
+    [safeOrders]
+  );
+  const multiShirtsTotalQty = useMemo(
+    () => multiShirtOrders.reduce((sum, o) => sum + (o.quantity || 1), 0),
+    [multiShirtOrders]
+  );
+
+  // Potential duplicates detection (same phone or customer name)
+  const duplicateOrderIds = useMemo(() => {
+    const phoneMap = new Map<string, ShirtOrder[]>();
+    const nameMap = new Map<string, ShirtOrder[]>();
+
+    safeOrders.forEach((o) => {
+      const cleanPhone = (o.phone || '').replace(/\D/g, '');
+      if (cleanPhone.length >= 8) {
+        const list = phoneMap.get(cleanPhone) || [];
+        list.push(o);
+        phoneMap.set(cleanPhone, list);
+      }
+      const cleanName = (o.customerName || '').trim().toLowerCase();
+      if (cleanName.length >= 3) {
+        const list = nameMap.get(cleanName) || [];
+        list.push(o);
+        nameMap.set(cleanName, list);
+      }
+    });
+
+    const dupes = new Set<string>();
+    phoneMap.forEach((list) => {
+      if (list.length > 1) list.forEach((o) => dupes.add(o.orderId));
+    });
+    nameMap.forEach((list) => {
+      if (list.length > 1) list.forEach((o) => dupes.add(o.orderId));
+    });
+    return dupes;
+  }, [safeOrders]);
 
   // Revenue by status
   const paidOrders = safeOrders.filter((o) => o.status === 'paid' || o.status === 'claimed');
@@ -61,37 +112,78 @@ export const ShirtDashboard: React.FC<Props> = ({
   const unpaidShirts = unpaidOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
   const unpaidRevenue = unpaidOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
-  // Delivery breakdown
+  // Delivery breakdown (supports both 'shipping' and 'delivery_postal')
   const pickupOrders = safeOrders.filter((o) => o.deliveryMethod === 'pickup_event');
   const pickupShirts = pickupOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
-  const shippingOrders = safeOrders.filter((o) => o.deliveryMethod === 'shipping');
+  const shippingOrders = safeOrders.filter(
+    (o) => o.deliveryMethod === 'shipping' || (o.deliveryMethod as any) === 'delivery_postal'
+  );
   const shippingShirts = shippingOrders.reduce((sum, o) => sum + (o.quantity || 1), 0);
 
-  // Size breakdown
+  // Size breakdown: accurately derived from ord.sizes to count each piece correctly
   const ALL_SIZES: { size: ShirtSize; chest: string }[] = OFFICIAL_SHIRT_SIZES.map((item) => ({
     size: item.size,
     chest: item.chestLabel,
   }));
 
+  // Detect any extra sizes present in orders (such as legacy 'XS')
+  const extraSizes = useMemo(() => {
+    const set = new Set<string>();
+    safeOrders.forEach((ord) => {
+      if (Array.isArray(ord.sizes)) {
+        ord.sizes.forEach((s) => {
+          if (!ALL_SIZES.some((x) => x.size === s)) set.add(s);
+        });
+      } else if (ord.size && !ALL_SIZES.some((x) => x.size === ord.size)) {
+        set.add(ord.size);
+      }
+    });
+    return Array.from(set);
+  }, [safeOrders, ALL_SIZES]);
+
+  const DISPLAY_SIZES = useMemo(() => {
+    return [
+      ...ALL_SIZES,
+      ...extraSizes.map((s) => ({ size: s as ShirtSize, chest: '-' })),
+    ];
+  }, [ALL_SIZES, extraSizes]);
+
   const sizeCounts: Record<string, { count: number; revenue: number; ordersCount: number }> = {};
-  ALL_SIZES.forEach(({ size }) => {
+  DISPLAY_SIZES.forEach(({ size }) => {
     sizeCounts[size] = { count: 0, revenue: 0, ordersCount: 0 };
   });
 
   safeOrders.forEach((ord) => {
-    const s = ord.size as string;
-    if (!sizeCounts[s]) {
-      sizeCounts[s] = { count: 0, revenue: 0, ordersCount: 0 };
+    const qty = ord.quantity || 1;
+    const unitPrice = ord.unitPrice || 300;
+    const orderSizes =
+      Array.isArray(ord.sizes) && ord.sizes.length > 0
+        ? ord.sizes
+        : [ord.size || 'L'];
+
+    // Accurately map each individual shirt piece to its chosen size
+    for (let i = 0; i < qty; i++) {
+      const s = (orderSizes[i] || orderSizes[0] || ord.size || 'L') as string;
+      if (!sizeCounts[s]) {
+        sizeCounts[s] = { count: 0, revenue: 0, ordersCount: 0 };
+      }
+      sizeCounts[s].count += 1;
+      sizeCounts[s].revenue += unitPrice;
     }
-    sizeCounts[s].count += ord.quantity || 1;
-    sizeCounts[s].revenue += ord.totalAmount || 0;
-    sizeCounts[s].ordersCount += 1;
+
+    // Tally orders that ordered this size
+    const uniqueSizesInOrder = new Set(orderSizes.slice(0, qty));
+    uniqueSizesInOrder.forEach((s) => {
+      if (sizeCounts[s]) {
+        sizeCounts[s].ordersCount += 1;
+      }
+    });
   });
 
   // Find most popular size
   let maxCount = 0;
   let topSize: ShirtSize | null = null;
-  ALL_SIZES.forEach(({ size }) => {
+  DISPLAY_SIZES.forEach(({ size }) => {
     if (sizeCounts[size].count > maxCount) {
       maxCount = sizeCounts[size].count;
       topSize = size;
@@ -109,11 +201,23 @@ export const ShirtDashboard: React.FC<Props> = ({
       ord.phone.includes(q) ||
       (ord.email || '').toLowerCase().includes(q);
 
-    const matchSize = filterSize === 'all' || ord.size === filterSize;
+    const orderSizes = Array.isArray(ord.sizes) && ord.sizes.length > 0 ? ord.sizes : [ord.size];
+    const matchSize =
+      filterSize === 'all' ||
+      ord.size === filterSize ||
+      orderSizes.includes(filterSize as ShirtSize);
     const matchStatus = filterStatus === 'all' || ord.status === filterStatus;
-    const matchDelivery = filterDelivery === 'all' || ord.deliveryMethod === filterDelivery;
+    const matchDelivery =
+      filterDelivery === 'all' ||
+      ord.deliveryMethod === filterDelivery ||
+      (filterDelivery === 'shipping' && (ord.deliveryMethod as any) === 'delivery_postal');
 
-    return matchQuery && matchSize && matchStatus && matchDelivery;
+    let matchQty = true;
+    if (filterQty === 'single') matchQty = (ord.quantity || 1) === 1;
+    if (filterQty === 'multi') matchQty = (ord.quantity || 1) > 1;
+    if (filterQty === 'duplicates') matchQty = duplicateOrderIds.has(ord.orderId);
+
+    return matchQuery && matchSize && matchStatus && matchDelivery && matchQty;
   });
 
   // Export CSV
@@ -177,6 +281,72 @@ export const ShirtDashboard: React.FC<Props> = ({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Pre-order Status & Production Window Banner */}
+      <div
+        className={`p-5 rounded-3xl border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl ${
+          isShirtPreorderClosed
+            ? 'bg-gradient-to-r from-amber-950/50 via-slate-900 to-slate-950 border-amber-500/40'
+            : 'bg-gradient-to-r from-emerald-950/50 via-slate-900 to-slate-950 border-emerald-500/40'
+        }`}
+      >
+        <div className="flex items-start gap-3.5">
+          <div
+            className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 font-bold text-lg shadow-inner ${
+              isShirtPreorderClosed
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+            }`}
+          >
+            {isShirtPreorderClosed ? '🔒' : '👕'}
+          </div>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`px-2.5 py-0.5 rounded-full font-bold text-xs uppercase tracking-wider ${
+                  isShirtPreorderClosed
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                }`}
+              >
+                {isShirtPreorderClosed ? '🔴 ปิดรับสั่งเสื้อรอบ Pre-Order แล้ว' : '🟢 เปิดรับสั่งเสื้อรอบ Pre-Order'}
+              </span>
+              <span className="text-xs text-slate-400">
+                (การรับสมัครวิ่งฟรี: <b>ยังเปิดรับตามปกติ 100%</b>)
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {isShirtPreorderClosed
+                ? 'กำลังสรุปยอดสั่งเสื้อทั้งหมดส่งโรงงานตัดเย็บ เพื่อผลิตให้ทันวันจัดกิจกรรม 31 ต.ค. 2569'
+                : 'เปิดรับคำสั่งซื้อเสื้อที่ระลึกและพรีออเดอร์ตามปกติ'}
+            </p>
+          </div>
+        </div>
+
+        {onTogglePreorder && (
+          <button
+            type="button"
+            onClick={onTogglePreorder}
+            className={`shrink-0 px-4 py-2.5 rounded-xl font-bold text-xs transition-all flex items-center gap-2 shadow-lg cursor-pointer ${
+              isShirtPreorderClosed
+                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                : 'bg-amber-600 hover:bg-amber-500 text-white'
+            }`}
+          >
+            {isShirtPreorderClosed ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                <span>เปิดรับสั่งเสื้อใหม่ (ปีหน้า/รอบเก็บตก)</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-4 h-4" />
+                <span>ปิดรับสั่งเสื้อ (ตัดรอบส่งโรงงาน)</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* 4 Main KPI Cards */}
@@ -275,6 +445,121 @@ export const ShirtDashboard: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* Order vs Quantity Diagnostic & Audit Bar */}
+      <div className="p-5 rounded-3xl bg-slate-900 border border-amber-500/30 shadow-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                ตรวจเช็กความสัมพันธ์: ยอดคำสั่งซื้อ ({orders.length} ออเดอร์) รวมเสื้อ ({totalShirts} ตัว)
+              </h4>
+              <p className="text-xs text-slate-400">
+                วิเคราะห์สัดส่วนจำนวนเสื้อต่อออเดอร์ ตรวจจับรายการที่สั่งมากกว่า 1 ตัว และรายการที่อาจซ้ำซ้อน
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-mono">
+              เฉลี่ย {(totalShirts / (orders.length || 1)).toFixed(2)} ตัว / ออเดอร์
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          {/* Card 1: 1-piece orders */}
+          <button
+            type="button"
+            onClick={() => setFilterQty(filterQty === 'single' ? 'all' : 'single')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              filterQty === 'single'
+                ? 'bg-blue-950/60 border-blue-400 ring-2 ring-blue-500/40'
+                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span>สั่งซื้อ 1 ตัว/ออเดอร์</span>
+              <span className="font-mono font-bold text-blue-400">{singleShirtOrders.length} ออเดอร์</span>
+            </div>
+            <div className="text-lg font-black text-white font-mono">
+              {singleShirtOrders.length}{' '}
+              <span className="text-xs font-normal text-slate-400">ตัว ({totalShirts > 0 ? Math.round((singleShirtOrders.length / totalShirts) * 100) : 0}%)</span>
+            </div>
+            <div className="text-[11px] text-blue-400/80 mt-1">คลิกเพื่อกรองเฉพาะออเดอร์ 1 ตัว</div>
+          </button>
+
+          {/* Card 2: Multi-piece orders */}
+          <button
+            type="button"
+            onClick={() => setFilterQty(filterQty === 'multi' ? 'all' : 'multi')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              filterQty === 'multi'
+                ? 'bg-amber-950/60 border-amber-400 ring-2 ring-amber-500/40'
+                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span className="text-amber-300 font-semibold">สั่งซื้อ &gt;1 ตัว/ออเดอร์ 🔥</span>
+              <span className="font-mono font-bold text-amber-400">{multiShirtOrders.length} ออเดอร์</span>
+            </div>
+            <div className="text-lg font-black text-amber-400 font-mono">
+              {multiShirtsTotalQty}{' '}
+              <span className="text-xs font-normal text-slate-400">ตัว ({totalShirts > 0 ? Math.round((multiShirtsTotalQty / totalShirts) * 100) : 0}%)</span>
+            </div>
+            <div className="text-[11px] text-amber-400/90 mt-1">
+              {multiShirtOrders.length > 0 ? `คลิกดูทั้ง ${multiShirtOrders.length} ออเดอร์ที่สั่งหลายตัว` : 'ไม่มีออเดอร์ที่สั่งหลายตัว'}
+            </div>
+          </button>
+
+          {/* Card 3: Duplicates Audit */}
+          <button
+            type="button"
+            onClick={() => setFilterQty(filterQty === 'duplicates' ? 'all' : 'duplicates')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              filterQty === 'duplicates'
+                ? 'bg-rose-950/60 border-rose-400 ring-2 ring-rose-500/40'
+                : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            <div className="flex items-center justify-between text-slate-400 mb-1">
+              <span>ตรวจจับชื่อ/เบอร์โทรซ้ำ</span>
+              <span className={`font-mono font-bold ${duplicateOrderIds.size > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                {duplicateOrderIds.size} รายการ
+              </span>
+            </div>
+            <div className="text-lg font-black font-mono text-white">
+              {duplicateOrderIds.size > 0 ? (
+                <span className="text-rose-400">พบ {duplicateOrderIds.size} รายการ</span>
+              ) : (
+                <span className="text-emerald-400 text-sm">✓ ข้อมูลปกติ ไม่พบชื่อซ้ำ</span>
+              )}
+            </div>
+            <div className="text-[11px] text-slate-400 mt-1">
+              {duplicateOrderIds.size > 0 ? 'คลิกเพื่อตรวจสอบออเดอร์ที่ชื่อ/เบอร์ซ้ำ' : 'ไม่มีคำสั่งซื้อที่ชื่อหรือเบอร์ตรงกัน'}
+            </div>
+          </button>
+        </div>
+
+        {filterQty !== 'all' && (
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+            <span className="text-slate-300">
+              ตัวกรองปัจจุบัน: <b className="text-amber-400 font-semibold">
+                {filterQty === 'single' ? 'ออเดอร์ที่สั่ง 1 ตัว' : filterQty === 'multi' ? 'ออเดอร์ที่สั่งมากกว่า 1 ตัว' : 'ออเดอร์ที่ตรวจพบชื่อหรือเบอร์โทรซ้ำ'}
+              </b> ({filteredOrders.length} รายการ)
+            </span>
+            <button
+              type="button"
+              onClick={() => setFilterQty('all')}
+              className="text-xs text-amber-400 hover:text-amber-300 font-bold underline cursor-pointer"
+            >
+              แสดงทั้งหมด ({orders.length} ออเดอร์)
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* SECTION 2: Size Breakdown Visual Bars & Table */}
       <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
@@ -284,7 +569,7 @@ export const ShirtDashboard: React.FC<Props> = ({
               สรุปจำนวนเสื้อแยกตามไซซ์ (Size Breakdown)
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              แสดงสัดส่วนยอดสั่งจองเสื้อทุกไซซ์ เพื่อใช้ในการวางแผนผลิตและสต็อกสินค้า
+              แสดงสัดส่วนยอดสั่งจองเสื้อทุกไซซ์ คำนวณรายตัวอย่างแม่นยำ เพื่อใช้ในการวางแผนผลิตและสต็อกสินค้า
             </p>
           </div>
           {topSize && sizeCounts[topSize as ShirtSize] && (
@@ -299,7 +584,7 @@ export const ShirtDashboard: React.FC<Props> = ({
 
         {/* Size Cards Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-          {ALL_SIZES.map(({ size, chest }) => {
+          {DISPLAY_SIZES.map(({ size, chest }) => {
             const data = sizeCounts[size];
             const pct = totalShirts > 0 ? Math.round((data.count / totalShirts) * 100) : 0;
             const isTop = size === topSize && data.count > 0;
@@ -447,9 +732,9 @@ export const ShirtDashboard: React.FC<Props> = ({
               className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-slate-200 focus:outline-none focus:border-amber-400"
             >
               <option value="all">ไซซ์ทั้งหมด (All Sizes)</option>
-              {ALL_SIZES.map(({ size, chest }) => (
+              {DISPLAY_SIZES.map(({ size, chest }) => (
                 <option key={size} value={size}>
-                  ไซซ์ {size} (อก {chest})
+                  ไซซ์ {size} {chest !== '-' ? `(อก ${chest})` : ''}
                 </option>
               ))}
             </select>
@@ -513,9 +798,21 @@ export const ShirtDashboard: React.FC<Props> = ({
                       {ord.phone || '-'}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <span className="inline-block px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-300 font-bold font-mono">
-                        {ord.size} ({ord.quantity} ตัว)
-                      </span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="inline-block px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-300 font-bold font-mono">
+                          {ord.sizes && ord.sizes.length > 0 ? ord.sizes.join(', ') : ord.size || '-'} ({ord.quantity || 1} ตัว)
+                        </span>
+                        {(ord.quantity || 1) > 1 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            สั่งหลายตัว ({ord.quantity} ตัว)
+                          </span>
+                        )}
+                        {duplicateOrderIds.has(ord.orderId) && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                            ⚠️ ชื่อ/เบอร์ซ้ำ
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-emerald-400 whitespace-nowrap">
                       ฿{ord.totalAmount?.toLocaleString()}

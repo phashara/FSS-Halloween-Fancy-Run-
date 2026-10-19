@@ -202,6 +202,8 @@ export interface EventContextType {
   loadDirectoryPage: (options?: LoadDirectoryPageOptions) => Promise<DirectoryPageResult>;
   searchRunnersRemote: (queryStr: string) => Promise<SearchResultPayload>;
   exportLocalBackup: () => { success: boolean; filename: string };
+  isShirtPreorderClosed: boolean;
+  toggleShirtPreorder: (closed: boolean) => Promise<void>;
 
   // Actions
   registerParticipant: (
@@ -423,6 +425,39 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
   });
+
+  // Shirt Preorder Closed Status (Can be toggled by Admin)
+  const [isShirtPreorderClosed, setIsShirtPreorderClosed] = useState<boolean>(() => {
+    try {
+      const saved = safeLocalStorage.getItem('fss2026_shirt_closed');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const toggleShirtPreorder = useCallback(
+    async (closed: boolean) => {
+      setIsShirtPreorderClosed(closed);
+      safeLocalStorage.setItem('fss2026_shirt_closed', String(closed));
+      try {
+        if (adminUser?.isLoggedIn) {
+          await setDoc(
+            doc(db, 'site_content', 'event_settings'),
+            {
+              isShirtPreorderClosed: closed,
+              updatedAt: new Date().toISOString(),
+              updatedBy: adminUser.displayName || adminUser.username || 'admin',
+            },
+            { merge: true }
+          );
+        }
+      } catch (err) {
+        console.warn('Failed to save shirt preorder setting to cloud:', err);
+      }
+    },
+    [adminUser]
+  );
 
   // CMS Content
   const [siteContent, setSiteContent] = useState<Record<string, SiteContentSection>>(() => {
@@ -716,6 +751,11 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 } else if (data.imageUrl === null) {
                   setCustomMapImageState(null);
                   idbRemove('system_asset_map');
+                }
+              } else if (docSnap.id === 'event_settings') {
+                if (typeof data.isShirtPreorderClosed === 'boolean') {
+                  setIsShirtPreorderClosed(data.isShirtPreorderClosed);
+                  safeLocalStorage.setItem('fss2026_shirt_closed', String(data.isShirtPreorderClosed));
                 }
               } else {
                 remoteContent[docSnap.id] = data as SiteContentSection;
@@ -2302,6 +2342,8 @@ export const EventProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loadDirectoryPage,
         searchRunnersRemote,
         exportLocalBackup,
+        isShirtPreorderClosed,
+        toggleShirtPreorder,
         registerParticipant,
         orderShirt,
         approveShirtPayment,

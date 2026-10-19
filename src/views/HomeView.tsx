@@ -38,7 +38,7 @@ interface Props {
 }
 
 export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType }) => {
-  const { adminUser, ghostSpeciesList, runners, searchRunnersRemote, loadCardById, setCurrentCardId } = useEventContext();
+  const { adminUser, ghostSpeciesList, runners, searchRunnersRemote, loadCardById, setCurrentCardId, isShirtPreorderClosed } = useEventContext();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
@@ -155,7 +155,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
               onClick={() => onNavigate('register')}
               className="px-6 py-3 rounded-2xl bg-white hover:bg-red-50 text-red-700 font-black text-xs sm:text-sm shadow-lg shadow-black/20 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
             >
-              <span>สมัครเข้าร่วมกิจกรรมทันที (ฟรี 0฿)</span>
+              <span>{isShirtPreorderClosed ? 'สมัครวิ่งแฟนซีไนท์ 5.0 KM (ฟรี 0฿)' : 'สมัครเข้าร่วมกิจกรรมทันที (ฟรี 0฿)'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
@@ -164,7 +164,7 @@ export const HomeView: React.FC<Props> = ({ onNavigate, onSelectRegistrationType
               className="px-5 py-3 rounded-2xl bg-black/30 hover:bg-black/40 text-white border border-white/20 font-bold text-xs sm:text-sm backdrop-blur-md transition-all flex items-center gap-2 cursor-pointer"
             >
               <Shirt className="w-4 h-4 text-amber-300" />
-              <span>สั่งซื้อเสื้อที่ระลึก 300฿</span>
+              <span>{isShirtPreorderClosed ? 'ดูเสื้อที่ระลึก (ปิดพรีออเดอร์)' : 'สั่งซื้อเสื้อที่ระลึก 300฿'}</span>
             </button>
           </div>
 

@@ -117,7 +117,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
       setDirectoryError(null);
 
       try {
-        const res = await loadDirectoryPage({ pageSize: 24, lastDoc: lastDocCursor });
+        const res = await loadDirectoryPage({ pageSize: 20, lastDoc: lastDocCursor });
         if (currentReqId !== requestIdRef.current) return;
 
         setDirectoryRunners(res.runners || []);
@@ -135,7 +135,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
         }
       } catch (err: any) {
         if (currentReqId !== requestIdRef.current) return;
-        console.error('Directory page load failed:', err);
+        console.warn('Directory page load notice:', err);
         setDirectoryError(err?.message || 'เกิดข้อผิดพลาดในการโหลดข้อมูลผู้สมัครจาก Cloud');
       } finally {
         if (currentReqId === requestIdRef.current) {
@@ -152,6 +152,12 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
 
     if (!trimmed) {
       fetchPageData(1);
+      return;
+    }
+
+    // Protect Cloud Function quota: do not send 1-character query
+    if (trimmed.length < 2) {
+      setDirectoryLoading(false);
       return;
     }
 
@@ -173,12 +179,13 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
         // If remote returned zero, but we have local cached runners, perform fallback substring search
         if (foundRunners.length === 0 && Array.isArray(cachedRunners) && cachedRunners.length > 0) {
           const q = trimmed.toLowerCase();
+          const cleanQ = q.replace(/^(นาย|นางสาว|นาง|ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|mr\.|ms\.|mrs\.)\s*/i, '').trim();
           const localMatchedRunners = cachedRunners.filter((r) => {
-            const matchName = (r.fullName || '').toLowerCase().includes(q);
-            const matchThai = (r.nameThai || '').toLowerCase().includes(q);
+            const matchName = (r.fullName || '').toLowerCase().includes(q) || (r.fullName || '').toLowerCase().includes(cleanQ);
+            const matchThai = (r.nameThai || '').toLowerCase().includes(q) || (r.nameThai || '').toLowerCase().includes(cleanQ);
             const matchEng = (r.nameEng || '').toLowerCase().includes(q);
             const matchNick = (r.nickname || '').toLowerCase().includes(q);
-            const matchPhone = (r.phone || '').includes(q);
+            const matchPhone = (r.phone || '').includes(q.replace(/\D/g, ''));
             const matchBib = (r.bibNumber || '').toLowerCase().includes(q);
             const matchCard = (r.cardId || '').toLowerCase().includes(q);
             const matchReg = (r.regId || '').toLowerCase().includes(q);
@@ -198,14 +205,15 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
         setHasMorePages(false);
       } catch (err: any) {
         if (currentReqId !== requestIdRef.current) return;
-        console.warn('Search query fallback:', err);
+        console.warn('Search query fallback notice:', err);
         // Fallback to local memory filtering on error/quota cooldown
         if (Array.isArray(cachedRunners) && cachedRunners.length > 0) {
           const q = trimmed.toLowerCase();
           const localFallback = cachedRunners.filter((r) =>
             (r.fullName || '').toLowerCase().includes(q) ||
+            (r.nameThai || '').toLowerCase().includes(q) ||
             (r.nickname || '').toLowerCase().includes(q) ||
-            (r.phone || '').includes(q) ||
+            (r.phone || '').includes(q.replace(/\D/g, '')) ||
             (r.bibNumber || '').toLowerCase().includes(q) ||
             (r.cardId || '').toLowerCase().includes(q)
           );
@@ -244,25 +252,55 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
     return directoryOrders.find((o) => o.orderId === runner.shirtOrderId || o.cardId === runner.cardId);
   };
 
+  // Helper to clean Thai prefixes for high-accuracy name matching
+  const cleanThaiPrefix = (text: string) => {
+    return (text || '')
+      .replace(/^(นาย|นางสาว|นาง|ด\.ช\.|ด\.ญ\.|เด็กชาย|เด็กหญิง|mr\.|ms\.|mrs\.)\s*/i, '')
+      .trim()
+      .toLowerCase();
+  };
+
   // Filter local directory results by tabs and categories
   const filteredRunners = useMemo(() => {
     return directoryRunners.filter((runner) => {
-      // Search preset category constraint if user selected a specific focus
       const q = searchTerm.trim().toLowerCase();
       if (q) {
+        const cleanQ = cleanThaiPrefix(q);
+        const digitsQ = q.replace(/\D/g, '');
+
         if (searchCategory === 'name') {
-          const m1 = (runner.fullName || '').toLowerCase().includes(q);
-          const m2 = (runner.nameThai || '').toLowerCase().includes(q);
+          const m1 = (runner.fullName || '').toLowerCase().includes(q) || cleanThaiPrefix(runner.fullName).includes(cleanQ);
+          const m2 = (runner.nameThai || '').toLowerCase().includes(q) || cleanThaiPrefix(runner.nameThai).includes(cleanQ);
           const m3 = (runner.nameEng || '').toLowerCase().includes(q);
           const m4 = (runner.nickname || '').toLowerCase().includes(q);
           if (!m1 && !m2 && !m3 && !m4) return false;
         } else if (searchCategory === 'phone') {
-          const cleanQ = q.replace(/\D/g, '');
-          if (!runner.phone.includes(cleanQ)) return false;
+          if (digitsQ.length >= 3 && runner.phone && !runner.phone.replace(/\D/g, '').includes(digitsQ)) {
+            return false;
+          }
         } else if (searchCategory === 'bib') {
-          if (!(runner.bibNumber || '').toLowerCase().includes(q)) return false;
+          const matchBib = (runner.bibNumber || '').toLowerCase().includes(q);
+          const matchReg = (runner.regId || '').toLowerCase().includes(q);
+          if (!matchBib && !matchReg) return false;
         } else if (searchCategory === 'card') {
-          if (!(runner.cardId || '').toLowerCase().includes(q)) return false;
+          const matchCard = (runner.cardId || '').toLowerCase().includes(q);
+          const matchOrder = (runner.shirtOrderId || '').toLowerCase().includes(q);
+          if (!matchCard && !matchOrder) return false;
+        } else {
+          // searchCategory === 'all' (Default search matches ANY relevant field)
+          const m1 = (runner.fullName || '').toLowerCase().includes(q) || cleanThaiPrefix(runner.fullName).includes(cleanQ);
+          const m2 = (runner.nameThai || '').toLowerCase().includes(q) || cleanThaiPrefix(runner.nameThai).includes(cleanQ);
+          const m3 = (runner.nameEng || '').toLowerCase().includes(q);
+          const m4 = (runner.nickname || '').toLowerCase().includes(q);
+          const mBib = (runner.bibNumber || '').toLowerCase().includes(q);
+          const mCard = (runner.cardId || '').toLowerCase().includes(q);
+          const mReg = (runner.regId || '').toLowerCase().includes(q);
+          const mOrg = (runner.organization || '').toLowerCase().includes(q);
+          const mPhone = digitsQ.length >= 3 && runner.phone ? runner.phone.replace(/\D/g, '').includes(digitsQ) : false;
+
+          if (!m1 && !m2 && !m3 && !m4 && !mBib && !mCard && !mReg && !mOrg && !mPhone) {
+            return false;
+          }
         }
       }
 
@@ -293,8 +331,10 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
     return directoryOrders.filter((order) => {
       const q = searchTerm.trim().toLowerCase();
       if (q) {
-        const matchName = (order.customerName || '').toLowerCase().includes(q);
-        const matchPhone = (order.phone || '').includes(q);
+        const cleanQ = cleanThaiPrefix(q);
+        const digitsQ = q.replace(/\D/g, '');
+        const matchName = (order.customerName || '').toLowerCase().includes(q) || cleanThaiPrefix(order.customerName).includes(cleanQ);
+        const matchPhone = digitsQ.length >= 3 && order.phone ? order.phone.replace(/\D/g, '').includes(digitsQ) : false;
         const matchId = (order.orderId || '').toLowerCase().includes(q);
         const matchCard = (order.cardId || '').toLowerCase().includes(q);
         if (!matchName && !matchPhone && !matchId && !matchCard) return false;
@@ -424,10 +464,43 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
             </div>
           </div>
 
+          {/* 1-character length warning */}
+          {searchTerm.trim().length === 1 && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs animate-in fade-in">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>พิมพ์อย่างน้อย 2 ตัวอักษรเพื่อเริ่มค้นหา (เช่น ชื่อจริง, นามสกุล หรือเบอร์โทรศัพท์ 10 หลัก)</span>
+            </div>
+          )}
+
+          {/* Quick Clickable Search Suggestion Chips */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs text-slate-500">
+            <span className="text-slate-400 font-medium">💡 คำค้นหาตัวอย่าง:</span>
+            {[
+              { label: 'ชนิดาภา', cat: 'name' as const },
+              { label: 'ธีรพิชญ์', cat: 'name' as const },
+              { label: 'สมชาย', cat: 'name' as const },
+              { label: '081', cat: 'phone' as const },
+              { label: 'BIB', cat: 'bib' as const },
+              { label: 'FSS26', cat: 'card' as const },
+            ].map((chip) => (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => {
+                  setSearchTerm(chip.label);
+                  setSearchCategory(chip.cat);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-red-50 hover:text-red-600 text-slate-700 text-xs font-mono transition-colors cursor-pointer border border-slate-200/50"
+              >
+                "{chip.label}"
+              </button>
+            ))}
+          </div>
+
           {/* Search Helper Presets & Chips */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-slate-400 mr-1 hidden sm:inline">เจาะจงค้นหา:</span>
+              <span className="text-slate-400 mr-1 hidden sm:inline">หมวดค้นหา:</span>
               <button
                 type="button"
                 onClick={() => handlePresetClick('all')}
@@ -437,7 +510,7 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                ทั้งหมด
+                🌟 ทั้งหมด
               </button>
               <button
                 type="button"
@@ -488,10 +561,10 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
             <button
               type="button"
               onClick={() => setShowTroubleshooter(!showTroubleshooter)}
-              className="text-xs text-red-600 hover:text-red-700 font-medium inline-flex items-center gap-1 cursor-pointer"
+              className="text-xs text-red-600 hover:text-red-700 font-semibold inline-flex items-center gap-1 cursor-pointer"
             >
               <HelpCircle className="w-3.5 h-3.5" />
-              <span>{showTroubleshooter ? 'ซ่อนคำแนะนำ' : 'หาชื่อไม่พบ? ดูคำแนะนำ'}</span>
+              <span>{showTroubleshooter ? 'ซ่อนวิธีค้นหา' : 'หาชื่อไม่เจอ? ดูวิธีค้นหา'}</span>
             </button>
           </div>
 
@@ -584,6 +657,39 @@ export const DirectoryView: React.FC<{ onNavigate: (view: any) => void }> = ({ o
           </button>
         </div>
       )}
+
+      {/* Search status & live match counter bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200/90 px-4 sm:px-5 py-3 rounded-2xl shadow-xs text-xs">
+        <div className="flex items-center gap-2.5">
+          <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${filteredRunners.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+          <span className="text-slate-700 font-medium">
+            {searchTerm.trim() ? (
+              <>
+                ผลการค้นหาคำว่า <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-md">"{searchTerm.trim()}"</span> : พบ{' '}
+                <b className="text-slate-900 font-bold">{filteredRunners.length}</b> รายชื่อ
+              </>
+            ) : (
+              <>
+                รายชื่อในระบบที่กำลังแสดง: <b className="text-slate-900 font-bold">{filteredRunners.length}</b> คน
+              </>
+            )}
+          </span>
+        </div>
+
+        {searchTerm.trim() && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setSearchCategory('all');
+            }}
+            className="flex items-center gap-1.5 text-slate-500 hover:text-red-600 font-semibold cursor-pointer transition-colors px-2.5 py-1 rounded-lg hover:bg-slate-100"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>ล้างการค้นหา (ดูรายชื่อทั้งหมด)</span>
+          </button>
+        )}
+      </div>
 
       {/* ======================================================== */}
       {/* 3. TABS & VIEW LAYOUT TOGGLE (Cards vs Table)           */}

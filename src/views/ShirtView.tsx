@@ -30,7 +30,7 @@ import { compressImage } from '../lib/imageCompressor';
 const SHIRT_SIZES = OFFICIAL_SHIRT_SIZES;
 
 export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNavigate }) => {
-  const { currentCard, cards, orderShirt, orders } = useEventContext();
+  const { currentCard, cards, orderShirt, orders, isShirtPreorderClosed } = useEventContext();
 
   const [cardId, setCardId] = useState(currentCard?.cardId || '');
   const [customerName, setCustomerName] = useState(currentCard?.fullName || '');
@@ -229,27 +229,80 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
             </div>
           </div>
 
-          {/* Order Form */}
-          <div className="fastwork-card p-6 sm:p-8 bg-white space-y-6">
-            <h3 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
-              <Shirt className="w-5 h-5 text-[#DC2626]" /> แบบฟอร์มสั่งซื้อเสื้อที่ระลึก
-            </h3>
-
-            {errorMsg && (
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{errorMsg}</span>
+          {/* Order Form or Preorder Closed Banner */}
+          {isShirtPreorderClosed ? (
+            <div className="fastwork-card p-6 sm:p-8 bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 space-y-6 shadow-sm">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-bold text-2xl shrink-0 shadow-sm">
+                  📢
+                </div>
+                <div className="space-y-1">
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-200/80 text-amber-900 font-bold text-xs uppercase tracking-wide">
+                    PRE-ORDER CLOSED
+                  </span>
+                  <h3 className="text-xl sm:text-2xl font-black text-amber-950">
+                    ปิดรับคำสั่งซื้อเสื้อที่ระลึกรอบ Pre-Order แล้ว
+                  </h3>
+                  <p className="text-xs sm:text-sm text-amber-900/90 leading-relaxed pt-1">
+                    เนื่องจากจำเป็นต้องมีระยะเวลาในการส่งยอดตัดเย็บให้กับโรงงานเพื่อให้ผลิตเสื้อเสร็จทันวันงานวันที่ <b>31 ต.ค. 2569</b> ระบบจึงได้ปิดรับการสั่งซื้อเสื้อรอบพรีออเดอร์เรียบร้อยแล้วครับ
+                  </p>
+                </div>
               </div>
-            )}
 
-            {successMsg && (
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-[#00B67A] shrink-0" />
-                <span>{successMsg}</span>
+              <div className="p-4 sm:p-5 bg-white/90 rounded-2xl border border-amber-200 text-xs sm:text-sm text-slate-700 space-y-2.5">
+                <span className="font-bold text-slate-900 block flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#00B67A]" /> ข้อมูลสำคัญสำหรับผู้เข้าร่วมกิจกรรม:
+                </span>
+                <ul className="list-disc pl-5 space-y-1.5 text-xs text-slate-600 leading-relaxed">
+                  <li>
+                    <b>ผู้ที่สั่งซื้อและแนบสลิปไว้แล้ว:</b> ข้อมูลและสลิปของท่านถูกบันทึกเรียบร้อย สามารถตรวจสอบสถานะการอนุมัติและดูรหัสรับเสื้อได้ที่หน้า <b>"ค้นหารายชื่อ"</b>
+                  </li>
+                  <li>
+                    <b>ผู้ที่ต้องการมาร่วมกิจกรรมวิ่ง:</b> กิจกรรมวิ่งแฟนซีไนท์ 5.0 KM <b>ยังเปิดรับสมัครฟรีตามปกติ (0 บาท)</b> ทุกท่านจะได้รับหมายเลข BIB และสุ่มการ์ดผีไทยประจำตัวฟรี!
+                  </li>
+                </ul>
               </div>
-            )}
 
-            <form onSubmit={handleOrderSubmit} className="space-y-6">
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => onNavigate('directory')}
+                  className="px-5 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <QrCode className="w-4 h-4 text-amber-400" />
+                  <span>ตรวจสอบสถานะ BIB & ออเดอร์</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('register')}
+                  className="px-5 py-3 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white text-xs sm:text-sm font-bold transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <span>สมัครวิ่งฟรี 5.0 KM (ยังเปิดรับสมัคร)</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="fastwork-card p-6 sm:p-8 bg-white space-y-6">
+              <h3 className="text-lg sm:text-xl font-black text-slate-900 flex items-center gap-2">
+                <Shirt className="w-5 h-5 text-[#DC2626]" /> แบบฟอร์มสั่งซื้อเสื้อที่ระลึก
+              </h3>
+
+              {errorMsg && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {successMsg && (
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-[#00B67A] shrink-0" />
+                  <span>{successMsg}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleOrderSubmit} className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
                 <div className="sm:col-span-2">
                   <label className="block font-bold text-slate-700 mb-1">
@@ -520,6 +573,7 @@ export const ShirtView: React.FC<{ onNavigate: (view: any) => void }> = ({ onNav
               </button>
             </form>
           </div>
+          )}
 
       {/* Thank You / Order Success Modal */}
       {submittedOrder && (

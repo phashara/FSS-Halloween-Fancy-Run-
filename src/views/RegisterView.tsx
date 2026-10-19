@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Sparkles,
   Ghost,
@@ -71,10 +71,20 @@ export const RegisterView: React.FC<Props> = ({
   initialPackage,
   onNavigate,
 }) => {
-  const { registerParticipant } = useEventContext();
+  const { registerParticipant, isShirtPreorderClosed } = useEventContext();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [regType, setRegType] = useState<RegistrationType>(initialPackage || initialType);
+  const [regType, setRegType] = useState<RegistrationType>(
+    isShirtPreorderClosed ? 'RUN_FREE' : (initialPackage || initialType)
+  );
+
+  // If shirt preorder is closed, lock into free run
+  useEffect(() => {
+    if (isShirtPreorderClosed) {
+      setRegType('RUN_FREE');
+      setInterestedInShirt('no');
+    }
+  }, [isShirtPreorderClosed]);
 
   // Form Fields
   const [nameThai, setNameThai] = useState('');
@@ -473,19 +483,32 @@ export const RegisterView: React.FC<Props> = ({
             </p>
           </div>
 
+          {/* Preorder Closed Notice Banner */}
+          {isShirtPreorderClosed && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 text-amber-950 space-y-2 shadow-xs">
+              <div className="flex items-center gap-2 text-amber-800 font-bold text-sm">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>📢 แจ้งปิดรับพรีออเดอร์เสื้อที่ระลึก (สรุปยอดส่งโรงงานตัดเย็บ)</span>
+              </div>
+              <p className="text-xs text-amber-900/90 leading-relaxed">
+                เนื่องจากจำเป็นต้องมีระยะเวลาในการผลิตเสื้อเพื่อให้ทันวันงาน <b>31 ต.ค. 2569</b> ระบบจึงขอปิดรับสั่งซื้อเสื้อที่ระลึกรอบ Pre-order เรียบร้อยแล้ว ทั้งนี้ <b>กิจกรรมวิ่งแฟนซีไนท์ 5.0 KM ยังเปิดรับสมัครฟรีตามปกติ (0 บาท)</b> ผู้สมัครทุกท่านจะได้รับ BIB และสุ่มการ์ดผีไทยประจำตัวฟรีเหมือนเดิมครับ
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
             {/* Type 1: Free Run */}
             <div
               onClick={() => setRegType('RUN_FREE')}
               className={`cursor-pointer p-6 rounded-2xl border-2 transition-all flex flex-col justify-between ${
                 regType === 'RUN_FREE'
-                  ? 'bg-emerald-50/30 border-[#00B67A] shadow-md'
+                  ? 'bg-emerald-50/40 border-[#00B67A] shadow-md ring-2 ring-emerald-500/20'
                   : 'bg-white border-slate-200 hover:border-slate-300'
               }`}
             >
               <div className="space-y-3">
-                <span className="px-2.5 py-0.5 rounded-md bg-emerald-100 text-[#00B67A] font-bold text-xs">
-                  ฟรี 100%
+                <span className="px-2.5 py-0.5 rounded-md bg-emerald-100 text-[#00B67A] font-bold text-xs inline-flex items-center gap-1">
+                  <span>✓</span> {isShirtPreorderClosed ? 'เปิดรับสมัคร (วิ่งฟรี 100%)' : 'ฟรี 100%'}
                 </span>
                 <h3 className="text-lg font-bold text-slate-900">1. สมัครวิ่งฟรี (Free Run)</h3>
                 <p className="text-2xl font-black text-slate-900 font-mono">฿ 0</p>
@@ -516,84 +539,106 @@ export const RegisterView: React.FC<Props> = ({
 
             {/* Type 2: Run & Shirt */}
             <div
-              onClick={() => setRegType('RUN_AND_SHIRT')}
-              className={`cursor-pointer p-6 rounded-2xl border-2 transition-all relative flex flex-col justify-between ${
-                regType === 'RUN_AND_SHIRT'
-                  ? 'bg-red-50/40 border-[#DC2626] shadow-md'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+              onClick={() => {
+                if (isShirtPreorderClosed) return;
+                setRegType('RUN_AND_SHIRT');
+              }}
+              className={`p-6 rounded-2xl border-2 transition-all relative flex flex-col justify-between ${
+                isShirtPreorderClosed
+                  ? 'opacity-60 bg-slate-50 border-slate-200 cursor-not-allowed'
+                  : regType === 'RUN_AND_SHIRT'
+                  ? 'bg-red-50/40 border-[#DC2626] shadow-md cursor-pointer'
+                  : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
               }`}
             >
-              <div className="absolute -top-3 right-4 px-3 py-0.5 rounded-full bg-[#DC2626] text-white font-bold text-[11px] shadow-sm flex items-center gap-1">
-                <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
-                <span>ยอดนิยม ★</span>
-              </div>
               <div className="space-y-3">
-                <span className="px-2.5 py-0.5 rounded-md bg-[#FEF2F2] text-[#DC2626] font-bold text-xs">
-                  วิ่ง + เสื้อที่ระลึก
-                </span>
+                {isShirtPreorderClosed ? (
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-xs inline-flex items-center gap-1">
+                    🔒 ปิดรับพรีออเดอร์เสื้อแล้ว
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-md bg-[#FEF2F2] text-[#DC2626] font-bold text-xs">
+                    วิ่ง + เสื้อที่ระลึก
+                  </span>
+                )}
                 <h3 className="text-lg font-bold text-slate-900">2. วิ่งพร้อมสั่งเสื้อ</h3>
-                <p className="text-2xl font-black text-[#DC2626] font-mono">฿ 300</p>
+                <p className="text-2xl font-black text-slate-400 font-mono">฿ 300</p>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  วิ่ง 5.0 KM พร้อมรับเสื้อ LIMITED EDITION
+                  {isShirtPreorderClosed
+                    ? 'ปิดรับพรีออเดอร์แล้วเพื่อสรุปยอดส่งผลิตโรงงาน'
+                    : 'วิ่ง 5.0 KM พร้อมรับเสื้อ LIMITED EDITION'}
                 </p>
-                <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
+                <ul className="text-xs text-slate-500 space-y-2 pt-2 border-t border-slate-100">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#DC2626] shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
                     <span>เสื้อที่ระลึก LIMITED EDITION</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#DC2626] shrink-0" />
-                    <span>การ์ดผีอัปเกรดเป็น <b>LV.2</b> (ตรา SHIRT OWNER)</span>
+                    <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span>การ์ดผีอัปเกรดเป็น LV.2 (ตรา SHIRT OWNER)</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-[#DC2626] shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
                     <span>สิทธิ์ร่วมวิ่ง 5 KM & ลุ้นเหรียญ Finisher</span>
                   </li>
                 </ul>
               </div>
               <div className="mt-6 pt-3 border-t border-slate-100">
-                <span className="text-xs font-bold text-[#DC2626]">
-                  {regType === 'RUN_AND_SHIRT' ? '✓ เลือกประเภทนี้อยู่' : 'คลิกเพื่อเลือก'}
+                <span className="text-xs font-bold text-slate-400">
+                  {isShirtPreorderClosed ? '❌ ปิดรับสั่งซื้อแล้ว' : regType === 'RUN_AND_SHIRT' ? '✓ เลือกประเภทนี้อยู่' : 'คลิกเพื่อเลือก'}
                 </span>
               </div>
             </div>
 
             {/* Type 3: Shirt Only */}
             <div
-              onClick={() => setRegType('SHIRT_ONLY')}
-              className={`cursor-pointer p-6 rounded-2xl border-2 transition-all flex flex-col justify-between ${
-                regType === 'SHIRT_ONLY'
-                  ? 'bg-purple-50/40 border-purple-500 shadow-md'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+              onClick={() => {
+                if (isShirtPreorderClosed) return;
+                setRegType('SHIRT_ONLY');
+              }}
+              className={`p-6 rounded-2xl border-2 transition-all flex flex-col justify-between ${
+                isShirtPreorderClosed
+                  ? 'opacity-60 bg-slate-50 border-slate-200 cursor-not-allowed'
+                  : regType === 'SHIRT_ONLY'
+                  ? 'bg-purple-50/40 border-purple-500 shadow-md cursor-pointer'
+                  : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
               }`}
             >
               <div className="space-y-3">
-                <span className="px-2.5 py-0.5 rounded-md bg-purple-100 text-purple-700 font-bold text-xs">
-                  สั่งเสื้ออย่างเดียว
-                </span>
+                {isShirtPreorderClosed ? (
+                  <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-xs inline-flex items-center gap-1">
+                    🔒 ปิดรับพรีออเดอร์เสื้อแล้ว
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-md bg-purple-100 text-purple-700 font-bold text-xs">
+                    สั่งเสื้ออย่างเดียว
+                  </span>
+                )}
                 <h3 className="text-lg font-bold text-slate-900">3. สั่งซื้อเสื้ออย่างเดียว</h3>
-                <p className="text-2xl font-black text-purple-700 font-mono">฿ 300</p>
+                <p className="text-2xl font-black text-slate-400 font-mono">฿ 300</p>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  ไม่สะดวกมาวิ่ง แต่ต้องการสะสมเสื้อลิมิเต็ดและการ์ดผีไทยประจำตัว
+                  {isShirtPreorderClosed
+                    ? 'ปิดรับสั่งซื้อเสื้อรอบพรีออเดอร์เรียบร้อยแล้ว'
+                    : 'ไม่สะดวกมาวิ่ง แต่ต้องการสะสมเสื้อลิมิเต็ดและการ์ดผีไทยประจำตัว'}
                 </p>
-                <ul className="text-xs text-slate-600 space-y-2 pt-2 border-t border-slate-100">
+                <ul className="text-xs text-slate-500 space-y-2 pt-2 border-t border-slate-100">
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
                     <span>เสื้อที่ระลึก LIMITED EDITION 1 ตัว</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
                     <span>การ์ดผีประจำตัว LV.2 + QR รับเสื้อ</span>
                   </li>
                   <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-purple-600 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
                     <span>รับเสื้อหน้างาน ณ คณะสังคมศาสตร์</span>
                   </li>
                 </ul>
               </div>
               <div className="mt-6 pt-3 border-t border-slate-100">
-                <span className="text-xs font-bold text-purple-700">
-                  {regType === 'SHIRT_ONLY' ? '✓ เลือกประเภทนี้อยู่' : 'คลิกเพื่อเลือก'}
+                <span className="text-xs font-bold text-slate-400">
+                  {isShirtPreorderClosed ? '❌ ปิดรับสั่งซื้อแล้ว' : regType === 'SHIRT_ONLY' ? '✓ เลือกประเภทนี้อยู่' : 'คลิกเพื่อเลือก'}
                 </span>
               </div>
             </div>
@@ -603,9 +648,9 @@ export const RegisterView: React.FC<Props> = ({
             <button
               type="button"
               onClick={handleStep1Next}
-              className="px-8 py-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center gap-2"
+              className="px-8 py-3.5 bg-[#DC2626] hover:bg-[#B91C1C] text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
             >
-              <span>ถัดไป: กรอกข้อมูลผู้สมัคร</span>
+              <span>{isShirtPreorderClosed ? 'ถัดไป: กรอกข้อมูลผู้สมัครวิ่งฟรี' : 'ถัดไป: กรอกข้อมูลผู้สมัคร'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
